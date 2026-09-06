@@ -1,0 +1,631 @@
+/* ============================================================
+   ORDAL — Professional Design System
+   ============================================================
+   Fonts: Inter (UI), JetBrains Mono (numbers/code), Plus Jakarta Sans (headings)
+   Palette: orange accent (#FF6B1A), deep charcoal sidebar, warm cream body
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ───────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --orange:        #ff6b1a;
+  --orange-600:    #ed5a0a;
+  --orange-700:    #c94800;
+  --orange-50:     #fff5ed;
+  --orange-100:    #ffe6cc;
+  --orange-2:      #ffb899;
+
+  /* Neutrals */
+  --black:         #0f1115;   /* sidebar */
+  --black-2:       #181b22;   /* sidebar raised */
+  --black-3:       #232730;   /* sidebar hover */
+  --gray-900:      #1f2937;
+  --gray-700:      #374151;
+  --gray-500:      #6b7280;
+  --gray-400:      #9ca3af;
+  --gray-300:      #d1d5db;
+  --gray-200:      #e5e7eb;
+  --gray-100:      #f3f4f6;
+  --gray-50:       #f9fafb;
+  --cream:         #faf7f2;   /* body bg, warm */
+  --cream-2:       #f3eee4;
+  --white:         #ffffff;
+
+  /* Status */
+  --success:       #10b981;
+  --success-50:    #ecfdf5;
+  --warning:       #f59e0b;
+  --warning-50:    #fffbeb;
+  --danger:        #ef4444;
+  --danger-50:     #fef2f2;
+
+  /* Typography */
+  --font-sans:     'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display:  'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono:     'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* Layout */
+  --sidebar-w:     248px;
+  --header-h:      64px;
+  --radius:        10px;
+  --radius-sm:     6px;
+  --radius-lg:     16px;
+
+  /* Shadows */
+  --shadow-sm:     0 1px 2px rgba(15, 17, 21, 0.06);
+  --shadow:        0 1px 3px rgba(15, 17, 21, 0.08), 0 1px 2px rgba(15, 17, 21, 0.04);
+  --shadow-md:     0 4px 12px rgba(15, 17, 21, 0.08), 0 2px 4px rgba(15, 17, 21, 0.04);
+  --shadow-lg:     0 12px 32px rgba(15, 17, 21, 0.12), 0 4px 8px rgba(15, 17, 21, 0.06);
+  --shadow-orange: 0 4px 14px rgba(255, 107, 26, 0.32);
+}
+
+/* ── Reset & base ────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--gray-900);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  overflow: hidden;
+}
+
+/* ── Typography classes (replace font-pixel / font-title) ────────── */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* ── Component utility classes ───────────────────────────────────── */
+
+/* Card — clean white card with subtle shadow + border */
+.card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card-pad {
+  padding: 22px 26px;
+}
+
+.card-header {
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--white);
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.card-subtitle {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 5px 0 0 0;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--orange);
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--orange-600);
+}
+.btn-primary:disabled {
+  background: var(--gray-300);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--gray-400);
+}
+
+.btn-danger {
+  background: var(--white);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-50);
+}
+.btn-danger-active {
+  background: var(--danger);
+  color: var(--white);
+  border-color: var(--danger);
+  animation: danger-pulse 1.4s ease-in-out infinite;
+}
+.btn-danger-active:hover:not(:disabled) {
+  background: #c0392b;
+}
+@keyframes danger-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(231, 76, 60, 0); }
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--gray-700);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+/* Inputs */
+.input, .select, .textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--gray-900);
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px var(--orange-50);
+}
+
+.input::placeholder, .textarea::placeholder {
+  color: var(--gray-400);
+}
+
+.input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+  margin-bottom: 7px;
+}
+
+.input-help {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.badge-success {
+  background: var(--success-50);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.badge-warning {
+  background: var(--warning-50);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.badge-danger {
+  background: var(--danger-50);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.badge-muted {
+  background: var(--gray-100);
+  color: var(--gray-500);
+  border-color: var(--gray-200);
+}
+
+.badge-orange {
+  background: var(--orange-50);
+  color: var(--orange-700);
+  border-color: var(--orange-100);
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--gray-300);
+  border-radius: 999px;
+  transition: 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.toggle input:checked + .toggle-slider {
+  background: var(--orange);
+}
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* Toast / notice */
+.notice {
+  padding: 11px 14px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+}
+.notice-success { background: var(--success-50); color: #065f46; border: 1px solid #a7f3d0; }
+.notice-error   { background: var(--danger-50);  color: #991b1b; border: 1px solid #fecaca; }
+.notice-info    { background: var(--orange-50);  color: var(--orange-700); border: 1px solid var(--orange-100); }
+
+/* Section header (in-page) */
+.section-header {
+  margin-bottom: 18px;
+}
+.section-header h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 5px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-header p {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Page header (top of each page) */
+.page-header {
+  margin-bottom: 26px;
+}
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--gray-900);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.page-header p {
+  font-size: 14px;
+  color: var(--gray-500);
+  margin: 7px 0 0 0;
+  line-height: 1.5;
+}
+
+/* ── Backwards-compat aliases ────────────────────────────────────── */
+/* Code lama pakai class 'card-pixel', 'font-pixel', 'font-title'.
+   Kita override supaya tampil rapi dengan design baru. */
+.card-pixel {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.font-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.font-pixel {
+  font-family: var(--font-sans);
+}
+
+/* Variabel lama dari tema "pixel" yang belum pernah didefinisikan ulang —
+   dipakai luas di CariKerja.jsx (border kartu, teks placeholder, dsb). */
+:root {
+  --border: var(--gray-200);
+  --muted:  var(--gray-500);
+}
+
+/* Tombol gaya lama ("pixel") — sebelumnya TIDAK didefinisikan sama sekali,
+   sehingga <button className="btn-pixel..."> tampil sebagai teks polos
+   tanpa border/background (preflight Tailwind menghapus style default
+   tombol browser). Disamakan dengan sistem .btn/.btn-primary yang baru. */
+.btn-pixel,
+.btn-pixel-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--black);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  background: var(--orange);
+  color: var(--white);
+}
+.btn-pixel:hover:not(:disabled) {
+  background: var(--orange-600);
+}
+.btn-pixel:disabled {
+  background: var(--gray-300);
+  border-color: var(--gray-300);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+
+.btn-pixel-ghost {
+  background: var(--white);
+  color: var(--black);
+}
+.btn-pixel-ghost:hover:not(:disabled) {
+  background: var(--gray-50);
+}
+
+.btn-pixel-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-height: 34px;
+}
+
+/* ── Layout helpers ──────────────────────────────────────────────── */
+.main-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 36px 44px;
+  background: var(--cream);
+}
+
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}
+
+/* ── Scrollbar (subtle, professional) ────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 999px;
+  border: 2px solid var(--cream);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+::selection {
+  background: var(--orange);
+  color: white;
+}
+
+/* ── Animations ──────────────────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.animate-blink {
+  animation: blink 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.2s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* ── Pixel loader: progress bar bertahap ─────────────────────────── */
+/* Dipakai di CariKerja.jsx untuk indikator loading saat bot berjalan */
+.pixel-loader {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  height: 12px;
+}
+.pixel-loader > span {
+  display: block;
+  flex: 1;
+  height: 100%;
+  background: var(--cream-2);
+  border: 1px solid var(--border);
+  animation: pixel-loader-step 1.4s ease-in-out infinite;
+}
+@keyframes pixel-loader-step {
+  0%   { background: var(--cream-2); transform: scaleY(0.4); }
+  30%  { background: var(--orange); transform: scaleY(1); }
+  60%  { background: var(--orange-2); transform: scaleY(1); }
+  100% { background: var(--cream-2); transform: scaleY(0.4); }
+}
+
+/* ── JobCard entrance animation ──────────────────────────────────── */
+.animate-pixel-in {
+  animation: pixel-in 0.18s ease-out;
+}
+@keyframes pixel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Progress bar horizontal (untuk loading global) ──────────────── */
+/* Animasi INDETERMINATE: ada 1 "strip" yang bergerak dari kiri ke kanan
+   terus-menerus, supaya user jelas lihat bahwa proses sedang berjalan.
+   Sebelumnya pakai shimmer (background-position shift) yang gradasinya
+   halus dan pergerakannya kurang terlihat — user nggak yakin apa proses
+   jalan atau stuck. */
+.progress-bar-track {
+  width: 100%;
+  height: 8px;  /* lebih tebal supaya strip jelas kelihatan */
+  background: var(--cream-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+.progress-bar-fill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, var(--orange-2) 0%, var(--orange) 50%, var(--orange-2) 100%);
+  border-radius: 3px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Indeterminate: strip mulai dari -40% (di luar kiri), gerak ke 100%
+     (di luar kanan), terus berulang. Durasi 1.2s supaya pergerakan cepat
+     dan jelas terlihat. */
+  animation: progress-bar-slide 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes progress-bar-slide {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+a {
+  color: var(--orange-700);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--gray-200);
+  margin: 16px 0;
+}

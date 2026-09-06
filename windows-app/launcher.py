@@ -1,0 +1,375 @@
+"""
+ORDAL Windows App Launcher
+===========================
+Entry point untuk ORDAL di Windows. Dijalankan oleh venv Python yang di-setup
+oleh bootstrap.py / ORDAL.exe (lihat windows-app/bootstrap.py). Tugas file ini:
+
+1. Resolve path ke backend/ & frontend/dist/ (dev mode ATAU dijalankan dari
+   folder yang di-ekstrak oleh ORDAL.exe di %LOCALAPPDATA%\\ORDAL\\app)
+2. Set env vars (ORDAL_APP_MODE=1 untuk single-user, ORDAL_DATA_DIR untuk data user)
+3. Start uvicorn (FastAPI) di background thread pada port acak lokal
+4. Buka native Windows window via pywebview (backend EdgeChromium/WebView2)
+   yang me-load URL backend
+5. Pasang Chromium Playwright saat first-run jika belum ada
+6. Saat window ditutup → shutdown backend → exit
+
+CATATAN PENTING:
+File ini SENGAJA dijalankan sebagai script Python biasa (bukan di-freeze oleh
+PyInstaller) supaya semua dependency berat (fastapi, playwright, dst.) bisa
+di-install lewat pip ke venv secara normal — sama seperti strategi Mac app
+(lihat mac-app/launcher.py). Yang di-compile jadi .exe hanya bootstrap.py,
+yang tugasnya menyiapkan venv ini lalu memanggil file ini.
+"""
+
+from __future__ import annotations
+
+import logging
+import logging.handlers
+import os
+import socket
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+# ── Setup file logging di launcher juga (sebelum backend start) ──────────
+# Supaya log launcher (sebelum backend import) juga tertulis ke file yang
+# sama. Tanpa ini, kalau backend crash saat startup, user tidak bisa lihat
+# errornya karena tidak ada console di app mode.
+def _resolve_user_data_dir_for_log() -> Path:
+    """Cari lokasi writable untuk file log. Harus konsisten dengan
+    resolve_user_data_dir() di bawah."""
+    env = os.getenv("ORDAL_DATA_DIR", "").strip()
+    if env:
+        return Path(env)
+    if os.getenv("LOCALAPPDATA") and os.getenv("ORDAL_APP_MODE") == "1":
+        return Path(os.environ["LOCALAPPDATA"]) / "ORDAL"
+    return Path(__file__).resolve().parent.parent / "_ordal_data"
+
+_log_data_dir = _resolve_user_data_dir_for_log()
+_log_data_dir.mkdir(parents=True, exist_ok=True)
+_log_file = _log_data_dir / "ordal.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.handlers.RotatingFileHandler(
+            str(_log_file), maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        ),
+    ],
+)
+log = logging.getLogger("ordal-launcher")
+log.info("=" * 60)
+log.info(f"ORDAL Launcher starting. Log file: {_log_file}")
+log.info("=" * 60)
+
+
+# ----------------------------------------------------------------------------
+# Path resolution
+# ----------------------------------------------------------------------------
+def resolve_paths() -> dict[str, Path]:
+    """
+    Kembalikan dict path yang diperlukan launcher.
+
+    Saat dijalankan dari app terinstall:
+      %LOCALAPPDATA%\\ORDAL\\app\\windows-app\\launcher.py
+      -> app_root = parent.parent = %LOCALAPPDATA%\\ORDAL\\app\\
+
+    Saat dev (jalankan `python windows-app\\launcher.py` dari repo):
+      launcher.py ada di <repo>\\windows-app\\launcher.py
+      -> app_root = parent.parent = <repo>\\
+    """
+    app_root = Path(__file__).resolve().parent.parent  # windows-app/ -> app root
+
+    backend_dir = app_root / "backend"
+    frontend_dist = app_root / "frontend" / "dist"
+
+    return {
+        "app_root": app_root,
+        "backend_dir": backend_dir,
+        "frontend_dist": frontend_dist,
+    }
+
+
+def resolve_user_data_dir() -> Path:
+    """
+    Letak user data (DB, cookies, uploads, keys) yang PERSISTENT antar versi app.
+    Windows: %LOCALAPPDATA%\\ORDAL  (biasanya C:\\Users\\<user>\\AppData\\Local\\ORDAL)
+    Dev:     ./_ordal_data/
+    """
+    is_installed_layout = "app" in Path(__file__).resolve().parts and os.getenv("ORDAL_APP_MODE") == "1" and os.getenv("LOCALAPPDATA")
+    if os.getenv("ORDAL_DATA_DIR"):
+        data_dir = Path(os.environ["ORDAL_DATA_DIR"])
+    elif is_installed_layout:
+        data_dir = Path(os.environ["LOCALAPPDATA"]) / "ORDAL"
+    else:
+        data_dir = Path(__file__).resolve().parent.parent / "_ordal_data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+# ----------------------------------------------------------------------------
+# Find free port
+# ----------------------------------------------------------------------------
+def find_free_port() -> int:
+    """Cari port TCP lokal yang bebas."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+# ----------------------------------------------------------------------------
+# Window icon (Win32 API, bypass keterbatasan pywebview)
+# ----------------------------------------------------------------------------
+def _set_window_icon_win32(window_title: str, icon_path: Path) -> None:
+    """Paksa set icon window native lewat Win32 API (SendMessage WM_SETICON).
+
+    KENAPA INI PERLU: pywebview di Windows (backend WinForms/EdgeChromium)
+    otomatis extract icon window dari `sys.executable`
+    (System.Drawing.Icon.ExtractAssociatedIcon). Tapi launcher.py ini
+    dijalankan pakai `pythonw.exe` dari VENV yang dibikin bootstrap.py
+    (lihat bootstrap.py: subprocess.run([venv_pythonw, launcher.py])),
+    BUKAN oleh ORDAL.exe hasil build. Jadi `sys.executable` = pythonw.exe
+    polos dari venv, yang punya icon default Python generik (kertas putih
+    dengan logo Python) — bukan icon custom ORDAL, walau ORDAL.exe sendiri
+    sudah di-build dengan icon yang benar. Makanya title bar/taskbar selalu
+    nunjukin icon Python, bukan icon ORDAL.
+
+    Fix-nya: set icon window secara manual lewat Win32 API langsung setelah
+    window native-nya kebuka, gak peduli exe apa yang menjalankannya.
+
+    Penting: function ini harus dipanggil SETELAH window native ada
+    (yaitu SETELAH webview.start() jalan). Kalau dipanggil sebelum window
+    ada, FindWindowW akan return 0 dan icon tidak akan di-set.
+    """
+    if sys.platform != "win32" or not icon_path.exists():
+        return
+
+    def _worker():
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            WM_SETICON = 0x0080
+            ICON_SMALL, ICON_BIG = 0, 1
+            IMAGE_ICON = 1
+            LR_LOADFROMFILE, LR_DEFAULTSIZE = 0x00000010, 0x00000040
+
+            hwnd = 0
+            # Tunggu sampai 30 detik window-nya muncul (sebelumnya 15s, naikkan
+            # ke 30s karena di komputer lambat + first-run install Chromium,
+            # window native bisa muncul lebih lama).
+            for _ in range(120):
+                hwnd = user32.FindWindowW(None, window_title)
+                if hwnd:
+                    break
+                time.sleep(0.25)
+            if not hwnd:
+                log.warning("[icon] Window belum ketemu setelah 30s, skip set icon manual.")
+                return
+
+            # Load icon dari file .ico
+            hicon_big = user32.LoadImageW(None, str(icon_path), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
+            hicon_small = user32.LoadImageW(None, str(icon_path), IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+            if hicon_big:
+                user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+            if hicon_small:
+                user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+            log.info(f"[icon] Icon window berhasil di-set via Win32 API (hwnd={hwnd}, file={icon_path}).")
+        except Exception as e:
+            log.warning(f"[icon] Gagal set icon manual: {e}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+
+def ensure_chromium_installed() -> None:
+    """Pastikan Playwright Chromium ter-installed. Jalankan di background thread."""
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+    except ImportError:
+        log.warning("Playwright tidak ter-install - skip Chromium check.")
+        return
+
+    marker = resolve_user_data_dir() / ".chromium_installed"
+    if marker.exists():
+        return
+
+    log.info("First-run detected: installing Playwright Chromium (~150MB)...")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=False,
+            capture_output=True,
+            timeout=600,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+        )
+        # PENTING: cuma tandai "sudah terinstall" kalau proses install-nya BENERAN
+        # sukses (returncode 0). Sebelumnya marker selalu dibuat walau gagal
+        # (misal karena internet putus pas first-run), jadi kalau gagal sekali,
+        # app selamanya skip nyoba install lagi di run berikutnya, padahal
+        # Chromium-nya belum ada — baru ketauan pas bot jalan dan error
+        # "browser not found".
+        if result.returncode == 0:
+            marker.touch()
+            log.info("Chromium installed successfully.")
+        else:
+            stderr_tail = (result.stderr or b"").decode(errors="ignore")[-300:]
+            log.error(f"Install Chromium gagal (exit {result.returncode}): {stderr_tail}")
+            log.error("Akan dicoba lagi di run berikutnya. Atau jalankan manual: python -m playwright install chromium")
+    except Exception as e:
+        log.error(f"Gagal install Chromium: {e}")
+        log.error("User dapat menjalankan manual: python -m playwright install chromium")
+
+
+# ----------------------------------------------------------------------------
+# Backend thread
+# ----------------------------------------------------------------------------
+def start_backend(backend_dir: Path, port: int) -> threading.Thread:
+    """Start uvicorn di thread terpisah (app object langsung, tanpa string lookup)."""
+    sys.path.insert(0, str(backend_dir))
+
+    import uvicorn  # type: ignore
+    import main  # import dari backend_dir (sudah di sys.path)
+
+    config = uvicorn.Config(
+        app=main.app,
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+        loop="asyncio",
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+
+    def _run():
+        try:
+            server.run()
+        except Exception as e:
+            log.error(f"Backend crash: {e}")
+
+    t = threading.Thread(target=_run, daemon=True, name="uvicorn")
+    t.start()
+    return t
+
+
+def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
+    """Tunggu sampai backend listening."""
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                return True
+        except OSError:
+            time.sleep(0.3)
+    return False
+
+
+# ----------------------------------------------------------------------------
+# pywebview window
+# ----------------------------------------------------------------------------
+def open_window(url: str) -> None:
+    """Buka native Windows window ke URL backend (EdgeChromium/WebView2).
+
+    ⚠️ FIX ICON WINDOWS:
+    Sebelumnya `_set_window_icon_win32` dipanggil SEBELUM `webview.start()`.
+    Tapi `webview.start()` adalah blocking call — window native baru dibuat
+    SETELAH start jalan. Akibatnya `FindWindowW(None, "ORDAL...")` di worker
+    thread cari window yang belum ada, tunggu 15 detik, lalu give up. Icon
+    window tetap pakai icon default pythonw.exe (kertas/Python).
+
+    Fix: pakai parameter `func=` di `webview.start()`. pywebview akan
+    menjalankan function ini di thread terpisah SETELAH window siap. Dalam
+    function tersebut, tunggu sebentar (window native butuh waktu dibuat)
+    lalu panggil `_set_window_icon_win32` — sekarang `FindWindowW` akan
+    menemukan window dan set icon via Win32 API.
+    """
+    import webview  # type: ignore
+
+    create_window_kwargs = dict(
+        title="ORDAL - Auto Apply Kerja",
+        url=url,
+        width=1280,
+        height=860,
+        min_size=(960, 640),
+        text_select=False,
+    )
+    webview.create_window(**create_window_kwargs)
+
+    icon_path = Path(__file__).resolve().parent / "ordal_icon.ico"
+
+    def _set_icon_after_ready():
+        """Callback yang dijalankan pywebview SETELAH window siap.
+        Tunggu sebentar supaya window native benar-benar ter-create di OS
+        (FindWindowW butuh window handle valid), lalu set icon via Win32 API."""
+        # Beri delay 1.5s — pywebview butuh waktu untuk spawn window native
+        # dan set title-nya. Tanpa delay, FindWindowW bisa kembali 0.
+        time.sleep(1.5)
+        _set_window_icon_win32("ORDAL - Auto Apply Kerja", icon_path)
+        # Retry sekali lagi setelah 3 detik kalau window belum ada di iterasi pertama
+        time.sleep(1.5)
+        _set_window_icon_win32("ORDAL - Auto Apply Kerja", icon_path)
+
+    # gui='edgechromium' butuh WebView2 Runtime (sudah bawaan di Win10 21H2+/Win11).
+    # pywebview otomatis fallback ke mshtml kalau WebView2 tidak ada.
+    # Parameter `func=` → pywebview jalanin callback di thread terpisah SETELAH
+    # window siap. Ini fix race condition icon (sebelumnya icon setter jalan
+    # sebelum window ada).
+    try:
+        webview.start(debug=False, gui="edgechromium", func=_set_icon_after_ready)
+    except Exception as e:
+        log.warning(f"EdgeChromium gagal ({e}), fallback ke default backend...")
+        webview.start(debug=False, func=_set_icon_after_ready)
+
+
+# ----------------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------------
+def main() -> int:
+    log.info("ORDAL Launcher starting...")
+    paths = resolve_paths()
+    log.info(f"  APP_ROOT     = {paths['app_root']}")
+    log.info(f"  BACKEND_DIR  = {paths['backend_dir']}")
+    log.info(f"  FRONTEND_DIST= {paths['frontend_dist']}")
+
+    user_data = resolve_user_data_dir()
+    log.info(f"  USER_DATA    = {user_data}")
+
+    # cwd ke user_data_dir (writable, persistent) supaya backend yang nulis
+    # relative path (logs, screenshots, failure.log) nulis ke lokasi writable.
+    os.chdir(str(user_data))
+    log.info(f"  cwd          = {os.getcwd()}")
+
+    os.environ["ORDAL_APP_MODE"] = "1"  # single-user, skip JWT
+    os.environ["ORDAL_DATA_DIR"] = str(user_data)
+    os.environ["ORDAL_BACKEND_DIR"] = str(paths["backend_dir"])
+    os.environ.setdefault("JWT_SECRET_FILE", str(user_data / "secret.key"))
+    os.environ.setdefault("ENCRYPTION_KEY_FILE", str(user_data / "encrypt.key"))
+
+    # First-run: install Chromium (background, tidak block window)
+    threading.Thread(target=ensure_chromium_installed, daemon=True).start()
+
+    # Start backend
+    port = find_free_port()
+    log.info(f"Starting backend on 127.0.0.1:{port}")
+    start_backend(paths["backend_dir"], port)
+
+    if not wait_for_backend(port):
+        log.error("Backend tidak start dalam 30 detik. Exit.")
+        return 1
+
+    url = f"http://127.0.0.1:{port}/"
+    log.info(f"Backend ready. Opening window: {url}")
+    open_window(url)
+
+    log.info("Window closed. Shutting down backend.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

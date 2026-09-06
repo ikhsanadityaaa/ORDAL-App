@@ -1,0 +1,33 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pydantic[email]==2.8.2
+PyJWT==2.9.0
+bcrypt==4.2.0
+cryptography==43.0.1
+httpx==0.27.2
+pdfplumber==0.11.4
+pypdf==5.1.0
+playwright==1.47.0
+python-dotenv==1.0.1
+tzdata==2024.2  # wajib di Windows -- OS Windows tidak punya database timezone IANA bawaan
+
+# ── Opsional (di-comment agar build di Mac tidak perlu compile Rust/Cargo) ──
+# Aktifkan salah satu hanya jika benar-benar dipakai:
+#
+# libsql   — dipakai hanya jika TURSO_DATABASE_URL & TURSO_AUTH_TOKEN di-set di .env.
+#             Mac app mode pakai SQLite built-in (tidak perlu Turso).
+# steel-sdk — dipakai hanya jika STEEL_API_KEY di-set. Mac app mode pakai Chromium lokal.
+# scrapling — parser HTML LinkedIn post. Bot punya fallback ke stdlib (regex) kalau tidak ada.
+#
+# Kalau ingin pakai, uncomment baris di bawah ini. Pastikan Rust toolchain ter-install
+# (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh)
+#
+# libsql==0.1.11
+# steel-sdk==0.19.0
+# scrapling==0.4.8
+
+# Optional. linkedin_posts_bot.py falls back gracefully if Crawl4AI is missing.
+# Keep this disabled by default because recent Crawl4AI releases require newer
+# Playwright/Pydantic versions than this project pins.
+# crawl4ai>=0.4.0

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ORDAL — Auto-Apply Kerja</title>
+    <!-- Favicon: PNG (paling reliable di WebView2/EdgeChromium untuk title bar icon).
+         SVG data URI kadang tidak di-render sebagai window icon oleh WebView2.
+         PNG file dari /public/ lebih reliable karena:
+         1. WebView2 akan pakai favicon ini untuk title bar icon (Windows)
+         2. Safari/Firefox juga pakai PNG untuk bookmark icon
+         3. Cross-platform compatible -->
+    <link rel="icon" type="image/png" href="/ordal-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FF6B1A'/%3E%3Cpath d='M52 12 L30 56 L50 56 L46 88 L72 40 L52 40 L58 12 Z' fill='white'/%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="/ordal-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

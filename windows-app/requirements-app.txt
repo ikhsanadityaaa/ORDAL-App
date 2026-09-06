@@ -1,0 +1,36 @@
+# ==============================================================================
+# ORDAL Windows App — combined requirements (backend + desktop window)
+# ==============================================================================
+# Dipakai HANYA oleh windows-app/bootstrap.py untuk install ke venv runtime app
+# (%LOCALAPPDATA%\ORDAL\venv). TIDAK dipakai oleh server/Mac deploy — file itu
+# tetap pakai backend/requirements.txt versi pin ketat (sudah teruji di sana).
+#
+# Bedanya dari backend/requirements.txt:
+#   - pydantic, cryptography, bcrypt pakai batas minimum (bukan pin persis)
+#     supaya pip bisa ambil versi terbaru yang punya wheel untuk Python 3.12-3.14.
+#     Versi lama yang di-pin ketat di backend/requirements.txt belum punya
+#     wheel untuk Python 3.14 (rilis lama, sebelum dukungan 3.14 ditambahkan).
+#   - uvicorn TANPA extra [standard] (skip httptools/uvloop) supaya tidak
+#     bergantung pada wheel C-extension tambahan yang lebih riskan untuk versi
+#     Python terbaru. Backend tidak pakai native websockets (SSE via HTTP
+#     biasa) jadi ini aman — cuma kehilangan sedikit micro-optimization.
+# ==============================================================================
+
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.9
+pydantic[email]>=2.12,<3
+PyJWT==2.9.0
+bcrypt>=4.2.0
+cryptography>=44.0.0
+httpx==0.27.2
+pdfplumber==0.11.4
+playwright==1.47.0
+python-dotenv==1.0.1
+tzdata==2024.2  # WAJIB di Windows -- OS Windows tidak punya database timezone IANA
+                # bawaan, jadi ZoneInfo("Asia/Jakarta") dkk. akan crash tanpa ini
+                # (ZoneInfoNotFoundError) saat backend start.
+
+# ── Desktop window (native, Windows) ─────────────────────────────────────────
+pywebview>=4.0
+pythonnet>=3.0.3 ; sys_platform == "win32"
