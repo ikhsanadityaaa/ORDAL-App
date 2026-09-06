@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ORDAL Mac App
 
 Wrapper desktop untuk ORDAL (bot auto-apply lowongan kerja) sebagai aplikasi macOS native (`.app`).
@@ -281,3 +282,7 @@ Karena tidak code-signed, user lain juga harus bypass Gatekeeper. Untuk distribu
 2. Code-sign app: `codesign --deep --force --sign "Developer ID Application: Your Name" dist/ORDAL.app`
 3. Notarize via `xcrun notarytool submit ...`
 4. Atau distribusi via DMG installer.
+=======
+# ORDAL-App
+Ordal
+>>>>>>> 3ea25a787f888c9a36411a5ace8b6a21e9edb159
