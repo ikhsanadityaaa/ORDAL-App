@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Target, Zap, Square, FileText, ChevronDown, ChevronUp, Save, HelpCircle, Pencil, Loader, Check, Sparkles } from 'lucide-react'
 import api from '../api'
 import useI18n from '../stores/i18nStore'
+import useLicenseStore from '../stores/licenseStore'
+import TrialBadge from '../components/license/TrialBadge'
 
 // ── Platform options ─────────────────────────────────────────────────────────
 const PLATFORM_OPTIONS = [
@@ -70,6 +72,7 @@ const EMPLOYMENT_LABELS = {
 function employmentLabel(val) { return EMPLOYMENT_LABELS[val] ?? 'Full Time' }
 
 function PixelSwitch({ checked, onChange, disabled }) {
+  // v3: toggle sticker — border 2px charcoal, hard shadow, handle oranye saat ON
   return (
     <button
       type="button"
@@ -78,26 +81,26 @@ function PixelSwitch({ checked, onChange, disabled }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       style={{
-        width: '104px', height: '34px', padding: '3px', flexShrink: 0,
-        background: 'white',
-        border: '3px solid var(--black)',
-        boxShadow: '3px 3px 0 var(--black)',
+        width: '52px', height: '30px', padding: '3px', flexShrink: 0,
+        background: checked ? '#F2661A' : '#E5E2D8',
+        border: '2px solid #33363F',
+        borderRadius: '999px',
+        boxShadow: '2px 2px 0 #33363F',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.6 : 1,
         display: 'flex', alignItems: 'center',
         justifyContent: checked ? 'flex-end' : 'flex-start',
+        transition: 'background 0.2s ease',
       }}
     >
       <span style={{
-        width: '42px', height: '22px',
-        background: checked ? '#27ae60' : 'var(--cream-2)',
-        border: '2px solid var(--black)',
-        color: checked ? 'white' : 'var(--black)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-sans)', fontSize: '7px', lineHeight: 1,
-      }}>
-        {checked ? 'ON' : 'OFF'}
-      </span>
+        width: '20px', height: '20px',
+        background: '#FFFFFF',
+        border: '2px solid #33363F',
+        borderRadius: '50%',
+        display: 'block',
+        transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+      }} />
     </button>
   )
 }
@@ -366,7 +369,7 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
       background: 'rgba(0,0,0,0.62)', display: 'flex',
       alignItems: 'center', justifyContent: 'center', padding: '20px',
     }}>
-      <div className="card-pixel" style={{ width: 'min(680px, 100%)', background: '#fffcf7', overflow: 'hidden' }}>
+      <div className="card-pixel" style={{ width: 'min(680px, 100%)', background: '#F4F2EC', overflow: 'hidden' }}>
         <div style={{ background: 'var(--black)', color: 'white', padding: '14px 18px', borderBottom: '4px solid var(--orange)' }}>
           <p className="font-title" style={{ fontSize: '32px', lineHeight: 1 }}>STAGE CLEAR</p>
           <p className="font-pixel" style={{ fontSize: '14px', color: 'var(--orange-3)', marginTop: '3px' }}>
@@ -399,7 +402,7 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
                     {platformName(key)} · {perPlatform[key].length}
                   </p>
                   {perPlatform[key].map(job => (
-                    <div key={job.job_id} style={{ border: '2px solid var(--border)', padding: '8px', marginBottom: '6px', background: '#fffcf7' }}>
+                    <div key={job.job_id} style={{ border: '2px solid var(--border)', padding: '8px', marginBottom: '6px', background: '#F4F2EC' }}>
                       <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--black)', overflowWrap: 'anywhere' }}>{job.job_title || 'Lowongan'}</p>
                       <p style={{ fontSize: '13px', color: 'var(--muted)', overflowWrap: 'anywhere' }}>{job.company || '-'} · {job.location || '-'}</p>
                     </div>
@@ -1124,7 +1127,7 @@ function TargetPanel({ isRunning = false }) {
     <>
     <div className="card-pixel" style={{ overflow: 'hidden', marginBottom: '12px' }}>
       <div style={{
-        padding: '12px 16px', background: '#fffcf7',
+        padding: '12px 16px', background: '#F4F2EC',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
       }}>
         <div style={{ minWidth: 0 }}>
@@ -1143,7 +1146,7 @@ function TargetPanel({ isRunning = false }) {
 
     <div className="card-pixel" style={{ overflow: 'hidden', marginBottom: '12px' }}>
       <div style={{
-        padding: '12px 16px', background: '#fffcf7',
+        padding: '12px 16px', background: '#F4F2EC',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
       }}>
         <div style={{ minWidth: 0 }}>
@@ -1189,7 +1192,7 @@ function TargetPanel({ isRunning = false }) {
       </div>
 
       {open && (
-        <div className="p-4" style={{ borderBottom: '2px solid var(--border)', background: '#fffcf7' }}>
+        <div className="p-4" style={{ borderBottom: '2px solid var(--border)', background: '#F4F2EC' }}>
           <p className="font-pixel" style={{ fontSize: '13px', color: 'var(--black)', marginBottom: '10px' }}>
             {editingTarget ? 'EDIT TARGET TERSIMPAN' : 'TAMBAH TARGET BARU'}
           </p>
@@ -1971,13 +1974,26 @@ export default function CariKerja() {
     setShowFinishModal(false)
     setStatus('running')
     clearSessionState()
+    // v3.1 — guard lisensi: klik "Cari Kerja" pertama kali = mulai trial 3 hari.
+    // Trial habis & belum aktivasi → pop-up pembayaran muncul, sesi tidak jalan.
+    try {
+      const allowed = await useLicenseStore.getState().startTrial()
+      if (!allowed) {
+        setStatus('idle')
+        return
+      }
+    } catch {
+      /* lanjut — backend tetap guard di /sessions/start */
+    }
     try {
       const res = await api.post('/sessions/start')
       setSessionId(res.data.session_id)
       startSSE()
     } catch (err) {
       setStatus('idle')
-      setError(err.response?.data?.detail || t('cari_kerja.gagal_memulai'))
+      const detail = err.response?.data?.detail
+      if (detail?.code === 'TRIAL_EXPIRED') return  // pop-up pembayaran sudah dibuka interceptor/store
+      setError(typeof detail === 'string' ? detail : t('cari_kerja.gagal_memulai'))
     }
   }
 
@@ -2058,6 +2074,8 @@ export default function CariKerja() {
           {/* Status pill "RUNNING" di header dihapus (v10) — cukup 1 di status bar
               panel kiri. Sebelumnya ada 2: pill orange di header + bar status di
               panel kiri, keduanya nunjukin "RUNNING" + total. User bilang dobel. */}
+          {/* v3.1: badge trial countdown / PRO di header */}
+          <TrialBadge variant="inline" />
           {/* Tombol Cari Kerja / Jalankan */}
           <button
             onClick={handleStart}
@@ -2111,7 +2129,7 @@ export default function CariKerja() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '20px',
         }}>
-          <div className="card-pixel" style={{ width: 'min(560px, 100%)', background: '#fffcf7', padding: '18px' }}>
+          <div className="card-pixel" style={{ width: 'min(560px, 100%)', background: '#F4F2EC', padding: '18px' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
               <HelpCircle size={22} style={{ color: 'var(--orange)', flexShrink: 0 }} />
               <div>

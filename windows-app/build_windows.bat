@@ -56,14 +56,14 @@ echo   OK: node %NODEVER%
 
 REM ---- 3. Build frontend ----
 echo.
-echo [3/5] Build frontend (VITE_APP_MODE=1)...
+echo [3/5] Build frontend...
 cd "%REPO_ROOT%\frontend"
 if not exist node_modules (
     echo   Install npm dependencies...
     call npm install
     if errorlevel 1 exit /b 1
 )
-set VITE_APP_MODE=1
+:: v3: VITE_APP_MODE dihapus — app selalu mode login
 call npm run build
 if errorlevel 1 (
     echo ERROR: Build frontend gagal.
@@ -75,6 +75,24 @@ if not exist "frontend\dist\index.html" (
     exit /b 1
 )
 echo   OK: frontend\dist\ siap.
+
+REM ---- 3b. Cek konfigurasi database (.env) ----
+echo.
+echo [3b/5] Cek backend\.env (database pusat)...
+if exist "%REPO_ROOT%\backend\.env" (
+    echo   OK: backend\.env ditemukan — akan di-bundle ke ORDAL.exe.
+    findstr /C:"127.0.0.1:5432" "%REPO_ROOT%\backend\.env" >nul 2>&1
+    if not errorlevel 1 (
+        echo   [!] WARNING: .env masih memakai DATABASE URL development ^(127.0.0.1^).
+        echo       Ganti ORDAL_DATABASE_URL dengan URL Supabase production sebelum
+        echo       distribusi, atau app akan minta DATABASE URL saat pertama dibuka.
+    )
+) else (
+    echo   [!] backend\.env tidak ada. App akan menampilkan dialog input
+    echo       DATABASE URL saat pertama kali dibuka oleh user.
+    echo       ^(Copy backend\.env.example ke backend\.env dan isi
+    echo        ORDAL_DATABASE_URL untuk embed konfigurasi saat build.^)
+)
 
 REM ---- 4. Setup build-venv (hanya untuk PyInstaller, terpisah dari venv app) ----
 echo.

@@ -24,11 +24,11 @@ USER_AGENT = (
 )
 
 
-def cookies_path(user_id: int, platform_name: str) -> str:
+def cookies_path(user_id: str, platform_name: str) -> str:
     return os.path.join(COOKIES_DIR, f"{user_id}_{platform_name}.json")
 
 
-def save_credential_marker(user_id: int, platform_name: str, method: str):
+def save_credential_marker(user_id: str, platform_name: str, method: str):
     db = get_db()
     db.execute(
         """
@@ -180,7 +180,7 @@ async def _has_logged_in_ui(page, cfg: dict) -> bool:
     return False
 
 
-async def _run_grab(platform_name: str, user_id: int):
+async def _run_grab(platform_name: str, user_id: str):
     """Coroutine yang menjalankan Playwright. Dipanggil di event loop baru.
 
     v14 fix Mac bugs:
@@ -476,7 +476,7 @@ async def _run_grab(platform_name: str, user_id: int):
     return logged_in, cookie_count, cookie_names_seen
 
 
-def _run_grab_in_new_loop(platform_name: str, user_id: int):
+def _run_grab_in_new_loop(platform_name: str, user_id: str):
     """
     Windows fix: jalankan Playwright di thread baru dengan event loop
     ProactorEventLoop supaya subprocess bisa dibuat.

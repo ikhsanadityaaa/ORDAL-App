@@ -541,7 +541,7 @@ class SessionManager:
             #
             # Aman karena:
             # - Setiap bot pakai browser Playwright-nya sendiri (tidak share state).
-            # - log_apply pakai DB SQLite yang handle concurrent writes.
+            # - log_apply pakai DB PostgreSQL pusat yang handle concurrent writes.
             # - ask_question pakai session_manager._pending_questions yang
             #   keyed by prompt_id (UUID unik per pertanyaan).
             # - emit pakai _put_threadsafe yang thread-safe.

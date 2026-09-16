@@ -20,8 +20,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import init_db, get_db, restore_persisted_files, APP_MODE, get_data_dir
-from routers import auth, credentials, cv, targets, sessions, preferences, question_bank, telegram
+from database import init_db, get_db, restore_persisted_files, get_data_dir
+from routers import auth, credentials, cv, targets, sessions, preferences, question_bank, telegram, onboarding
+from routers.license import router as license_router
 from routers.email_config import router as email_router
 from routers.app_config import router as app_config_router
 from routers.ai_config import router as ai_config_router
@@ -42,25 +43,17 @@ if not _FRONTEND_DIST:
 
 def _get_cors_origins() -> list[str]:
     """
-    Mac app mode: allow localhost ANY port + pywebview origin.
-    Dev/production: ambil dari env CORS_ORIGINS.
+    Allow localhost (dev Vite + pywebview desktop) + CORS_ORIGINS dari env.
     """
-    if APP_MODE:
-        return [
-            "http://localhost",
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "http://127.0.0.1",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            # pywebview macOS menggunakan custom origin — allow all localhost
-        ]
-    raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+    raw = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,http://localhost,http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1",
+    )
     origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
     return origins or ["http://localhost:5173"]
 
 
-app = FastAPI(title="ORDAL API", version="2.0.0")
+app = FastAPI(title="ORDAL API", version="3.2.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,6 +66,8 @@ app.add_middleware(
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 app.include_router(auth.router,        prefix="/api/auth",        tags=["Auth"])
+app.include_router(license_router,                             tags=["License (trial/pembayaran/aktivasi)"])
+app.include_router(onboarding.router, prefix="/api/onboarding", tags=["Onboarding"])
 app.include_router(credentials.router, prefix="/api/credentials", tags=["Credentials"])
 app.include_router(cv.router,          prefix="/api/cvs",         tags=["CVs"])
 app.include_router(targets.router,     prefix="/api/targets",     tags=["Targets"])
@@ -90,7 +85,7 @@ async def startup():
     init_db()
     restore_persisted_files()
     db = get_db()
-    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=datetime('now') WHERE status='running'")
+    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=NOW() WHERE status='running'")
     db.commit()
     db.close()
     from services.telegram_service import start_background_tasks
@@ -110,8 +105,8 @@ async def shutdown():
 @app.get("/api")
 def api_root():
     return {
-        "status": "ORDAL API v2 running",
-        "app_mode": APP_MODE,
+        "status": "ORDAL API v3 running",
+        "auth_required": True,
         "frontend_dist_exists": os.path.exists(_FRONTEND_DIST),
     }
 
@@ -121,7 +116,7 @@ def api_root():
 # log backend. Endpoint ini kembalikan:
 # - path absolut file log (supaya user tahu lokasinya)
 # - N baris terakhir isi log (default 200, max 1000)
-# Auth: wajib login (kecuali di app mode, di mana get_current_user auto-return user 1).
+# Auth: wajib login (v3: selalu multi-user, APP_MODE dihapus).
 from auth_utils import get_current_user
 from fastapi import Depends
 
@@ -199,8 +194,8 @@ else:
     @app.get("/")
     def root():
         return {
-            "status": "ORDAL API v2 running",
-            "app_mode": APP_MODE,
+            "status": "ORDAL API v3.1 running",
+            "auth_required": True,
             "frontend_dist": "not built (run `npm run build` in frontend/)",
             "frontend_dist_expected_at": _FRONTEND_DIST,
         }

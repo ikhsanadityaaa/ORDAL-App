@@ -7,6 +7,25 @@
 #   - First-run: setup venv di ~/.ordal/venv + install deps + install Chromium
 #   - Run launcher.py via venv python
 #
+# v3.2.3 (15 Sep 2026):
+#   - FIX ikon pecah/resolusi rendah: ordal.icns dirakit ulang dengan
+#     mapping slot berdasar UKURAN PIKSEL PNG (ic07=128, ic08=256, ic09=512,
+#     ic10=1024, ic11=32, ic12=64, ic13=256, ic14=512) — bukan nama file.
+#   - FIX logo Google: tombol "Lanjut dengan Google" kini memakai logo "G"
+#     resmi 4 warna Google (sebelumnya salah pakai ikon Chrome).
+#   - Panduan login Google: OAuth Client tipe "Desktop app" (loopback PKCE).
+# v3.2.2:
+#   - FIX "app ter-build tapi tidak bisa dibuka": zip yang diunduh membawa
+#     atribut quarantine (com.apple.quarantine) yang menular ke hasil build
+#     → Gatekeeper memblokir app. Kini build membersihkan xattr SEBELUM
+#     codesign (lihat seksi 8).
+# v3.1.1:
+#   - TANPA menu pilihan lagi — build OTOMATIS Soft Update
+#     (replace app lama, KEEP venv + data user).
+#   - backend/.env di-bundle ke dalam app (DATABASE URL pusat),
+#     bisa di-prompt saat build jika belum diisi.
+#   - Icon pakai logo baru (kotak oranye + ring "O" putih).
+#
 # Requirements:
 #   - macOS 11+
 #   - Python 3.12 (install via: brew install python@3.12)
@@ -20,7 +39,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
 APP_NAME="ORDAL"
-APP_VERSION="2.0.0"
+APP_VERSION="3.2.3"
 DIST_DIR="$REPO_ROOT/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 INSTALLED_APP="/Applications/$APP_NAME.app"
@@ -28,7 +47,7 @@ USER_DATA_DIR="$HOME/Library/Application Support/ORDAL"
 USER_VENV_DIR="$HOME/.ordal/venv"
 
 echo "=========================================="
-echo "  ORDAL Mac App Build"
+echo "  ORDAL Mac App Build (v$APP_VERSION)"
 echo "=========================================="
 
 # ── 1. Verify platform ────────────────────────────────────────────────────────
@@ -70,70 +89,29 @@ if ! command -v node &>/dev/null; then
 fi
 echo "✓ Node.js: $(node --version)"
 
-# ── 4. UPDATE STEP — pilih mode update ──────────────────────────────────────
+# ── 4. UPDATE OTOMATIS — Soft Update (KEEP venv + data user) ──────────────────
+# v3.1.1: menu pilihan (Soft Update / Full Clean / Skip) DIHAPUS.
+# Build selalu otomatis melakukan Soft Update:
+#   → Replace app bundle lama saja
+#   → Keep venv (~/.ordal/venv) → first-run setup TIDAK diulang
+#   → Keep user data (~/Library/Application Support/ORDAL:
+#     device login, CV, cookies platform, API keys, jadwal, .env override)
 echo ""
-echo "=========================================="
-echo "  UPDATE MODE"
-echo "=========================================="
-echo ""
-echo "Pilih cara update:"
-echo ""
-echo "  [1] Soft Update (RECOMMENDED)"
-echo "      → Replace app bundle saja"
-echo "      → Keep venv (~/.ordal/venv)"
-echo "      → Keep user data (CV, cookies, API keys, jadwal)"
-echo "      → First-run setup TIDAK diulang"
-echo "      → Cocok untuk update versi normal"
-echo ""
-echo "  [2] Full Clean"
-echo "      → Hapus app lama + venv + user data"
-echo "      → First-run setup diulang (5-10 menit)"
-echo "      → Cocok kalau ada error aneh / fresh install"
-echo ""
-echo "  [3] Skip (saya akan replace manual)"
-echo ""
-read -p "Pilih [1/2/3] (default 1): " update_choice
-update_choice=${update_choice:-1}
-
-if [[ "$update_choice" == "1" ]]; then
-    echo ""
-    echo "→ Soft Update: hapus app lama saja, keep venv + data"
-    rm -rf "$INSTALLED_APP"
-    echo "  ✓ App lama dihapus"
-    echo "  ✓ Venv keep: $USER_VENV_DIR"
-    echo "  ✓ Data keep: $USER_DATA_DIR"
-
-elif [[ "$update_choice" == "2" ]]; then
-    echo ""
-    echo "→ Full Clean: hapus app + venv + data"
-    echo "  ⚠️  SEMUA data user akan hilang (CV, cookies, API keys, jadwal)"
-    read -p "  Konfirmasi hapus semua data? (y/N): " confirm
-    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        rm -rf "$INSTALLED_APP"
-        rm -rf "$USER_VENV_DIR"
-        rm -rf "$USER_DATA_DIR"
-        echo "  ✓ App + venv + data dihapus"
-    else
-        echo "  → Batal full clean. Hapus app lama saja."
-        rm -rf "$INSTALLED_APP"
-    fi
-
-else
-    echo ""
-    echo "→ Skip. Anda akan replace manual:"
-    echo "  rm -rf /Applications/ORDAL.app"
-    echo "  mv dist/ORDAL.app /Applications/"
-fi
+echo "→ Soft Update otomatis: replace app lama, KEEP venv + data user..."
+rm -rf "$INSTALLED_APP"
+echo "  ✓ App lama dihapus (jika ada)"
+echo "  ✓ Venv keep : $USER_VENV_DIR"
+echo "  ✓ Data keep : $USER_DATA_DIR"
 echo ""
 
 # ── 5. Build frontend ────────────────────────────────────────────────────────
-echo "→ Build frontend (React) dengan VITE_APP_MODE=1..."
+echo "→ Build frontend (React)..."
 cd frontend
 if [[ ! -d "node_modules" ]]; then
     echo "  → Install npm dependencies..."
     npm install
 fi
-VITE_APP_MODE=1 npm run build
+npm run build
 cd "$REPO_ROOT"
 echo "✓ Frontend built ke frontend/dist/"
 
@@ -164,7 +142,6 @@ echo "  → Copy backend/..."
 cp -R backend/* "$APP_BUNDLE/Contents/Resources/backend/"
 find "$APP_BUNDLE/Contents/Resources/backend" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 find "$APP_BUNDLE/Contents/Resources/backend" -name "*.pyc" -delete 2>/dev/null || true
-rm -f "$APP_BUNDLE/Contents/Resources/backend/.env"
 # v42: JANGAN copy _ordal_data / autoapply.db ke app bundle.
 # Data user disimpan di ~/Library/Application Support/ORDAL/ (persistent).
 rm -rf "$APP_BUNDLE/Contents/Resources/backend/_ordal_data"
@@ -179,29 +156,75 @@ cp -R frontend/dist "$APP_BUNDLE/Contents/Resources/frontend/dist"
 echo "  → Copy mac-app/launcher.py..."
 cp mac-app/launcher.py "$APP_BUNDLE/Contents/Resources/mac-app/launcher.py"
 
-# ── 7. Generate icon ─────────────────────────────────────────────────────────
-echo ""
-echo "→ Generate app icon..."
+# ── 6b. Konfigurasi .env — database pusat (WAJIB agar app bisa jalan) ────────
+# v3: app wajib login ke database pusat PostgreSQL (sama dengan ORDAL-Web).
+# Tanpa DATABASE URL, backend tidak bisa start → app tertutup saat dibuka.
+# build.sh mem-bundle backend/.env ke dalam app.
+# Prioritas saat app berjalan (launcher):
+#   env sistem > ~/Library/Application Support/ORDAL/.env > bundled .env
+#   (user bisa meng-override DATABASE URL tanpa rebuild app)
+echo "  → Konfigurasi database (.env)..."
+ENV_SRC="$REPO_ROOT/backend/.env"
+BUNDLED_ENV="$APP_BUNDLE/Contents/Resources/backend/.env"
 
+_db_url_from_file() {
+    grep -E '^(ORDAL_DATABASE_URL|DATABASE_URL)=' "$1" 2>/dev/null | head -1 | cut -d= -f2-
+}
+
+CURRENT_DB_URL="$(_db_url_from_file "$ENV_SRC")"
+if [[ -f "$ENV_SRC" && -n "$CURRENT_DB_URL" && "$CURRENT_DB_URL" != *"127.0.0.1:5432"* ]]; then
+    # .env sudah berisi URL production (Supabase dll) → bundle langsung
+    cp "$ENV_SRC" "$BUNDLED_ENV"
+    echo "    ✓ backend/.env (production) di-bundle ke app"
+else
+    echo "    ⚠ backend/.env belum berisi DATABASE URL production."
+    echo ""
+    echo "      App BUTUH koneksi ke database pusat (PostgreSQL — Supabase yang"
+    echo "      dipakai ORDAL-Web). Contoh format:"
+    echo "      postgresql://postgres.abc123:PASSWORD@aws-0.ap-southeast-1.pooler.supabase.com:6543/postgres"
+    echo ""
+    read -p "      Paste DATABASE URL sekarang (Enter = skip; app akan menanyakannya saat pertama dibuka): " DB_URL_INPUT
+    if [[ -n "${DB_URL_INPUT// /}" ]]; then
+        # Susun .env bundle: variabel lain dari .env yang ada + URL baru
+        {
+            if [[ -f "$ENV_SRC" ]]; then
+                grep -vE '^(ORDAL_DATABASE_URL|DATABASE_URL)=' "$ENV_SRC" || true
+            fi
+            echo "ORDAL_DATABASE_URL=${DB_URL_INPUT}"
+        } > "$BUNDLED_ENV"
+        echo "    ✓ DATABASE URL di-bundle ke app"
+    else
+        echo "    → Skip. App akan menampilkan dialog input DATABASE URL saat pertama dibuka."
+    fi
+fi
+
+# ── 7. Icon app (logo ORDAL baru: kotak oranye + ring "O" putih) ─────────────
+echo ""
+echo "→ Pasang app icon (logo baru)..."
+
+ICON_ICNS_SRC="$REPO_ROOT/mac-app/ordal.icns"
 ICON_PNG="$REPO_ROOT/mac-app/ordal_icon.png"
 ICON_ICNS="$APP_BUNDLE/Contents/Resources/ordal.icns"
 
-if [[ -f "$ICON_PNG" ]]; then
-    # Convert PNG → icns using sips (Mac built-in)
-    # sips can convert single PNG to icns (macOS will scale as needed)
+# Info.plist memakai CFBundleIconFile=ordal → file harus bernama ordal.icns.
+if [[ -f "$ICON_ICNS_SRC" ]]; then
+    # Pakai ordal.icns pre-built (multi-size 16-1024px, logo baru ring-O).
+    # Lebih andal daripada convert via sips (dulu build memakai PNG lama
+    # sehingga icon app masih petir lama — fix v3.1.1).
+    cp "$ICON_ICNS_SRC" "$ICON_ICNS"
+    echo "  ✓ Icon: ordal.icns pre-built (multi-size, logo baru ring-O)"
+elif [[ -f "$ICON_PNG" ]]; then
+    # Fallback: convert PNG → icns via sips
     if sips -s format icns "$ICON_PNG" --out "$ICON_ICNS" 2>/dev/null; then
         echo "  ✓ Icon di-generate: ordal.icns (dari PNG via sips)"
     else
         echo "  ⚠ sips gagal convert ke icns. Coba iconutil..."
-        # Fallback: iconutil (lebih robust, butuh iconset folder)
         ICONSET_DIR="/tmp/ordal_iconset.iconset"
         rm -rf "$ICONSET_DIR"
         mkdir -p "$ICONSET_DIR"
-        # Generate berbagai size dari PNG source
         for size in 16 32 64 128 256 512 1024; do
             sips -z $size $size "$ICON_PNG" --out "$ICONSET_DIR/icon_${size}x${size}.png" >/dev/null 2>&1 || true
         done
-        # Untuk retina (2x)
         for size in 32 64 256 512 1024; do
             half=$((size / 2))
             sips -z $size $size "$ICON_PNG" --out "$ICONSET_DIR/icon_${half}x${half}@2x.png" >/dev/null 2>&1 || true
@@ -220,7 +243,22 @@ fi
 
 echo "✓ .app bundle created: $APP_BUNDLE"
 
-# ── 8. (Optional) Ad-hoc sign ────────────────────────────────────────────────
+# ── 8. Bersihkan quarantine xattr + Ad-hoc sign ──────────────────────────────
+# FIX v3.2.2: zip source yang diunduh dari web membawa extended attribute
+# com.apple.quarantine. Atribut ini MENULAR ke semua hasil copy (cp -R),
+# termasuk app bundle hasil build → macOS Gatekeeper menganggap app berasal
+# "dari internet tanpa identitas" dan menolak membukanya walau app sudah
+# di-build ulang di mesin user sendiri. Solusi: hapus SEMUA xattr dari app
+# bundle SEBELUM codesign (sign dilakukan setelah bersih = signature valid).
+echo ""
+echo "→ Bersihkan quarantine xattr (fix Gatekeeper v3.2.2)..."
+if command -v xattr &>/dev/null; then
+    xattr -cr "$APP_BUNDLE" 2>/dev/null || true
+    echo "  ✓ xattr app bundle dibersihkan"
+else
+    echo "  ⚠ perintah xattr tidak ditemukan — skip (macOS modern selalu punya)"
+fi
+
 echo ""
 echo "→ Ad-hoc sign app..."
 codesign --force --deep --sign - "$APP_BUNDLE" 2>&1 || echo "  ⚠ Codesign gagal — app tetap jalan, hanya Gatekeeper akan warning."
@@ -230,12 +268,18 @@ APP_SIZE=$(du -sh "$APP_BUNDLE" | awk '{print $1}')
 
 echo ""
 echo "=========================================="
-echo "  ✅ BUILD BERHASIL!"
+echo "  ✅ BUILD BERHASIL! (v$APP_VERSION)"
 echo "=========================================="
 echo ""
 echo "  📦 App:  $APP_BUNDLE"
 echo "  📏 Size: $APP_SIZE"
-echo "  🎨 Icon: orange square + white lightning bolt"
+echo "  🎨 Icon: logo baru — kotak oranye + ring \"O\" putih (icns multi-size fix v3.2.3)"
+echo "  🔒 Gatekeeper: xattr quarantine dibersihkan sebelum sign (fix v3.2.2)"
+if [[ -f "$BUNDLED_ENV" ]]; then
+    echo "  🗄️  Database: .env ter-bundle (bisa di-override via ~/Library/Application Support/ORDAL/.env)"
+else
+    echo "  🗄️  Database: TANPA .env — app akan minta DATABASE URL saat pertama dibuka"
+fi
 echo ""
 echo "Cara pakai:"
 echo "  1. Buka Finder → drag ORDAL.app ke /Applications/"
@@ -244,8 +288,10 @@ echo "  3. First-run: macOS Gatekeeper warning → klik kanan → Open → Open 
 echo "  4. Dialog pertama akan muncul: 'ORDAL sedang menyiapkan environment...'"
 echo "     (proses ~5-10 menit: install venv, deps, Chromium)"
 echo "  5. Setelah selesai, app window akan terbuka otomatis."
-echo "  6. Buka halaman Persiapan → input Gemini API Key + Telegram Bot Token + link akun Telegram."
-echo "  7. Buka halaman AI → pilih provider (Gemini/OpenAI/Claude/Groq/OpenRouter)"
+echo ""
+echo "Update versi berikutnya:"
+echo "  Jalankan ./build.sh lagi — otomatis Soft Update:"
+echo "  app bundle baru di-install, venv + data user TETAP dipertahankan."
 echo ""
 echo "User data tersimpan di:"
 echo "  ~/Library/Application Support/ORDAL/"

@@ -258,7 +258,7 @@ def _bundle_hash() -> str:
     src_root = bundled_root()
     # Hash beberapa file kunci sebagai representasi versi bundle
     for relpath in ("backend/main.py", "backend/workers/jobstreet_bot.py",
-                     "backend/routers/credentials.py", "frontend/dist/index.html"):
+                     "backend/routers/credentials.py", "backend/.env", "frontend/dist/index.html"):
         fpath = src_root / relpath
         if fpath.exists():
             h.update(fpath.read_bytes()[:4096])  # max 4KB per file
@@ -291,7 +291,9 @@ def sync_app_files(progress: ProgressWindow) -> None:
             continue
         if dst.exists():
             shutil.rmtree(dst, ignore_errors=True)
-        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".env"))
+        # v3.1.1: .env TIDAK lagi di-ignore — konfigurasi DATABASE pusat
+        # hasil build harus ikut tersinkron ke install dir supaya app bisa start.
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
     wa_src = src_root / "windows-app"
     wa_dst = APP_INSTALL_DIR / "windows-app"
@@ -487,7 +489,8 @@ def main() -> int:
 
     log(f"Menjalankan: {runner} {launcher_script}")
     env = os.environ.copy()
-    env["ORDAL_APP_MODE"] = "1"
+    # v3: APP_MODE dihapus — login wajib (DB pusat PostgreSQL)
+    env.pop("ORDAL_APP_MODE", None)
     env["ORDAL_DATA_DIR"] = str(APP_DATA_DIR)
 
     try:

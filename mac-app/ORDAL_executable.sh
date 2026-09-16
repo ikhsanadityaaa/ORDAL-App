@@ -201,7 +201,10 @@ $LOG_FILE\" buttons {\"OK\"} default button 1 with title \"ORDAL Error\" with ic
 fi
 
 # ── 3. Set env vars ──────────────────────────────────────────────────────────
-export ORDAL_APP_MODE=1
+# v3: ORDAL_APP_MODE dihapus — login wajib (DB pusat PostgreSQL).
+# v3.1.1: launcher memuat .env berlapis (user override + bundled) dan memastikan
+# database reachable SEBELUM start backend — app tidak pernah "close sendiri"
+# tanpa pesan; kalau DB belum dikonfigurasi, muncul dialog input DATABASE URL.
 export ORDAL_DATA_DIR="$USER_DATA_DIR"
 export ORDAL_BACKEND_DIR="$RESOURCES_DIR/backend"
 export JWT_SECRET_FILE="$USER_DATA_DIR/secret.key"
@@ -209,7 +212,6 @@ export ENCRYPTION_KEY_FILE="$USER_DATA_DIR/encrypt.key"
 # Tambah homebrew paths supaya subprocess (playwright install, dll) bisa nemu tools
 export PATH="/opt/homebrew/bin:/usr/local/bin:$VENV_DIR/bin:$PATH"
 
-log "Env: ORDAL_APP_MODE=$ORDAL_APP_MODE"
 log "Env: ORDAL_DATA_DIR=$ORDAL_DATA_DIR"
 log "Env: ORDAL_BACKEND_DIR=$ORDAL_BACKEND_DIR"
 log "Env: PATH=$PATH"
