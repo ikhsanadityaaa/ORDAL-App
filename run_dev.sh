@@ -11,7 +11,7 @@
 #   1. Resolve Python 3.12 (WAJIB — 3.13+ akan error compile pydantic-core/greenlet)
 #   2. Setup venv + install backend deps (tanpa libsql/steel-sdk/scrapling)
 #   3. Install pywebview
-#   4. Set ORDAL_APP_MODE=1 + ORDAL_DATA_DIR=./_ordal_data
+#   4. Set ORDAL_DATA_DIR=./_ordal_data (v3: tanpa APP_MODE, login wajib)
 #   5. Jalankan launcher.py (buka native window ke backend)
 #
 # Untuk dev frontend (hot-reload), buka terminal lain:
@@ -99,12 +99,12 @@ if [[ ! -d "frontend/dist" ]]; then
     echo "→ Build frontend..."
     cd frontend
     [[ -d "node_modules" ]] || npm install
-    VITE_APP_MODE=1 npm run build
+    npm run build
     cd "$REPO_ROOT"
 fi
 
 # ── 5. Run launcher ───────────────────────────────────────────────────────────
-export ORDAL_APP_MODE=1
+# v3: ORDAL_APP_MODE dihapus — login wajib
 export ORDAL_DATA_DIR="$REPO_ROOT/_ordal_data"
 export ORDAL_BACKEND_DIR="$REPO_ROOT/backend"
 
@@ -112,7 +112,7 @@ echo ""
 echo "=========================================="
 echo "  ORDAL Dev Mode"
 echo "=========================================="
-echo "  App Mode:    $ORDAL_APP_MODE"
+echo "  Mode:        multi-user (login wajib, DB pusat)"
 echo "  Data Dir:    $ORDAL_DATA_DIR"
 echo "  Backend Dir: $ORDAL_BACKEND_DIR"
 echo "=========================================="

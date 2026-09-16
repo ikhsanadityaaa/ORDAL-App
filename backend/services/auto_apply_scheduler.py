@@ -40,7 +40,20 @@ def _parse_days(days_str: str) -> set[int]:
     return result or {0, 1, 2, 3, 4}
 
 
-def _already_applied_today(user_id: int, today: date) -> bool:
+def _coerce_datetime(value) -> datetime | None:
+    """v3 (Postgres): kolom TIMESTAMPTZ mengembalikan objek datetime (bukan string).
+    Kompatibel juga dengan string ISO lama (SQLite)."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except Exception:
+        return None
+
+
+def _already_applied_today(user_id: str, today: date) -> bool:
     """Cek apakah user sudah auto-apply hari ini."""
     db = get_db()
     try:
@@ -53,16 +66,18 @@ def _already_applied_today(user_id: int, today: date) -> bool:
         ).fetchone()
         if not row or not row["last_auto_apply_at"]:
             return False
+        last = _coerce_datetime(row["last_auto_apply_at"])
+        if last is None:
+            return False
         try:
-            last = datetime.fromisoformat(row["last_auto_apply_at"]).astimezone(APP_TZ)
-            return last.date() >= today
+            return last.astimezone(APP_TZ).date() >= today
         except Exception:
             return False
     finally:
         db.close()
 
 
-def _mark_auto_applied(user_id: int):
+def _mark_auto_applied(user_id: str):
     """Tandai bahwa user sudah auto-apply sekarang."""
     db = get_db()
     try:
@@ -133,7 +148,7 @@ def _get_eligible_users(now: datetime) -> list[dict]:
     return eligible
 
 
-def _has_valid_credentials(user_id: int) -> tuple[bool, list[str]]:
+def _has_valid_credentials(user_id: str) -> tuple[bool, list[str]]:
     """
     Cek apakah user punya cookie file yang valid untuk minimal 1 platform.
     Returns (has_valid, list_of_invalid_platforms).
@@ -170,10 +185,23 @@ def _has_valid_credentials(user_id: int) -> tuple[bool, list[str]]:
     return len(valid_platforms) > 0, invalid_platforms
 
 
-async def _try_auto_apply_for_user(user_id: int):
+async def _try_auto_apply_for_user(user_id: str):
     """Mulai auto-apply session untuk user tertentu."""
     from workers.session_manager import session_manager
     from services.telegram_service import send_telegram_message, get_user_telegram
+
+    # v3.1: Guard lisensi — auto-apply tidak jalan kalau trial habis & belum
+    # aktivasi (trial dimulai saat user pertama kali klik "Cari Kerja").
+    try:
+        from routers.license import get_access_status
+        access = get_access_status(user_id)
+        if not access["access"]["allowed"]:
+            print(f"[auto_apply_scheduler] user {user_id}: trial habis / belum aktivasi — auto-apply dilewati")
+            _mark_auto_applied(user_id)
+            return
+    except Exception as e:
+        print(f"[auto_apply_scheduler] cek lisensi gagal ({e}) — dilewati demi keamanan")
+        return
 
     # Cek tidak ada session aktif
     if session_manager.has_active_session(user_id):

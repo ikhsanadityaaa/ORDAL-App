@@ -41,7 +41,7 @@ class TargetUpdate(BaseModel):
 def normalize_position(position: str) -> str:
     return " ".join(position.strip().lower().split())
 
-def find_position_cover_letter(db, user_id: int, position: str):
+def find_position_cover_letter(db, user_id: str, position: str):
     return db.execute(
         """
         SELECT cover_letter
@@ -152,11 +152,12 @@ def update_cover_letter(target_id: int, body: CoverLetterUpdate, user=Depends(ge
         raise HTTPException(status_code=404, detail="Target not found")
 
     cover_letter = body.cover_letter.strip()
-    db.execute(
+    cur = db.execute(
         "UPDATE job_targets SET cover_letter = ? WHERE user_id = ? AND lower(trim(position)) = ?",
         (cover_letter, user["id"], normalize_position(row["position"]))
     )
-    updated = db.execute("SELECT changes() AS count").fetchone()["count"]
+    # v3 (Postgres): SQLite changes() tidak ada — pakai rowcount dari UPDATE.
+    updated = cur.rowcount
     db.commit()
     db.close()
     return {

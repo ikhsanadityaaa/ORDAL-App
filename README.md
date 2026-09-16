@@ -1,288 +1,239 @@
-<<<<<<< HEAD
-# ORDAL Mac App
+# ORDAL-App v3.2.3
 
-Wrapper desktop untuk ORDAL (bot auto-apply lowongan kerja) sebagai aplikasi macOS native (`.app`).
+Aplikasi desktop **ORDAL** — AI Job Search Agent yang auto-apply lowongan dari **JobStreet**, **LinkedIn Jobs (Easy Apply)**, dan **LinkedIn Posts** (email ke recruiter).
 
-> **Cari versi Windows (`ORDAL.exe`)?** Lihat [`windows-app/README.md`](windows-app/README.md).
+> Design, logo, dan sistem akun **satu kesatuan dengan [ORDAL-Web](https://github.com/ikhsanadityaaa/ORDAL-Web)** — database pusat yang sama (PostgreSQL/Prisma milik web).
 
-## Apa bedanya dengan ORDAL biasa?
+## Apa yang baru di v3
 
-| Aspek | ORDAL biasa (VPS/Telegram) | ORDAL Mac App |
+| Aspek | v2 (lama) | v3 (sekarang) |
 |---|---|---|
-| **Jalankan** | systemd service di VPS | Double-click `ORDAL.app` |
-| **Auth** | Login/JWT multi-user | Single-user, auto-login (skip JWT) |
-| **Config API key** | Edit `.env` manual | UI Settings → input + Save + Test |
-| **Config SMTP** | Telegram command | UI Settings → form |
-| **Capture cookie** | Telegram `/cookie` | UI Settings → klik Capture |
-| **Auto-apply schedule** | Telegram `/autoapply` | UI Settings → toggle + jam + hari |
-| **Notifikasi** | Telegram chat | Tetap Telegram (jika bot token di-set) |
-| **Data lokasi** | `/opt/ordal/backend/autoapply.db` | `~/Library/Application Support/ORDAL/` |
+| **Auth** | Login biasa, ada mode single-user (APP_MODE) | **Wajib login** — Google OAuth 2.0 atau email+password |
+| **Verifikasi email** | Tidak ada | **Kode 6 digit** (berlaku 15 menit) via SMTP Gmail |
+| **Onboarding** | Tidak ada | **Wizard interaktif**: upload CV → preferensi kerja → cover letter (dengan contoh `{company}`/`{position}`) → pilih job platform → login job platform |
+| **Database** | SQLite lokal | **PostgreSQL pusat** — sama dengan DB web (Supabase di production) |
+| **Device** | — | **Maksimal 2 device per akun** (konsep WhatsApp) + dashboard kelola device |
+| **Data user** | Hilang saat reinstall / pindah device | Tersimpan di DB pusat — CV, cookies platform, riwayat lamaran, bank pertanyaan ikut pindah device |
+| **Design** | Tema lama | **Sticker style ORDAL-Web**: cream `#F4F2EC`, charcoal `#33363F`, oranye `#F2661A`, border 2px + hard shadow, tombol rounded |
+| **Logo** | Petir oranye | **Logo web**: kotak oranye + ring "O" putih |
 
-## Strategi Build
+## Apa yang baru di v3.2 — Build & Ikon & Google
 
-Build script membuat `.app` sebagai **directory structure manual** (bukan py2app). Executable-nya adalah shell script yang:
-- First-run: setup venv di `~/.ordal/venv/` + install deps + download Chromium (~5-10 menit)
-- Run `launcher.py` via venv python → pywebview native window
+| Versi | Perbaikan |
+|---|---|
+| **v3.2.2** | **FIX app ter-build tapi tidak bisa dibuka** — zip source yang diunduh membawa atribut quarantine `com.apple.quarantine` yang menular ke app bundle hasil build → Gatekeeper memblokir. `build.sh` kini membersihkan **semua xattr** (`xattr -cr`) **sebelum** codesign. |
+| **v3.2.3** | **FIX ikon pecah / resolusi rendah** — `ordal.icns` dirakit ulang dengan mapping slot berdasar **ukuran piksel PNG** (sebelumnya slot `ic13` yang mengharapkan 256px terisi PNG 32px — itulah kenapa ikon tampak pecah). Semua 8 slot (ic07–ic14) kini terverifikasi cocok 100%. |
+| **v3.2.3** | **FIX logo Google** — tombol "Lanjut dengan Google" kini memakai **logo "G" resmi 4 warna Google** (sebelumnya salah memakai ikon Chrome lucide). |
+| **v3.2.3** | **Panduan login Google** — jika `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` belum diisi, app menampilkan panduan langkah isi `.env` (bukan lagi "segera hadir"). Panduan kini menyarankan OAuth Client tipe **Desktop app**. |
 
-Keunggulan vs py2app:
-- Tidak ada masalah dengan playwright dynamic imports
-- Tidak ada masalah dengan webview Cocoa deps
-- App size kecil (~5MB) — venv & Chromium di user dir, tidak di-bundle
-- Update app = tinggal copy folder Resources/, data user aman
+## Apa yang baru di v3.1 — Lisensi & Pembayaran
 
-## Prasyarat (Mac)
+| Aspek | Detail |
+|---|---|
+| **Free trial** | **3 hari**, terhitung saat user pertama kali klik **"Cari Kerja"** (bukan saat register) — countdown live di badge |
+| **Anti-restart trial** | Trial tercatat di **DB pusat per akun** → install ulang app / ganti komputer **tidak me-reset trial** |
+| **Setelah trial habis** | Pop-up pembayaran **forced** muncul: pilih **QRIS (Bank BCA)** atau **PayPal** |
+| **Verifikasi instan** | Midtrans QRIS dinamis (webhook/polling) · PayPal Orders API (auto-capture) · transfer manual BCA (verifikasi 1-klik admin) — app polling tiap 3 detik, begitu valid langsung VERIFIED |
+| **Activation code** | Format `ORD-XXXX-XXXX-XXXX` — **tersimpan di server sesuai email user** (kolom `"User"."activationCode"`, kompatibel dengan ORDAL-Web) — 1 kode per user selamanya (idempotent) |
+| **Lupa kode** | Tombol **"Kirim ulang kode ke email"** di jendela aktivasi (cooldown 60 detik) |
+| **Kode admin** | `ADMIN_ACTIVATION_CODE` di `.env` — bisa membuka akun mana pun (untuk owner/testing) |
+| **Lisensi** | Tercatat di `app_licenses` (DB pusat) → aktif di semua device user, tidak hilang saat reinstall. Durasi via `LICENSE_DURATION_DAYS` (0 = selamanya) |
 
-1. **macOS 11+** (Big Sur / Monterey / Sonoma / Sequoia)
-2. **Python 3.12 (WAJIB)** via Homebrew:
-   ```bash
-   brew install python@3.12
-   ```
-   ⚠️ **Jangan pakai Python 3.13 atau 3.14** — `pydantic-core` & `greenlet` butuh
-   compile dari source dan PyO3 belum support versi tersebut. Script build akan
-   otomatis tolak kalau versi lain terdeteksi.
-3. **Node.js 18+** & npm:
-   ```bash
-   brew install node
-   ```
-4. **Xcode Command Line Tools**:
-   ```bash
-   xcode-select --install
-   ```
+### Alur lisensi
 
-## Build .app
+```
+register → verifikasi email → onboarding → app utama
+     ↓
+ klik "Cari Kerja" pertama kali ──▶ TRIAL 3 HARI MULAI (server-side)
+     ↓ (3 hari kemudian)
+ akses apply diblokir 403 ──▶ POP-UP PEMBAYARAN (QRIS BCA / PayPal)
+     ↓ bayar (valid & instan terverifikasi)
+ kode aktivasi diterbitkan + dikirim ke email ──▶ user masukkan kode
+     ↓
+ ORDAL PRO AKTIF (badge PRO, lisensi lintas device, anti-reinstall)
+```
+
+## Arsitektur
+
+```
+┌─────────────────────────── ORDAL-App (desktop) ───────────────────────────┐
+│  pywebview window → frontend React/Vite (dist) di-serve oleh backend     │
+│                                                                           │
+│  Backend FastAPI (localhost, port acak)                                   │
+│    ├── Auth: register/login/verify/resend · Google OAuth (PKCE loopback)  │
+│    ├── Device: app_devices (max 2) + app_login_events                     │
+│    ├── Onboarding: app_onboarding (wizard state, resumable)               │
+│    ├── Bot: JobStreet / LinkedIn Jobs / LinkedIn Posts (Playwright)       │
+│    └── Files: CV PDF + cookies → disk lokal + backup base64 di DB         │
+└────────────────────────────────┬───────────────────────────────────────────┘
+                                 │ psycopg2 (pool)
+                    ┌────────────▼─────────────┐
+                    │  PostgreSQL (DB PUSAT)   │
+                    │  "User","Trial","Session"│ ← dimiliki Prisma (web)
+                    │  + tabel app_*           │ ← milik app ini
+                    └────────────▲─────────────┘
+                                 │ Prisma
+                        ORDAL-Web (Next.js)
+```
+
+- Tabel **web tidak diubah sama sekali** (`"User"`, `"Trial"`, `"Download"`, `"Session"` — PascalCase, milik Prisma).
+- App menambah tabel sendiri: `app_user_profile`, `app_devices`, `app_login_events`, `app_verification_codes`, `app_oauth_pending`, `app_onboarding`, plus tabel data lama (`cvs`, `job_targets`, `apply_sessions`, `apply_logs`, `user_preferences`, `question_bank`, `telegram_users`, `app_secrets`, `email_configs`, `user_credentials`) yang kini `user_id`-nya TEXT (cuid web).
+- Password: **bcrypt** (baru). User lama buatan web (SHA-256) tetap bisa login — hash di-upgrade otomatis ke bcrypt.
+
+## Setup Development
+
+### 1. Database PostgreSQL
+
+Pakai PostgreSQL lokal atau URL Supabase yang sama dengan web:
 
 ```bash
-cd ordal-app
-chmod +x build.sh
-./build.sh
+# backend/.env
+ORDAL_DATABASE_URL=postgresql://user:password@host:5432/dbname
 ```
 
-Script ini akan:
-1. Setup Python venv di `.venv-app/`
-2. Install semua dependency backend + `pywebview` + `py2app`
-3. Install Playwright Chromium
-4. Build frontend React ke `frontend/dist/` (dengan `VITE_APP_MODE=1`)
-5. Build `.app` bundle via py2app ke `dist/ORDAL.app`
-6. Bundle Playwright Chromium ke `.app` (~500MB ukuran app)
+> Catatan: app pakai `ORDAL_DATABASE_URL` (prioritas) dengan fallback `DATABASE_URL`, supaya tidak bentrok dengan env lain di sistem.
 
-**Hasil**: `dist/ORDAL.app` siap di-drag ke `/Applications/`.
+Tabel web dibuat oleh Prisma (jalankan `prisma migrate deploy` dari repo web, atau import SQL migration-nya). Tabel app dibuat **otomatis** saat backend start.
 
-## Run di Dev Mode (tanpa build .app)
-
-Untuk iterasi cepat (Linux atau Mac):
+### 2. Backend
 
 ```bash
-cd ordal-app
-chmod +x run_dev.sh
-./run_dev.sh
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # lalu isi (lihat bawah)
+python run.py               # uvicorn di :8000
 ```
 
-Ini akan:
-- Setup venv + install deps
-- Build frontend jika belum ada
-- Set `ORDAL_APP_MODE=1` + `ORDAL_DATA_DIR=./_ordal_data`
-- Jalankan `launcher.py` (buka native window langsung)
+### 3. Frontend (dev hot-reload)
 
-## Cara Pakai Setelah Install
-
-1. **Double-click `ORDAL.app`** (atau via Spotlight: `Cmd+Space` → "ORDAL")
-2. **Bypass Gatekeeper** (first-run, karena tidak code-signed):
-   - Klik kanan `ORDAL.app` → **Open** → **Open anyway**
-   - Atau: `System Settings → Privacy & Security → Open Anyway`
-3. **App window terbuka** ke halaman default "Cari Kerja"
-4. **Buka tab "Persiapan"** di sidebar untuk setup:
-   - **API Keys & Bot Telegram**:
-     - **Gemini API Key** — dapat dari https://aistudio.google.com/app/apikey → klik **SIMPAN** → klik **TEST** untuk verifikasi
-     - **Telegram Bot Token** — dapat dari @BotFather → klik **SIMPAN** → klik **TEST**
-   - **Jadwal & Preferensi**:
-     - Toggle **ENABLE** untuk auto-apply
-     - Set **JAM** & **MENIT** (WIB)
-     - Pilih **HARI AKTIF** (Sen–Min)
-     - Isi **EXPECTED SALARY** & **AVAILABLE JOIN**
-     - Toggle **HEADLESS MODE** (browser tersembunyi)
-     - Toggle **TESTING EMAIL MODE** (kirim email ke diri sendiri dulu)
-   - **CV & Login Platform**:
-     - Upload CV (PDF)
-     - Klik **Capture Session** untuk LinkedIn & JobStreet → login manual di browser yang terbuka
-     - Set SMTP config (smtp_host, port, sender_email, app_password Gmail)
-5. **Buat target lowongan** di halaman **Cari Kerja** (posisi, lokasi, platform, employment_type)
-6. **Klik "Mulai Cari Kerja"** untuk manual run, atau tunggu schedule auto-apply
-
-## Lokasi Data User
-
-Semua data disimpan di (persistent antar versi app):
-
-```
-~/Library/Application Support/ORDAL/
-├── autoapply.db          ← SQLite database (users, targets, sessions, logs, ...)
-├── uploads/cvs/          ← CV PDF yang di-upload
-├── cookies/              ← Cookie session LinkedIn/JobStreet (plain JSON)
-├── secret.key            ← JWT signing key (auto-generated)
-└── encrypt.key           ← Fernet key untuk encrypt SMTP password + app_secrets
-```
-
-Untuk **reset total**: hapus folder ini lalu restart app.
-
-## Cara Update App
-
-1. `cd ordal-app && git pull`
-2. `./build.sh`
-3. Drag `dist/ORDAL.app` ke `/Applications/` (overwrite)
-
-Data user tidak hilang karena disimpan di `~/Library/Application Support/ORDAL/`.
-
-## Troubleshooting
-
-### Build error: "failed to build wheel for pydantic-core / greenlet"
-
-**Penyebab**: Anda pakai Python 3.13 atau 3.14 yang terlalu baru. PyO3 (yang dipakai pydantic-core & greenlet untuk compile Rust bindings) belum support versi tersebut.
-
-**Solusi**: Install Python 3.12 via Homebrew:
-```bash
-brew install python@3.12
-./build.sh   # script akan auto-detect python3.12
-```
-
-### Build error: "command '/usr/bin/clang++' failed with exit code 1" (libsql / steel-sdk / scrapling)
-
-**Penyebab**: Package opsional butuh compile C++/Rust dari source. Default requirements.txt sudah menonaktifkannya (di-comment).
-
-**Solusi**: Pastikan requirements.txt tidak uncomment baris libsql/steel-sdk/scrapling:
-```bash
-grep -E "^libsql|^steel-sdk|^scrapling" backend/requirements.txt
-# Output harus kosong.
-```
-
-### First-run: dialog "ORDAL sedang menyiapkan environment..." muncul lama
-
-Ini normal. First-run app akan setup venv (~5-10 menit):
-1. Download Python deps dari PyPI
-2. Download Chromium (~150MB)
-
-Setelah selesai, app window akan terbuka otomatis. Selanjutnya first-run tidak diulang.
-
-Cek progress di log:
-```bash
-tail -f ~/Library/Application\ Support/ORDAL/app.log
-```
-
-### First-run gagal / venv rusak
-
-Reset venv (data user tetap aman):
-```bash
-rm -rf ~/.ordal/venv
-# Lalu double-click ORDAL.app lagi
-```
-
-### "ORDAL.app is damaged and can't be opened"
-
-Gatekeeper block app tidak code-signed. Fix:
-```bash
-xattr -cr /Applications/ORDAL.app
-```
-Atau klik kanan → Open → Open anyway.
-
-### Window blank / "Frontend not built"
-
-Build script gagal build frontend. Jalankan manual:
 ```bash
 cd frontend
-VITE_APP_MODE=1 npm run build
-cd ..
-./build.sh
+npm install
+npm run dev                 # vite di :5173, proxy /api → :8000
 ```
 
-### Playwright Chromium tidak ke-install di first-run
+### 4. Konfigurasi `.env`
 
-Manual install via venv user:
+| Variabel | Wajib? | Keterangan |
+|---|---|---|
+| `ORDAL_DATABASE_URL` | ✅ | DSN PostgreSQL pusat (production: Supabase, sama dengan web) |
+| `SMTP_HOST` / `SMTP_PORT` | — | Default `smtp.gmail.com` / `587` |
+| `SMTP_USER` / `SMTP_APP_PASSWORD` | ✅ untuk verifikasi email | Gmail App Password → https://myaccount.google.com/apppasswords (aktifkan 2FA dulu). Kalau kosong, kode verifikasi tampil di layar (mode pengembangan) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — untuk login Google | Lihat panduan di bawah. Kalau kosong, tombol Google tampil "segera hadir" |
+| `CORS_ORIGINS` | — | Default sudah mencakup localhost dev |
+
+## Setup Google OAuth (Login dengan Gmail)
+
+1. Buka https://console.cloud.google.com → buat project baru.
+2. **APIs & Services → OAuth consent screen**: External → nama app "ORDAL" → scope `openid`, `email`, `profile` → tambahkan test user (atau Publish).
+3. **Credentials → Create Credentials → OAuth Client ID → tipe "Desktop app"** (bukan Web application).
+   > Tipe Desktop app otomatis mengizinkan **loopback redirect** `http://localhost:PORT` dengan port acak (RFC 8252) — tidak perlu mendaftar redirect URI manual. Flow PKCE + loopback di app ini sudah benar; yang dibutuhkan hanya Client ID & Secret.
+4. Copy **Client ID** & **Client Secret** ke `backend/.env` (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`), lalu jalankan ulang app.
+
+Flow yang diimplementasikan: **PKCE + loopback redirect** — app membuka browser sistem, setelah login Google, tab browser menutup otomatis dan app melanjutkan login (polling `state`).
+
+## Setup Lisensi & Pembayaran (v3.1)
+
+### Konfigurasi wajib (backend/.env)
+
+```env
+TRIAL_HOURS=72                  # durasi trial (default 3 hari)
+LICENSE_PRICE_IDR=159000        # harga QRIS (Rp)
+LICENSE_PRICE_USD=10.00         # harga PayPal (US$)
+LICENSE_DURATION_DAYS=0         # 0 = lisensi selamanya; mis. 30 = 30 hari
+ADMIN_ACTIVATION_CODE=            # opsional; isi kode acak khusus owner/testing
+ADMIN_TOKEN=...                 # token utk endpoint /api/admin/*
+PAYMENTS_SIMULATION=false       # WAJIB false di production!
+```
+
+### Metode 1 — QRIS BCA otomatis (production, verifikasi INSTAN tanpa cek manual)
+
+1. Daftar [Midtrans](https://midtrans.com) → dashboard → aktifkan izin **QRIS**.
+2. Copy **Server Key** → `MIDTRANS_SERVER_KEY=` di `.env`.
+3. (Opsional, lebih instan lagi) Dashboard Midtrans → Settings → Configuration → **Payment Notification URL**: `https://domain-kamu/api/payments/webhook/midtrans`.
+
+Hasil: setiap invoice jadi **QRIS dinamis** (QR ditampilkan di app, nominal exact). Begitu user bayar → Midtrans kirim webhook DAN app polling tiap 3 detik → status VERIFIED + kode aktivasi keluar otomatis.
+
+### Metode 2 — Transfer BCA manual (tanpa gateway)
+
+1. Isi `BCA_ACCOUNT_NAME`, `BCA_ACCOUNT_NUMBER` (rekening pribadi), opsional `BCA_QRIS_IMAGE` (path gambar QRIS statis milikmu → ditampilkan di jendela pembayaran).
+2. Isi `ADMIN_EMAIL` → setiap user yang klik **"Saya Sudah Bayar"** mengirim email notifikasi ke kamu.
+3. Cek m-banking → cocokkan nominal unik (`harga + 3 angka acak`) + reference → verifikasi sekali klik:
+
 ```bash
-~/.ordal/venv/bin/python -m playwright install chromium
+curl -X POST http://127.0.0.1:8000/api/admin/payments/PAY-XXXXXXXX/verify \
+  -H "X-Admin-Token: ADMIN_TOKEN_KAMU"
+# → user langsung lihat status VERIFIED di app (instan) + kode dikirim ke emailnya
+
+curl "http://127.0.0.1:8000/api/admin/payments?status=verifying" \
+  -H "X-Admin-Token: ADMIN_TOKEN_KAMU"   # daftar pembayaran menunggu verifikasi
 ```
 
-### App tidak jalan / ingin lihat error
+### Metode 3 — PayPal otomatis (verifikasi INSTAN)
 
-Run via terminal untuk lihat stderr langsung:
-```bash
-/Applications/ORDAL.app/Contents/MacOS/ORDAL
+1. Buat app di [PayPal Developer](https://developer.paypal.com/dashboard/applications).
+2. Copy **Client ID** & **Secret** → `PAYPAL_CLIENT_ID=`, `PAYPAL_CLIENT_SECRET=`, `PAYPAL_MODE=live` (atau `sandbox` untuk test).
+
+Hasil: user klik **"Bayar dengan PayPal"** → approve di browser → app polling → auto-capture → VERIFIED + kode otomatis.
+
+### Mode simulasi (DEVELOPMENT ONLY)
+
+`PAYMENTS_SIMULATION=true` menampilkan tombol **"Simulasikan Pembayaran (Demo)"** di app — pembayaran langsung verified tanpa uang sungguhan (untuk testing flow). **Wajib `false` di production.**
+
+### Endpoint lisensi (ringkas)
+
+| Endpoint | Fungsi |
+|---|---|
+| `GET  /api/trial/status` | Status trial + lisensi + harga + opsi pembayaran |
+| `POST /api/trial/start` | Mulai trial 3 hari (idempotent, server-side) |
+| `POST /api/payments/create` | Buat invoice (`{"method":"qris_bca\|"paypal"}`) |
+| `POST /api/payments/{id}/check` | Polling gateway (Midtrans/PayPal) → instan verified |
+| `POST /api/payments/{id}/confirm` | "Saya sudah bayar" (manual → verifying + email admin) |
+| `POST /api/payments/{id}/simulate` | Simulasi (hanya `PAYMENTS_SIMULATION=true`) |
+| `POST /api/payments/webhook/midtrans` | Webhook Midtrans (signature SHA512 diverifikasi) |
+| `POST /api/activation/activate` | Masukkan kode aktivasi → ORDAL PRO |
+| `POST /api/activation/resend` | Kirim ulang kode ke email user (cooldown 60 dtk) |
+| `GET  /api/activation/info` | Info kode milik akun (masked) |
+| `GET  /api/admin/payments` | (Admin) daftar pembayaran |
+| `POST /api/admin/payments/{id}/verify` | (Admin) verifikasi manual 1-klik |
+| `POST /api/admin/grant` | (Admin) beri lisensi langsung ke email |
+
+## Build Aplikasi Desktop
+
+- **Windows**: `windows-app/build_windows.bat` (PyInstaller + pywebview, install otomatis saat first-run)
+- **macOS**: `./build.sh` (bundle `.app` ad-hoc codesign)
+
+> v3: `VITE_APP_MODE`/`ORDAL_APP_MODE` sudah dihapus — build selalu mode login penuh.
+
+## Perilaku Device (maks 2)
+
+- Setiap instalasi app punya `device_id` stabil (disimpan di data dir lokal).
+- Login di device ke-3 **ditolak** dengan modal daftar device — user harus mengeluarkan salah satu (atau logout dari device lain).
+- **Logout** = melepas slot device ini (seperti "Log out" WhatsApp Web).
+- Token JWT ter-bind ke device: device yang dikeluarkan otomatis 401 → popup login muncul.
+
+## Struktur penting
+
+```
+backend/
+  database.py          # PostgreSQL pool + konversi otomatis SQL SQLite→PG
+  auth_utils.py        # JWT + device binding + bcrypt/sha256
+  routers/auth.py      # register/login/verify/resend/me/logout/devices/google
+  routers/onboarding.py# wizard state + complete (buat job targets awal)
+  routers/license.py   # v3.1: trial 3 hari + pembayaran QRIS/PayPal + activation code + admin
+  services/email_sender.py  # SMTP: kode verifikasi + kode aktivasi + notif admin
+frontend/src/
+  components/auth/     # AuthModal, VerifyEmailModal, DeviceLimitModal
+  components/onboarding/ # OnboardingWizard (6 langkah), ChipsInput, contoh cover letter
+  components/license/  # v3.1: PaymentModal, TrialBadge, TrialToast
+  components/          # Layout (sidebar baru), WelcomeScreen, DeviceManagerModal, brand
+  stores/licenseStore.js  # v3.1: state trial/lisensi/pop-up pembayaran
+  index.css            # Design system sticker (match web) + komponen pembayaran
 ```
 
-Cek log:
-```bash
-cat ~/Library/Application\ Support/ORDAL/app.log
-```
+## Catatan penting
 
-### Capture cookie gagal
-
-- Pastikan tidak ada proses Chrome lain dengan profile yang sama
-- Coba `killall "Google Chrome"` lalu capture ulang
-
-### Telegram tidak konek
-
-- Pastikan bot token benar (cek di @BotFather)
-- Klik **TEST** di halaman Persiapan
-- Cek apakah bot sudah di-/start oleh user
-
-## Struktur Repo
-
-```
-ordal-app/
-├── README.md                  ← file ini
-├── build.sh                   ← build script untuk .app (TANPA py2app)
-├── run_dev.sh                 ← run script untuk dev mode
-├── .gitignore
-├── mac-app/
-│   ├── launcher.py            ← entry point pywebview (dipanggil oleh ORDAL_executable.sh)
-│   ├── ORDAL_executable.sh    ← shell script yang menjadi Contents/MacOS/ORDAL
-│   └── Info.plist             ← metadata bundle .app
-├── backend/                   ← FastAPI + workers + services
-│   ├── main.py                ← (PATCHED) serve frontend dist + app_config router
-│   ├── database.py            ← (PATCHED) ORDAL_DATA_DIR + app_secrets table + auto user_id=1
-│   ├── auth_utils.py          ← (PATCHED) skip JWT in APP_MODE
-│   ├── encryption.py          ← (PATCHED) support ENCRYPTION_KEY_FILE
-│   ├── app_secrets.py         ← (NEW) helper read/set secret dari DB
-│   ├── routers/
-│   │   └── app_config.py      ← (NEW) endpoint /api/app_config untuk UI Settings
-│   ├── workers/
-│   │   └── gemini_service.py  ← (PATCHED) baca API key dari DB
-│   └── services/
-│       └── telegram_service.py← (PATCHED) baca bot token dari DB
-└── frontend/                  ← React + Vite
-    ├── src/
-    │   ├── api.js             ← (PATCHED) skip auth header in APP_MODE
-    │   ├── App.jsx            ← (PATCHED) skip /login in APP_MODE
-    │   ├── components/
-    │   │   └── Layout.jsx     ← (PATCHED) hide logout in APP_MODE
-    │   └── pages/
-    │       ├── Persiapan.jsx  ← (PATCHED) integrate AppConfig
-    │       └── AppConfig.jsx  ← (NEW) UI untuk API keys + schedule + preferences
-    └── package.json
-```
-
-## Catatan Keamanan
-
-- **Tidak code-signed**: macOS Gatekeeper akan warning. Bypass dengan klik kanan → Open.
-- **Bot token & API key di-encrypt** dengan Fernet (AES-128) di DB lokal.
-- **Cookie platform plain text** di `~/Library/Application Support/ORDAL/cookies/` — sama seperti ORDAL biasa. Patch ke depan: encrypt at-rest.
-- **Tidak ada rate limiting** di endpoint auth (karena single-user di lokal, risiko rendah).
-- **CORS di-buka lebar** untuk localhost saja (app mode).
-
-## Build Tanpa Bundle Chromium (App Kecil)
-
-Edit `build.sh`, comment-out bagian "Bundle Playwright Chromium". App jadi ~50MB, tapi user harus install Chromium saat first-run (butuh internet).
-
-Atau set env var sebelum build:
-```bash
-SKIP_CHROMIUM_BUNDLE=1 ./build.sh
-```
-
-## Distribusi ke User Lain
-
-Karena tidak code-signed, user lain juga harus bypass Gatekeeper. Untuk distribusi yang lebih rapi:
-1. Daftar **Apple Developer ID** ($99/tahun)
-2. Code-sign app: `codesign --deep --force --sign "Developer ID Application: Your Name" dist/ORDAL.app`
-3. Notarize via `xcrun notarytool submit ...`
-4. Atau distribusi via DMG installer.
-=======
-# ORDAL-App
-Ordal
->>>>>>> 3ea25a787f888c9a36411a5ace8b6a21e9edb159
+- **Prisma migration**: tabel app tidak dikelola Prisma. Kalau menjalankan `prisma migrate dev` dari repo web, tambahan tabel app diabaikan (tidak konflik).
+- **User web lama login ke app**: password SHA-256 web diverifikasi lalu di-upgrade ke bcrypt. (Sebaliknya, user baru daftar dari app butuh patch kecil di web login route agar bcrypt didukung — akan backward compatible.)
+- **File berat** (PDF CV, cookies platform) ditulis ke disk lokal DAN disimpan base64 di DB — direstore otomatis saat login di device baru atau app update.

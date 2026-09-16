@@ -279,9 +279,9 @@ async def auto_link_telegram(user: dict = Depends(get_current_user)):
     Auto-link Telegram: cek apakah user sudah /start bot.
 
     Flow:
-    1. User buka @siordal_bot di Telegram, klik /start
-    2. Backend polling service (telegram_service) terima /start,
-       otomatis simpan chat_id ke telegram_users (untuk APP_MODE single-user)
+    1. User buka @siordal_bot di Telegram, klik /start dengan link code
+    2. Backend polling service (telegram_service) terima /start <code>,
+       otomatis simpan chat_id ke telegram_users untuk user pemilik code
     3. User kembali ke app, klik "Auto-link via /start"
     4. Endpoint ini cek DB — kalau chat_id sudah ada, return sukses
     5. Kalau belum ada, return instruksi ulang

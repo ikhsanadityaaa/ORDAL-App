@@ -131,7 +131,7 @@ def setup_logging(force: bool = False) -> None:
     root.info(f"ORDAL logging initialized. Log file: {_log_file_path}")
     root.info(f"Telegram log file: {telegram_log_path}")
     root.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
-    root.info(f"App mode: {os.getenv('ORDAL_APP_MODE', '0')} | Data dir: {data_dir}")
+    root.info(f"Data dir: {data_dir}")
     root.info("=" * 60)
 
 

@@ -111,21 +111,23 @@ def _api_url(method: str) -> str:
 
 
 def ensure_telegram_columns(cur):
+    # v3 (Postgres): DDL PostgreSQL — user_id TEXT (cuid) → "User"("id").
+    # Skema utama sudah dibuat init_db di database.py; ini fallback defensif.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS telegram_users (
-            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-            chat_id TEXT UNIQUE,
-            link_code TEXT UNIQUE,
-            enabled INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            user_id     TEXT PRIMARY KEY REFERENCES "User"("id") ON DELETE CASCADE,
+            chat_id     TEXT UNIQUE,
+            link_code   TEXT UNIQUE,
+            enabled     SMALLINT NOT NULL DEFAULT 1,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """
     )
 
 
-def get_or_create_link_code(user_id: int) -> str:
+def get_or_create_link_code(user_id: str) -> str:
     db = get_db()
     row = db.execute("SELECT link_code FROM telegram_users WHERE user_id=?", (user_id,)).fetchone()
     if row and row["link_code"]:
@@ -145,7 +147,7 @@ def get_or_create_link_code(user_id: int) -> str:
     return code
 
 
-def get_user_telegram(user_id: int) -> dict[str, Any]:
+def get_user_telegram(user_id: str) -> dict[str, Any]:
     db = get_db()
     row = db.execute(
         "SELECT user_id, chat_id, link_code, enabled, updated_at FROM telegram_users WHERE user_id=?",
@@ -161,9 +163,9 @@ def _get_user_by_chat(chat_id: str) -> dict | None:
     try:
         row = db.execute(
             """
-            SELECT u.id, u.email, u.name, t.enabled
+            SELECT u."id", u."email", u."name", t.enabled
             FROM telegram_users t
-            JOIN users u ON u.id = t.user_id
+            JOIN "User" u ON u."id" = t.user_id
             WHERE t.chat_id = ? AND t.enabled = 1
             """,
             (chat_id,),
@@ -410,7 +412,7 @@ def validate_answer(answer: str, field_type: str, question: str, options: list[s
     return True, answer
 
 
-async def send_question_to_telegram(user_id: int, prompt_event: dict) -> None:
+async def send_question_to_telegram(user_id: str, prompt_event: dict) -> None:
     config = get_user_telegram(user_id)
     chat_id = config.get("chat_id")
     if not (chat_id and config.get("enabled")):
@@ -466,9 +468,17 @@ async def send_question_to_telegram(user_id: int, prompt_event: dict) -> None:
 
 # ── Report formatting (existing) ───────────────────────────────────────
 
-def format_application_report(user_id: int, today_only: bool = True) -> str:
+def format_application_report(user_id: str, today_only: bool = True) -> str:
     db = get_db()
-    date_filter = "AND date(l.applied_at, 'localtime') = date('now', 'localtime')" if today_only else ""
+    # v3 (Postgres): SQLite date(x,'localtime') tidak ada — bandingkan tanggal
+    # di timezone app (default Asia/Jakarta) lewat AT TIME ZONE.
+    tz_name = str(APP_TZ)
+    if today_only:
+        date_filter = "AND (l.applied_at AT TIME ZONE ?)::date = (NOW() AT TIME ZONE ?)::date"
+        params = (user_id, tz_name, tz_name)
+    else:
+        date_filter = ""
+        params = (user_id,)
     rows = db.execute(
         f"""
         SELECT l.platform, l.job_title, l.position, l.company, COALESCE(l.job_location, l.location, '') AS location, l.applied_at
@@ -481,7 +491,7 @@ def format_application_report(user_id: int, today_only: bool = True) -> str:
         ORDER BY l.platform ASC, l.applied_at DESC
         LIMIT 80
         """,
-        (user_id,),
+        params,
     ).fetchall()
     db.close()
     title = "Report lamaran hari ini" if today_only else "Report semua lamaran terbaru"
@@ -511,7 +521,7 @@ async def send_daily_report_to_all_users() -> None:
 
 # ── Question answer from Telegram (existing) ──────────────────────────
 
-async def _answer_prompt_from_telegram(user_id: int, prompt_id: str, answer: str, chat_id: str) -> None:
+async def _answer_prompt_from_telegram(user_id: str, prompt_id: str, answer: str, chat_id: str) -> None:
     from workers.session_manager import session_manager
 
     record = session_manager.get_pending_question(user_id, prompt_id)
@@ -597,18 +607,23 @@ async def _cmd_register(chat_id: str, args: str):
         return
 
     from auth_utils import hash_password
+    from routers.auth import _create_web_user
     db = get_db()
     try:
-        existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        existing = db.execute('SELECT "id" FROM "User" WHERE "email" = ?', (email,)).fetchone()
         if existing:
             await send_telegram_message(chat_id, f"Email {email} sudah terdaftar. Gunakan /login.")
             return
         hashed = hash_password(password)
-        cur = db.execute(
-            "INSERT INTO users (email, password, name) VALUES (?, ?, ?)",
-            (email, hashed, name),
-        )
-        user_id = cur.lastrowid
+        try:
+            # v3 (Postgres): akun dibuat di tabel "User" (schema Prisma web)
+            # + app_user_profile — sama seperti register via app; trial belum dimulai.
+            # _create_web_user meng-commit sendiri dan return {"id", "email", ...}.
+            created = _create_web_user(db, email, name, hashed, "email")
+        except Exception:
+            await send_telegram_message(chat_id, "Gagal membuat akun, coba lagi.")
+            return
+        user_id = created["id"]
         db.execute(
             """
             INSERT INTO telegram_users (user_id, chat_id, enabled, link_code)
@@ -647,7 +662,10 @@ async def _cmd_login(chat_id: str, args: str):
     from auth_utils import verify_password
     db = get_db()
     try:
-        user = db.execute("SELECT id, email, name, password FROM users WHERE email = ?", (email,)).fetchone()
+        user = db.execute(
+            'SELECT "id", "email", "name", "password" FROM "User" WHERE "email" = ?',
+            (email,),
+        ).fetchone()
         if not user or not verify_password(password, user["password"]):
             await send_telegram_message(chat_id, "Email atau password salah.")
             return
@@ -784,7 +802,7 @@ async def _cmd_target_add(chat_id: str, user: dict, args: str):
     )
 
 
-async def _create_target_from_telegram(chat_id: str, user_id: int, cv_id: int, position: str, location: str, platform: str):
+async def _create_target_from_telegram(chat_id: str, user_id: str, cv_id: int, position: str, location: str, platform: str):
     valid = ("linkedin", "linkedin_posts", "jobstreet", "both", "all")
     if platform not in valid:
         await send_telegram_message(chat_id, f"Platform tidak valid. Pilih: {', '.join(valid)}")
@@ -1292,7 +1310,7 @@ async def _handle_document(message: dict):
         await send_telegram_message(chat_id, "Upload tidak diharapkan saat ini. Kirim /help untuk bantuan.")
 
 
-async def _save_cookie_file(chat_id: str, user_id: int, platform: str, file_id: str, file_name: str):
+async def _save_cookie_file(chat_id: str, user_id: str, platform: str, file_id: str, file_name: str):
     """Download & simpan cookie JSON sebagai Playwright storage_state."""
     from routers.credentials import cookies_path, save_credential_marker, PLATFORM_CONFIG
     await send_telegram_message(chat_id, f"⏳ Mengunduh file cookie {platform}...")
@@ -1338,7 +1356,7 @@ async def _save_cookie_file(chat_id: str, user_id: int, platform: str, file_id: 
         )
         db.commit()
 
-        # Backup cookie ke kolom DB (persisten lewat Turso kalau dipakai),
+        # Backup cookie ke kolom DB pusat (PostgreSQL),
         # supaya bisa direstore kalau disk lokal hilang (host ephemeral).
         import base64
         db.execute(
@@ -1357,7 +1375,7 @@ async def _save_cookie_file(chat_id: str, user_id: int, platform: str, file_id: 
     )
 
 
-async def _save_cv_file(chat_id: str, user_id: int, file_id: str, file_name: str, position_label: str):
+async def _save_cv_file(chat_id: str, user_id: str, file_id: str, file_name: str, position_label: str):
     """Download & simpan CV PDF."""
     await send_telegram_message(chat_id, "⏳ Mengunduh CV...")
     content = await _download_telegram_file(file_id)
@@ -1489,44 +1507,14 @@ async def _handle_message(message: dict) -> None:
                 await send_telegram_message(chat_id, f"Halo {html.escape(user['name'])}! Kirim /help untuk lihat perintah.")
                 return
 
-            # Mac app mode: auto-link ke user pertama (single-user)
-            # Tidak perlu /register atau /login — langsung hubungkan chat_id ke user_id=1
-            if os.getenv("ORDAL_APP_MODE") == "1":
-                db = get_db()
-                try:
-                    # Pastikan user_id=1 exists (auto-provisioned di init_db)
-                    user_row = db.execute("SELECT id, name FROM users WHERE id=1").fetchone()
-                    if user_row:
-                        # Upsert telegram_users: set chat_id untuk user_id=1
-                        db.execute(
-                            """
-                            INSERT INTO telegram_users (user_id, chat_id, enabled, updated_at)
-                            VALUES (1, ?, 1, datetime('now'))
-                            ON CONFLICT(user_id) DO UPDATE SET
-                                chat_id = excluded.chat_id,
-                                enabled = 1,
-                                updated_at = datetime('now')
-                            """,
-                            (chat_id,),
-                        )
-                        db.commit()
-                        await send_telegram_message(
-                            chat_id,
-                            "✅ <b>ORDAL Bot Linked</b>\n\n"
-                            "Akun Telegram Anda sudah terhubung dengan ORDAL.\n"
-                            "Anda akan menerima notifikasi auto-apply & bisa kontrol bot dari sini.\n\n"
-                            "Kirim /help untuk lihat daftar perintah.",
-                        )
-                        return
-                finally:
-                    db.close()
-
-            # Fallback: mode multi-user — minta register/login
+            # v3: APP_MODE single-user sudah dihapus — semua user wajib
+            # /register, /login, atau /start <link_code> dari halaman Settings.
             await send_telegram_message(
                 chat_id,
                 "Selamat datang di ORDAL Auto Apply Bot!\n\n"
                 "Daftar akun baru: /register <i>nama|email|password</i>\n"
-                "Login akun existing: /login <i>email|password</i>\n\n"
+                "Login akun existing: /login <i>email|password</i>\n"
+                "Atau buka halaman Settings di app, copy perintah /start <i>kode</i> Anda.\n\n"
                 "Contoh: /register Budi|budi@email.com|rahasia123",
             )
             return

@@ -196,7 +196,7 @@ def send_email(smtp_host, smtp_port, sender_email, app_password,
         return False, str(e)
 
 
-def _get_email_config(user_id: int) -> dict:
+def _get_email_config(user_id: str) -> dict:
     """Get email config from database for a user."""
     try:
         from database import get_db
@@ -209,11 +209,11 @@ def _get_email_config(user_id: int) -> dict:
         db = get_db()
         row = db.execute(
             """
-            SELECT COALESCE(u.name, '') AS user_name,
+            SELECT COALESCE(u."name", '') AS user_name,
                    COALESCE(p.testing_email_mode, 0) AS testing_email_mode
-            FROM users u
-            LEFT JOIN user_preferences p ON p.user_id = u.id
-            WHERE u.id = ?
+            FROM "User" u
+            LEFT JOIN user_preferences p ON p.user_id = u."id"
+            WHERE u."id" = ?
             """,
             (user_id,),
         ).fetchone()

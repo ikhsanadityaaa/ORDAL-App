@@ -3,18 +3,33 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from database import get_db
-from auth_utils import get_current_user, decode_token, _APP_MODE
+from auth_utils import get_current_user, get_user_from_token
 from workers.session_manager import session_manager
+from routers.license import require_access, ensure_trial_started
 
 router = APIRouter()
 
 @router.post("/start")
 async def start_session(user=Depends(get_current_user)):
-    """Mulai session apply manual (via HTTP API — dipakai untuk testing/debug)."""
+    """Mulai session apply manual (via HTTP API — dipakai untuk testing/debug).
+
+    v3.1 — guard lisensi server-side:
+    - Klik "Cari Kerja" pertama kali = mulai trial 3 hari (lazy, sekali saja,
+      tersimpan di DB pusat → install ulang app TIDAK mereset trial).
+    - Trial habis & belum aktivasi → 403 TRIAL_EXPIRED → app menampilkan
+      pop-up pembayaran."""
+    status = require_access(user["id"])  # raise 403 kalau trial habis & belum aktivasi
+    _, just_started = ensure_trial_started(user["id"])
     result = await session_manager.start_session_for_user(user_id=user["id"], source="manual")
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("message", "Gagal memulai session"))
-    return {"session_id": result["session_id"], "message": "Sesi dimulai"}
+    return {
+        "session_id": result["session_id"],
+        "message": "Sesi dimulai",
+        "trial": status.get("trial"),
+        "activated": status.get("activated", False),
+        "trial_just_started": just_started,
+    }
 
 @router.post("/stop")
 async def stop_session(user=Depends(get_current_user)):
@@ -34,21 +49,12 @@ async def stop_session(user=Depends(get_current_user)):
 
 @router.get("/live")
 async def live_updates(token: str = Query(default=None)):
-    # PENTING: endpoint ini sebelumnya SELALU maksa ada JWT token yang valid,
-    # padahal di Local App mode (ORDAL_APP_MODE=1) tidak ada proses login sama
-    # sekali — localStorage.getItem('token') di frontend selalu kosong. Akibatnya
-    # koneksi SSE ini gagal connect (401) tiap kali user klik "Carikan Kerjaan"
-    # di Local App, sehingga progress bar, log proses real-time, dan status
-    # tombol Stop semuanya ikut tidak berfungsi (status keburu dibalikin ke
-    # 'done' oleh frontend begitu koneksi SSE ini error).
-    if _APP_MODE:
-        user = {"id": 1, "email": "local@ordal.app"}
-    else:
-        try:
-            payload = decode_token(token)
-            user = {"id": int(payload["sub"]), "email": payload["email"]}
-        except Exception:
-            raise HTTPException(status_code=401, detail="Token tidak valid")
+    # SSE EventSource tidak bisa kirim Authorization header → token lewat
+    # query param. Validasi sama termasuk cek device masih terdaftar.
+    try:
+        user = get_user_from_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token tidak valid atau device sudah dikeluarkan")
 
     async def event_generator():
         queue = await session_manager.subscribe(user["id"])
