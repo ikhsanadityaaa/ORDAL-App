@@ -1464,7 +1464,7 @@ class JobStreetBot:
                 jd_text = await jd_el.inner_text() if jd_el else ""
             except Exception:
                 jd_text = ""
-            cover_text = await generate_cover_letter(job_title, cover_company, jd_text, cv_text)
+            cover_text = await generate_cover_letter(self.user_id, job_title, cover_company, jd_text, cv_text)
 
         await self._prepare_jobstreet_document_step(apply_page, cv_name or os.path.basename(cv_path), cover_text)
 

@@ -206,6 +206,7 @@ export default function PaymentModal() {
   }
   const [title, subtitle] = titles[step] || titles.choose
   const expiredBanner = forced && (step === 'choose')
+  const trialNotEligible = status?.access?.reason === 'trial_not_eligible'
 
   return (
     <div
@@ -229,7 +230,9 @@ export default function PaymentModal() {
           {expiredBanner && (
             <div className="notice notice-warn" style={{ marginBottom: 16, alignItems: 'flex-start' }}>
               <Clock size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-              <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>{t('lic.expired_banner')}</span>
+              <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                {trialNotEligible ? t('lic.ineligible_banner') : t('lic.expired_banner')}
+              </span>
             </div>
           )}
 

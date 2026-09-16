@@ -28,7 +28,7 @@ from typing import Optional
 
 import httpx
 
-from app_secrets import get_secret, set_secret
+from app_secrets import get_user_secret, set_user_secret
 
 # ── Provider registry ────────────────────────────────────────────────────────
 PROVIDERS = {
@@ -79,25 +79,25 @@ DEFAULT_PROVIDER = "gemini"
 
 
 # ── Provider helpers ─────────────────────────────────────────────────────────
-def get_active_provider() -> str:
+def get_active_provider(user_id: str) -> str:
     """Return key provider yang aktif. Default 'gemini'."""
-    val = get_secret(ACTIVE_KEY, "")
+    val = get_user_secret(user_id, ACTIVE_KEY, "")
     if val and val in PROVIDERS:
         return val
     return DEFAULT_PROVIDER
 
 
-def set_active_provider(provider: str) -> None:
+def set_active_provider(user_id: str, provider: str) -> None:
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown provider: {provider}")
-    set_secret(ACTIVE_KEY, provider)
+    set_user_secret(user_id, ACTIVE_KEY, provider)
 
 
-def list_providers() -> list[dict]:
+def list_providers(user_id: str) -> list[dict]:
     """List semua provider dengan status configured."""
     out = []
     for key, meta in PROVIDERS.items():
-        api_key = get_secret(meta["api_key_env"], "")
+        api_key = get_user_secret(user_id, meta["api_key_env"], "")
         out.append({
             "key": key,
             "label": meta["label"],
@@ -122,6 +122,7 @@ def _mask(val: str) -> str:
 
 # ── Unified chat function ────────────────────────────────────────────────────
 async def chat(
+    user_id: str,
     prompt: str,
     *,
     system_prompt: Optional[str] = None,
@@ -144,6 +145,7 @@ async def chat(
     """
     try:
         return await chat_raw(
+            user_id,
             prompt,
             system_prompt=system_prompt,
             max_tokens=max_tokens,
@@ -151,11 +153,12 @@ async def chat(
             prefer_provider=prefer_provider,
         )
     except Exception as e:
-        print(f"[ai_service] Error calling {prefer_provider or get_active_provider()}: {e}")
+        print(f"[ai_service] Error calling {prefer_provider or get_active_provider(user_id)}: {e}")
         return ""
 
 
 async def chat_raw(
+    user_id: str,
     prompt: str,
     *,
     system_prompt: Optional[str] = None,
@@ -168,12 +171,12 @@ async def chat_raw(
     supaya error asli dari provider (model tidak ditemukan, API key invalid, quota habis,
     dsb) bisa ditampilkan ke user alih-alih pesan generik "response kosong".
     """
-    provider = prefer_provider or get_active_provider()
+    provider = prefer_provider or get_active_provider(user_id)
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown provider: {provider}")
 
     meta = PROVIDERS[provider]
-    api_key = get_secret(meta["api_key_env"], "")
+    api_key = get_user_secret(user_id, meta["api_key_env"], "")
     if not api_key:
         raise ValueError(f"{meta['api_key_label']} belum di-set.")
 
@@ -432,7 +435,7 @@ async def _call_openrouter(api_key, model, prompt, system_prompt, max_tokens, te
 
 
 # ── Test connection ──────────────────────────────────────────────────────────
-async def test_provider(provider: str) -> dict:
+async def test_provider(user_id: str, provider: str) -> dict:
     """
     Test koneksi ke provider dengan prompt sederhana.
     Return {ok, detail} atau {ok: False, error}.
@@ -441,12 +444,13 @@ async def test_provider(provider: str) -> dict:
         return {"ok": False, "error": f"Unknown provider: {provider}"}
 
     meta = PROVIDERS[provider]
-    api_key = get_secret(meta["api_key_env"], "")
+    api_key = get_user_secret(user_id, meta["api_key_env"], "")
     if not api_key:
         return {"ok": False, "error": f"{meta['api_key_label']} belum di-set."}
 
     try:
         result = await chat_raw(
+            user_id,
             "Reply with the single word: OK",
             system_prompt="You are a test bot. Reply with just 'OK'.",
             max_tokens=256,
@@ -471,7 +475,7 @@ async def test_provider(provider: str) -> dict:
 
 
 # ── CV-based position suggestion ──────────────────────────────────────────────
-async def suggest_positions_from_cv(cv_text: str, max_positions: int = 8) -> dict:
+async def suggest_positions_from_cv(user_id: str, cv_text: str, max_positions: int = 8) -> dict:
     """Generate list posisi pekerjaan yang relevan dengan CV.
 
     Dipakai oleh halaman Cari Kerja untuk bantu user menemukan posisi alternatif
@@ -509,6 +513,7 @@ async def suggest_positions_from_cv(cv_text: str, max_positions: int = 8) -> dic
 
     try:
         response = await chat(
+            user_id,
             prompt,
             system_prompt=system_prompt,
             max_tokens=300,

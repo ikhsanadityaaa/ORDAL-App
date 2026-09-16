@@ -12,6 +12,7 @@ Flow baru:
 """
 import base64
 import hashlib
+import os
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,16 @@ from auth_utils import (
     get_or_create_device_id,
     get_device_name,
     get_app_version,
+    get_device_fingerprint,
+)
+from abuse_prevention import (
+    assert_email_allowed,
+    canonicalize_email,
+    device_signal,
+    email_signal,
+    login_attempt_allowed,
+    record_event,
+    register_attempt_allowed,
 )
 from services.email_sender import is_smtp_configured, send_verification_email
 
@@ -82,9 +93,9 @@ def _create_web_user(db, email: str, name: str, password: str | None, provider: 
         ucode = _gen_user_code()
         try:
             db.execute(
-                'INSERT INTO "User" ("id", "email", "name", "password", "authProvider", "uniqueUserCode", "createdAt", "updatedAt") '
-                "VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                (uid, email, name, password, provider, ucode),
+                'INSERT INTO "User" ("id", "email", "emailCanonical", "name", "password", "authProvider", "uniqueUserCode", "createdAt", "updatedAt") '
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                (uid, email, canonicalize_email(email), name, password, provider, ucode),
             )
             db.execute(
                 "INSERT INTO app_user_profile (user_id, email_verified) VALUES (?, ?) ON CONFLICT DO NOTHING",
@@ -101,8 +112,8 @@ def _create_web_user(db, email: str, name: str, password: str | None, provider: 
 def _get_user_by_email(email: str) -> dict | None:
     return query_one(
         'SELECT "id", "email", "name", "password", "authProvider", "uniqueUserCode", "createdAt" '
-        'FROM "User" WHERE "email" = ?',
-        (email,),
+        'FROM "User" WHERE "email" = ? OR "emailCanonical" = ? ORDER BY CASE WHEN "email" = ? THEN 0 ELSE 1 END LIMIT 1',
+        (email, canonicalize_email(email), email),
     )
 
 
@@ -160,15 +171,16 @@ def _issue_verification_code(db, email: str) -> dict:
 
     sent = False
     dev_code = None
+    allow_dev_code = os.getenv("ALLOW_DEV_VERIFICATION_CODE", "").strip().lower() in ("1", "true", "yes")
     if is_smtp_configured():
         try:
             send_verification_email(email, code)
             sent = True
         except Exception as e:
             print(f"[WARN] Gagal kirim email verifikasi: {e}")
-            dev_code = code  # fallback supaya user tetap bisa lanjut
-    else:
-        # Mode pengembangan: SMTP belum diisi → kode tampil di layar
+            if allow_dev_code:
+                dev_code = code
+    elif allow_dev_code:
         dev_code = code
 
     return {"sent": sent, "dev_code": dev_code, "smtp_configured": is_smtp_configured()}
@@ -360,13 +372,18 @@ class GooglePollRequest(BaseModel):
 @router.post("/register")
 def register(req: RegisterRequest):
     email = req.email.lower().strip()
+    assert_email_allowed(email)
+    registration_device = device_signal(get_device_fingerprint())
+    register_attempt_allowed(registration_device)
+    record_event("register_attempt", registration_device, detail=canonicalize_email(email).rsplit("@", 1)[-1])
     db = get_db()
     try:
         existing = _get_user_by_email(email)
         if existing:
             raise HTTPException(status_code=409, detail="Email sudah terdaftar. Silakan masuk.")
 
-        _create_web_user(db, email, req.name.strip(), hash_password(req.password), "email")
+        created = _create_web_user(db, email, req.name.strip(), hash_password(req.password), "email")
+        record_event("register_created", registration_device, user_id=created["id"])
 
         verif = _issue_verification_code(db, email)
         return {
@@ -383,8 +400,13 @@ def register(req: RegisterRequest):
 @router.post("/login")
 def login(req: LoginRequest):
     email = req.email.lower().strip()
+    login_email_hash = email_signal(email)
+    login_device_hash = device_signal(get_device_fingerprint())
+    login_attempt_allowed(login_email_hash, login_device_hash)
     user = _get_user_by_email(email)
     if not user:
+        record_event("login_failed", login_email_hash, detail="email")
+        record_event("login_failed", login_device_hash, detail="device")
         raise HTTPException(status_code=401, detail="Email atau password salah")
 
     if user.get("password") is None and (user.get("authProvider") or "email") == "google":
@@ -392,6 +414,8 @@ def login(req: LoginRequest):
 
     ok, needs_upgrade = verify_password_ex(req.password, user.get("password") or "")
     if not ok:
+        record_event("login_failed", login_email_hash, user_id=user["id"], detail="email")
+        record_event("login_failed", login_device_hash, user_id=user["id"], detail="device")
         raise HTTPException(status_code=401, detail="Email atau password salah")
 
     # Upgrade hash SHA-256/bcrypt lama ke format scrypt bersama.
@@ -422,6 +446,7 @@ def login(req: LoginRequest):
     db = get_db()
     try:
         result = _issue_session(db, user, "password")
+        record_event("login_success", login_email_hash, user_id=user["id"])
         _restore_user_files(user["id"])
         return result
     finally:

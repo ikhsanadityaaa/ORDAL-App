@@ -1512,7 +1512,7 @@ class LinkedInBot:
             jd_text = await jd_el.inner_text() if jd_el else ""
         except Exception:
             jd_text = ""
-        return await generate_cover_letter(job_title, company, jd_text, cv_text)
+        return await generate_cover_letter(self.user_id, job_title, company, jd_text, cv_text)
 
     async def _fill_profile_and_cover_fields(self, page, cv_text, job_title, company, cover_template):
         try:

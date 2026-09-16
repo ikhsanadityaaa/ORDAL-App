@@ -5,11 +5,11 @@ import httpx
 
 # Lazy import untuk avoid circular dependency (app_secrets -> database -> ...).
 # Saat dibutuhkan, _resolve_api_key() akan panggil get_gemini_api_key().
-def _resolve_api_key() -> str:
+def _resolve_api_key(user_id: str) -> str:
     """Resolve API key: DB (app_secrets) dulu, lalu env."""
     try:
-        from app_secrets import get_gemini_api_key
-        val = get_gemini_api_key()
+        from app_secrets import get_user_secret
+        val = get_user_secret(user_id, "GEMINI_API_KEY", "")
         if val:
             return val
     except Exception:
@@ -18,7 +18,7 @@ def _resolve_api_key() -> str:
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
-async def _call_gemini(prompt: str) -> str:
+async def _call_gemini(user_id: str, prompt: str) -> str:
     """
     Call AI dengan prompt. Mencoba ai_service (multi-provider) dulu,
     fallback ke Gemini langsung jika ai_service belum tersedia atau gagal.
@@ -30,13 +30,14 @@ async def _call_gemini(prompt: str) -> str:
     # Try ai_service (multi-provider) first
     try:
         from workers.ai_service import chat as ai_chat, get_active_provider, PROVIDERS
-        from app_secrets import get_secret
-        active = get_active_provider()
+        active = get_active_provider(user_id)
         if active in PROVIDERS:
             meta = PROVIDERS[active]
-            if get_secret(meta["api_key_env"], ""):
+            from app_secrets import get_user_secret
+            if get_user_secret(user_id, meta["api_key_env"], ""):
                 # Active provider has API key — use it
                 result = await ai_chat(
+                    user_id,
                     prompt,
                     max_tokens=1500,
                     temperature=0.7,
@@ -48,7 +49,7 @@ async def _call_gemini(prompt: str) -> str:
         print(f"[gemini_service] ai_service fallback failed: {e}")
 
     # Fallback: legacy Gemini direct call
-    api_key = _resolve_api_key()
+    api_key = _resolve_api_key(user_id)
     if not api_key:
         return ""
     async with httpx.AsyncClient(timeout=30) as client:
@@ -62,7 +63,7 @@ async def _call_gemini(prompt: str) -> str:
         except (KeyError, IndexError):
             return ""
 
-async def generate_cover_letter(job_title: str, company: str, job_description: str, cv_text: str) -> str:
+async def generate_cover_letter(user_id: str, job_title: str, company: str, job_description: str, cv_text: str) -> str:
     prompt = f"""
 You are a professional career coach. Write a concise, compelling cover letter (3 short paragraphs) for this job application.
 
@@ -80,7 +81,7 @@ Requirements:
 - English language
 - Do NOT use placeholders like [Your Name] — just write the content body
 """
-    return await _call_gemini(prompt)
+    return await _call_gemini(user_id, prompt)
 
 def render_cover_letter_template(template: str, job_title: str, company: str) -> str:
     if not template:
@@ -129,7 +130,7 @@ def render_cover_letter_template(template: str, job_title: str, company: str) ->
     rendered = re.sub(r"\n{3,}", "\n\n", rendered)
     return rendered.strip()
 
-async def validate_and_fix_email(subject: str, body: str, company: str, job_title: str, candidate_name: str) -> dict:
+async def validate_and_fix_email(user_id: str, subject: str, body: str, company: str, job_title: str, candidate_name: str) -> dict:
     """
     Use Gemini to validate and fix an email before sending.
     Returns dict with keys: subject, body, is_valid, issues (list of str).
@@ -160,7 +161,7 @@ Return JSON ONLY with these keys:
 
 If no issues found, return the original subject and body unchanged with empty issues list.
 """
-    raw = await _call_gemini(prompt)
+    raw = await _call_gemini(user_id, prompt)
     if not raw:
         return {"subject": subject, "body": body, "is_valid": True, "issues": []}
 
@@ -183,7 +184,7 @@ If no issues found, return the original subject and body unchanged with empty is
     return {"subject": subject, "body": body, "is_valid": True, "issues": []}
 
 
-async def answer_question(question: str, field_type: str, cv_text: str, job_title: str) -> str:
+async def answer_question(user_id: str, question: str, field_type: str, cv_text: str, job_title: str) -> str:
     prompt = f"""
 You are filling out a job application form. Answer the following question concisely and professionally.
 
@@ -201,9 +202,9 @@ Rules:
 - Be specific, not generic
 - Reply with the answer only, no explanation
 """
-    return await _call_gemini(prompt)
+    return await _call_gemini(user_id, prompt)
 
-async def analyze_linkedin_post_opportunity(post_text: str, position: str, location: str, cv_text: str) -> dict:
+async def analyze_linkedin_post_opportunity(user_id: str, post_text: str, position: str, location: str, cv_text: str) -> dict:
     prompt = f"""
 You are screening LinkedIn posts for real job opportunities.
 
@@ -234,7 +235,7 @@ Rules:
 - If there is no email or application URL, leave those fields empty but still assess the post.
 - Draft a concise email body in English, max 180 words, tailored to the post and CV.
 """
-    raw = await _call_gemini(prompt)
+    raw = await _call_gemini(user_id, prompt)
     if not raw:
         return {}
 

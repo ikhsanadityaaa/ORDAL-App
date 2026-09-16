@@ -671,7 +671,7 @@ async def answer_application_question(user_id: int, platform: str, question: str
             or _looks_like_current_salary(question)
         )
         if can_auto_answer:
-            answer = await answer_question(question, field_type, cv_text, job_title)
+            answer = await answer_question(user_id, question, field_type, cv_text, job_title)
             if answer and field_type == "number":
                 answer = _numeric_answer(question, answer)
             if answer:
@@ -702,7 +702,7 @@ async def answer_application_question(user_id: int, platform: str, question: str
             save_question_answer(user_id, platform, question, answer, field_type, source="manual")
             return answer
 
-    answer = await answer_question(question, field_type, cv_text, job_title)
+    answer = await answer_question(user_id, question, field_type, cv_text, job_title)
     if answer and field_type == "number":
         answer = _numeric_answer(question, answer)
     if answer:

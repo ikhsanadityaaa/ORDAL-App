@@ -432,16 +432,21 @@ function ChatPlayground({ activeProvider, providers }) {
 export default function AI() {
   const [providers, setProviders] = useState([])
   const [active, setActive] = useState('')
+  const [selected, setSelected] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const { t } = useI18n()
+  const [actionError, setActionError] = useState('')
+  const { t, lang } = useI18n()
 
   const refresh = async () => {
     setLoading(true); setError(null)
     try {
       const res = await api.get('/ai_config')
-      setProviders(res.data.providers || [])
-      setActive(res.data.active)
+      const nextProviders = res.data.providers || []
+      const nextActive = res.data.active
+      setProviders(nextProviders)
+      setActive(nextActive)
+      setSelected(current => current || nextActive || nextProviders[0]?.key || '')
     } catch (e) {
       setError(e.message)
     } finally {
@@ -452,19 +457,21 @@ export default function AI() {
   useEffect(() => { refresh() }, [])
 
   const handleSelectActive = async (providerKey) => {
+    setActionError('')
     try {
       await api.put('/ai_config/active', { provider: providerKey })
       setActive(providerKey)
     } catch (e) {
-      alert(`Gagal set active: ${e.response?.data?.detail || e.message}`)
+      setActionError(e.response?.data?.detail || e.message)
     }
   }
 
   if (loading) {
     return (
       <div className="main-scroll">
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
+        <div style={{ padding: 40, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, color: 'var(--gray-600)' }}>
           <Loader size={20} className="animate-spin" />
+          <span>{lang === 'id' ? 'Memuat koneksi AI...' : 'Loading AI connections...'}</span>
         </div>
       </div>
     )
@@ -487,6 +494,7 @@ export default function AI() {
   }
 
   const anyConfigured = providers.some(p => p.configured)
+  const selectedProvider = providers.find(provider => provider.key === selected) || providers[0]
 
   return (
     <div className="main-scroll">
@@ -509,23 +517,59 @@ export default function AI() {
         </div>
       )}
 
-      <div className="section-header">
-        <h2><Cpu size={16} color="var(--orange)" /> {t('page.ai.section_provider')}</h2>
-        <p>
-          {t('page.ai.section_provider_desc')}
-        </p>
-      </div>
+      <div className="ai-connect-layout" style={{ marginBottom: 32 }}>
+        <aside className="card ai-provider-list" aria-label={lang === 'id' ? 'Daftar provider AI' : 'AI provider list'}>
+          <div className="card-header">
+            <div className="card-title">{lang === 'id' ? 'Pilih layanan' : 'Choose service'}</div>
+            <div className="card-subtitle">
+              {lang === 'id' ? 'Satu provider aktif dipakai seluruh proses lamaran.' : 'One active provider handles all application tasks.'}
+            </div>
+          </div>
+          <div style={{ padding: 10, display: 'grid', gap: 6 }}>
+            {providers.map(provider => {
+              const isSelected = provider.key === selectedProvider?.key
+              return (
+                <button
+                  key={provider.key}
+                  type="button"
+                  onClick={() => setSelected(provider.key)}
+                  className="ai-provider-option"
+                  data-selected={isSelected ? 'true' : 'false'}
+                  aria-pressed={isSelected}
+                >
+                  <ProviderLogo providerKey={provider.key} size={22} />
+                  <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <strong>{provider.label}</strong>
+                    <small>{provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}</small>
+                  </span>
+                  {provider.key === active && <span className="ai-active-dot" title={lang === 'id' ? 'Sedang dipakai' : 'Currently active'} />}
+                </button>
+              )
+            })}
+          </div>
+          <div className="ai-local-note">
+            <Key size={14} />
+            <span>{lang === 'id' ? 'API key dienkripsi dan disimpan lokal pada perangkat ini.' : 'API keys are encrypted and stored locally on this device.'}</span>
+          </div>
+        </aside>
 
-      <div className="grid-cards" style={{ marginBottom: 32 }}>
-        {providers.map(provider => (
-          <ProviderCard
-            key={provider.key}
-            provider={provider}
-            isActive={provider.key === active}
-            onSelect={handleSelectActive}
-            onSaved={refresh}
-          />
-        ))}
+        <div>
+          {actionError && (
+            <div className="notice notice-error" style={{ marginBottom: 12 }}>
+              <AlertCircle size={14} /> <span>{actionError}</span>
+            </div>
+          )}
+          {selectedProvider ? (
+            <ProviderCard
+              provider={selectedProvider}
+              isActive={selectedProvider.key === active}
+              onSelect={handleSelectActive}
+              onSaved={refresh}
+            />
+          ) : (
+            <div className="notice notice-error">{lang === 'id' ? 'Provider AI tidak tersedia.' : 'No AI provider is available.'}</div>
+          )}
+        </div>
       </div>
 
       <div className="section-header">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Briefcase, Send, Calendar, AlertCircle, Loader, CheckCircle } from 'lucide-react'
+import { FileText, Briefcase, Send, Calendar, AlertCircle, Loader } from 'lucide-react'
 import CVManager from './CVManager'
 import Settings from './Settings'
 import {
@@ -101,50 +101,11 @@ function TabApply() {
 
 function TabTelegram({ secrets, onSaved }) {
   const { t } = useI18n()
-  // Token sudah hardcoded di backend (DEFAULT_TELEGRAM_BOT_TOKEN @siordal_bot)
-  // Tidak perlu input token manual lagi — langsung tampilkan info + link akun
+  const telegramSecret = secrets.find(secret => secret.key === 'TELEGRAM_BOT_TOKEN')
   return (
     <div className="grid-cards">
-      {/* Info card: bot sudah dikonfigurasi */}
-      <div className="card">
-        <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 8,
-            background: 'var(--orange-50)', color: 'var(--orange)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Send size={18} strokeWidth={2.25} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {t('persiapan.tab.telegram') === 'Telegram' ? 'Telegram Bot' : 'Bot Telegram'}
-              <span className="badge badge-success"><CheckCircle size={11} /> {t('ai.badge.active')}</span>
-            </div>
-            <div className="card-subtitle">{t('persiapan.telegram.desc_long')}</div>
-          </div>
-        </div>
-        <div className="card-pad">
-          <div className="input-help" style={{ marginBottom: 10 }}>
-            {t('persiapan.tab.telegram') === 'Telegram'
-              ? 'Bot sudah siap pakai — Anda tidak perlu input token manual. Cukup hubungkan akun Telegram Anda lewat kartu "Link Akun Telegram" di sebelah.'
-              : 'Bot is ready to use — you do not need to input a token manually. Just connect your Telegram account via the "Link Telegram Account" card next to this.'}
-          </div>
-          <button
-            onClick={async () => {
-              try {
-                const r = await api.post('/app_config/test/telegram')
-                if (r.data.ok) alert(`✅ ${r.data.detail}`)
-                else alert(`❌ ${r.data.error}`)
-              } catch (e) { alert(`Error: ${e.message}`) }
-            }}
-            className="btn btn-secondary"
-          >
-            <CheckCircle size={13} /> {t('ai.btn.test')} Bot
-          </button>
-        </div>
-      </div>
-
-      <TelegramLinkCard telegramConfigured={true} onSaved={onSaved} />
+      {telegramSecret && <SecretCard secret={telegramSecret} onSaved={onSaved} />}
+      <TelegramLinkCard telegramConfigured={Boolean(telegramSecret?.configured)} onSaved={onSaved} />
     </div>
   )
 }

@@ -526,6 +526,7 @@ const TRANSLATIONS = {
   'lic.title':            { id: 'Lanjutkan Menggunakan ORDAL', en: 'Keep Using ORDAL' },
   'lic.sub_choose':       { id: 'Pilih metode pembayaran untuk mengaktifkan ORDAL PRO.', en: 'Choose a payment method to activate ORDAL PRO.' },
   'lic.expired_banner':   { id: 'Trial gratis 3 hari kamu sudah berakhir. Aktifkan ORDAL PRO untuk melanjutkan menggunakan semua fitur auto-apply.', en: 'Your free 3-day trial has ended. Activate ORDAL PRO to keep using all auto-apply features.' },
+  'lic.ineligible_banner': { id: 'Trial gratis sudah pernah dipakai oleh identitas atau perangkat ini. Aktivasi ORDAL PRO untuk melanjutkan.', en: 'A free trial has already been used by this identity or device. Activate ORDAL PRO to continue.' },
   'lic.benefits_title':   { id: 'Yang kamu dapat:', en: 'What you get:' },
   'lic.b1':               { id: 'Auto-apply tanpa batas', en: 'Unlimited auto-apply' },
   'lic.b2':               { id: 'JobStreet + LinkedIn', en: 'JobStreet + LinkedIn' },

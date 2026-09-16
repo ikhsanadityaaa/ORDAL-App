@@ -119,9 +119,16 @@ npm run dev                 # vite di :5173, proxy /api → :8000
 |---|---|---|
 | `ORDAL_DATABASE_URL` | ✅ | DSN PostgreSQL pusat (production: Supabase, sama dengan web) |
 | `SMTP_HOST` / `SMTP_PORT` | — | Default `smtp.gmail.com` / `587` |
-| `SMTP_USER` / `SMTP_APP_PASSWORD` | ✅ untuk verifikasi email | Gmail App Password → https://myaccount.google.com/apppasswords (aktifkan 2FA dulu). Kalau kosong, kode verifikasi tampil di layar (mode pengembangan) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — untuk login Google | Lihat panduan di bawah. Kalau kosong, tombol Google tampil "segera hadir" |
+| `SMTP_USER` / `SMTP_APP_PASSWORD` | ✅ untuk verifikasi email | Gmail App Password → https://myaccount.google.com/apppasswords (aktifkan 2FA dulu). Production tidak menampilkan kode verifikasi di layar. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — untuk login Google | Lihat panduan di bawah. Kalau kosong, UI menampilkan petunjuk konfigurasi. |
 | `CORS_ORIGINS` | — | Default sudah mencakup localhost dev |
+| `ABUSE_HASH_SECRET` | ✅ production | Kunci acak 32+ byte untuk hash identitas trial dan sinyal perangkat. |
+| `BLOCKED_EMAIL_DOMAINS` | — | Tambahan domain email sementara, dipisahkan koma. |
+| `ALLOW_DEV_VERIFICATION_CODE` | — | Gunakan `true` hanya di development lokal. Wajib `false` di production. |
+
+Trial sekarang diikat ke canonical email dan fingerprint hardware. Alias Gmail dengan titik atau `+tag` dianggap satu identitas. Satu perangkat tidak dapat mengambil trial baru dengan akun lain.
+
+> Batas arsitektur saat ini: desktop masih terhubung langsung ke PostgreSQL pusat. Gunakan role database khusus dengan hak minimum. Untuk distribusi publik skala besar, pindahkan auth, trial, pembayaran, lisensi, dan penyimpanan data ke control-plane HTTPS; jangan membagikan DSN database kepada installer.
 
 ## Setup Google OAuth (Login dengan Gmail)
 

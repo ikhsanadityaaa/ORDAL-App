@@ -21,19 +21,13 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app_secrets import get_secret, set_secret, list_secret_keys
+from app_secrets import get_local_secret, set_local_secret
 from auth_utils import get_current_user
 
 router = APIRouter()
 
 # Daftar secret yang dikenali. Masked value = prefix + suffix.
 KNOWN_SECRETS = {
-    "GEMINI_API_KEY": {
-        "label": "Gemini API Key",
-        "description": "Untuk generate cover letter & jawab pertanyaan form. Dapat dari https://aistudio.google.com/app/apikey",
-        "link": "https://aistudio.google.com/app/apikey",
-        "test_endpoint": "/api/app_config/test/gemini",
-    },
     "TELEGRAM_BOT_TOKEN": {
         "label": "Telegram Bot Token",
         "description": "Untuk kontrol via Telegram & notifikasi auto-apply. Dapat dari @BotFather.",
@@ -64,7 +58,7 @@ def list_secrets(user: dict = Depends(get_current_user)):
     """
     out = []
     for key, meta in KNOWN_SECRETS.items():
-        val = get_secret(key, "")
+        val = get_local_secret(key, "")
         out.append({
             "key": key,
             "label": meta["label"],
@@ -330,7 +324,7 @@ async def auto_link_telegram(user: dict = Depends(get_current_user)):
 def get_one_secret(key: str, user: dict = Depends(get_current_user)):
     if key not in KNOWN_SECRETS:
         raise HTTPException(status_code=404, detail=f"Unknown secret: {key}")
-    val = get_secret(key, "")
+    val = get_local_secret(key, "")
     meta = KNOWN_SECRETS[key]
     return {
         "key": key,
@@ -348,7 +342,7 @@ def set_one_secret(key: str, body: SecretUpdate, user: dict = Depends(get_curren
     if key not in KNOWN_SECRETS:
         raise HTTPException(status_code=404, detail=f"Unknown secret: {key}")
     value = (body.value or "").strip()
-    set_secret(key, value)
+    set_local_secret(key, value)
     return {
         "key": key,
         "configured": bool(value),
@@ -360,7 +354,7 @@ def set_one_secret(key: str, body: SecretUpdate, user: dict = Depends(get_curren
 def delete_one_secret(key: str, user: dict = Depends(get_current_user)):
     if key not in KNOWN_SECRETS:
         raise HTTPException(status_code=404, detail=f"Unknown secret: {key}")
-    set_secret(key, "")
+    set_local_secret(key, "")
     return {"key": key, "configured": False}
 
 
@@ -377,7 +371,7 @@ async def test_gemini(user: dict = Depends(get_current_user)):
     """
     try:
         from workers import ai_service
-        result = await ai_service.test_provider("gemini")
+        result = await ai_service.test_provider(user["id"], "gemini")
         return result
     except Exception as e:
         return {"ok": False, "error": f"Ai service error: {e}"}

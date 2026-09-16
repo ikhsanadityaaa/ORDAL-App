@@ -1463,7 +1463,7 @@ class LinkedInPostsBot:
             # ── Gemini email validation: check for duplicate company name, correctness ──
             try:
                 validated = await validate_and_fix_email(
-                    subject, body, company, email_job_title, candidate_name,
+                    self.user_id, subject, body, company, email_job_title, candidate_name,
                 )
                 if validated:
                     issues = validated.get("issues") or []

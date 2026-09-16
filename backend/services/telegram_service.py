@@ -31,48 +31,8 @@ from database import get_db
 # (termasuk _handle_callback yang ada sebelum definisi _log sebelumnya).
 _log = _logging.getLogger("ordal-telegram")
 
-# Token resolution: DB (app_secrets) dulu, lalu env, lalu DEFAULT (hardcoded untuk Mac app).
-# Token ini user-specific (bot @siordal_bot milik user), tidak akan berubah.
-# Di-update ke DB saat user save via UI, tapi default sudah ada supaya app langsung jalan.
-# ⚠️ Token lama (AAF05y3cFALD7EE2Wr-VObegUmuVzg_bv8k) sudah di-revoke di @BotFather.
-#   Token baru (AAF8LB6rs7_LWyCVmj_-wFcU9YjJdrca-tE) wajib dipakai supaya
-#   answerCallbackQuery & sendMessage tidak 401 Unauthorized.
-DEFAULT_TELEGRAM_BOT_TOKEN = "8885486320:AAF8LB6rs7_LWyCVmj_-wFcU9YjJdrca-tE"
-
-# Daftar token lama yang sudah di-revoke. Dipakai oleh _migrate_old_bot_token()
-# untuk auto-replace token lama yang tersimpan di DB supaya app tetap jalan
-# tanpa user perlu manual update via UI.
-_OLD_BOT_TOKENS = {
-    "8885486320:AAF05y3cFALD7EE2Wr-VObegUmuVzg_bv8k",
-}
-
-
-def _migrate_old_bot_token() -> None:
-    """Cek token yang tersimpan di DB. Kalau cocok dengan token lama yang
-    sudah di-revoke, hapus dari DB supaya _resolve_bot_token() fall through
-    ke DEFAULT_TELEGRAM_BOT_TOKEN (yang baru).
-
-    Dipanggil sekali saat startup (di start_background_tasks). Aman dijalankan
-    berkali-kali — cuma hapus kalau token di DB match dengan old list.
-    """
-    try:
-        from app_secrets import get_secret, set_secret
-        current = get_secret("TELEGRAM_BOT_TOKEN", "")
-        if current and current in _OLD_BOT_TOKENS:
-            # Hapus token lama dari DB. _resolve_bot_token akan fall through
-            # ke DEFAULT_TELEGRAM_BOT_TOKEN yang baru.
-            set_secret("TELEGRAM_BOT_TOKEN", "")
-            _log.warning(
-                f"Telegram bot token lama terdeteksi di DB (sudah di-revoke). "
-                f"Token dihapus, sekarang pakai default baru: "
-                f"{DEFAULT_TELEGRAM_BOT_TOKEN[:20]}..."
-            )
-    except Exception as e:
-        _log.warning(f"Gagal migrate old bot token: {e}")
-
-
 def _resolve_bot_token() -> str:
-    """Urutan: DB (app_secrets) → env → DEFAULT_TELEGRAM_BOT_TOKEN."""
+    """Read token from encrypted configuration or environment."""
     try:
         from app_secrets import get_telegram_bot_token
         val = get_telegram_bot_token()
@@ -83,7 +43,7 @@ def _resolve_bot_token() -> str:
     env_val = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     if env_val:
         return env_val
-    return DEFAULT_TELEGRAM_BOT_TOKEN
+    return ""
 
 
 def telegram_available() -> bool:
@@ -1885,11 +1845,6 @@ def start_background_tasks() -> None:
     if not telegram_available():
         _log.warning("Telegram tidak available (bot token kosong). Polling tidak dimulai.")
         return
-
-    # ── Migrate token lama yang sudah di-revoke ──
-    # Kalau user sebelumnya set token lama via UI (tersimpan di DB), hapus
-    # supaya _resolve_bot_token() pakai DEFAULT_TELEGRAM_BOT_TOKEN yang baru.
-    _migrate_old_bot_token()
 
     loop = asyncio.get_running_loop()
     if TELEGRAM_POLLING_ENABLED and (_polling_task is None or _polling_task.done()):

@@ -55,6 +55,8 @@ from services.email_sender import (
     send_activation_email,
     send_admin_notification,
 )
+from abuse_prevention import abuse_summary, claim_trial
+from auth_utils import get_device_fingerprint
 
 router = APIRouter()
 
@@ -258,6 +260,11 @@ def ensure_trial_started(user_id: str) -> tuple[dict, bool]:
     """Mulai trial kalau belum pernah dimulai (idempotent). Return (status, just_started).
     Dipanggil saat user klik 'Cari Kerja' — trial TIDAK dimulai saat register,
     jadi user punya waktu penuh 3 hari sejak pemakaian pertama."""
+    user = query_one('SELECT "email" FROM "User" WHERE "id" = ?', (user_id,))
+    if not user:
+        raise HTTPException(status_code=404, detail="Akun tidak ditemukan")
+    claim_trial(user_id, user["email"], get_device_fingerprint())
+
     existing = query_one('SELECT "id" FROM "Trial" WHERE "userId" = ?', (user_id,))
     if existing:
         return get_access_status(user_id), False
@@ -302,6 +309,7 @@ def _gen_cuid_like() -> str:
 @router.get("/api/trial/status")
 def trial_status(user=Depends(get_current_user)):
     st = get_access_status(user["id"])
+    st["abuse_protection"] = abuse_summary(user["id"])
     st["pricing"] = {
         "idr": LICENSE_PRICE_IDR,
         "usd": LICENSE_PRICE_USD,
@@ -899,7 +907,12 @@ def activate(body: ActivateIn, user=Depends(get_current_user)):
             "SELECT id FROM app_payments WHERE user_id = ? AND status = 'verified' ORDER BY verified_at DESC LIMIT 1",
             (user["id"],),
         )
-        st = _activate_license(user, personal, method="payment", payment_id=payment["id"] if payment else None)
+        if not payment:
+            raise HTTPException(
+                status_code=403,
+                detail="Kode ditemukan, tetapi pembayaran belum terverifikasi.",
+            )
+        st = _activate_license(user, personal, method="payment", payment_id=payment["id"])
         st["activated_via"] = "payment"
         return st
 
@@ -1022,4 +1035,3 @@ def admin_grant_license(body: dict, request: Request = None, user=Depends(get_cu
     finally:
         db.close()
     return {"ok": True, "email": email, "activation_code": code}
-

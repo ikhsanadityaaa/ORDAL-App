@@ -1,6 +1,10 @@
 import os
 import secrets
 import jwt
+import hashlib
+import platform
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -68,6 +72,43 @@ def get_or_create_device_id() -> str:
     with open(path, "w", encoding="utf-8") as f:
         f.write(did)
     return did
+
+
+def get_device_fingerprint() -> str:
+    """Stable hardware fingerprint used only as a hashed trial-abuse signal."""
+    raw = ""
+    try:
+        if sys.platform == "darwin":
+            output = subprocess.check_output(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                text=True,
+                timeout=3,
+            )
+            for line in output.splitlines():
+                if "IOPlatformUUID" in line:
+                    raw = line.split("=", 1)[-1].strip().strip('"')
+                    break
+        elif sys.platform == "win32":
+            import winreg
+
+            with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Cryptography",
+            ) as key:
+                raw = str(winreg.QueryValueEx(key, "MachineGuid")[0])
+        else:
+            for path in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as handle:
+                        raw = handle.read().strip()
+                    if raw:
+                        break
+    except Exception:
+        raw = ""
+
+    if not raw:
+        raw = f"{platform.node()}:{platform.machine()}:{get_or_create_device_id()}"
+    return "hw_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def get_device_name() -> str:

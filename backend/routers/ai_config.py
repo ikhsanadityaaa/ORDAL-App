@@ -38,8 +38,8 @@ class ApiKeyUpdate(BaseModel):
 @router.get("")
 def list_all(user: dict = Depends(get_current_user)):
     """List semua provider AI + status configured + active provider."""
-    providers = ai_service.list_providers()
-    active = ai_service.get_active_provider()
+    providers = ai_service.list_providers(user["id"])
+    active = ai_service.get_active_provider(user["id"])
     return {
         "providers": providers,
         "active": active,
@@ -51,7 +51,7 @@ def list_all(user: dict = Depends(get_current_user)):
 def set_active(body: ActiveProviderUpdate, user: dict = Depends(get_current_user)):
     """Set provider yang aktif (yang dipakai bot)."""
     try:
-        ai_service.set_active_provider(body.provider)
+        ai_service.set_active_provider(user["id"], body.provider)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -70,8 +70,8 @@ def get_key(provider: str, user: dict = Depends(get_current_user)):
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import get_secret
-    val = get_secret(meta["api_key_env"], "")
+    from app_secrets import get_user_secret
+    val = get_user_secret(user["id"], meta["api_key_env"], "")
     return {
         "provider": provider,
         "configured": bool(val),
@@ -93,9 +93,9 @@ def set_key(provider: str, body: ApiKeyUpdate, user: dict = Depends(get_current_
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import set_secret
+    from app_secrets import set_user_secret
     value = (body.value or "").strip()
-    set_secret(meta["api_key_env"], value)
+    set_user_secret(user["id"], meta["api_key_env"], value)
     return {
         "provider": provider,
         "configured": bool(value),
@@ -108,8 +108,8 @@ def delete_key(provider: str, user: dict = Depends(get_current_user)):
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import set_secret
-    set_secret(meta["api_key_env"], "")
+    from app_secrets import set_user_secret
+    set_user_secret(user["id"], meta["api_key_env"], "")
     return {"provider": provider, "configured": False}
 
 
@@ -118,7 +118,7 @@ async def test_provider(provider: str, user: dict = Depends(get_current_user)):
     """Test koneksi ke provider."""
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
-    result = await ai_service.test_provider(provider)
+    result = await ai_service.test_provider(user["id"], provider)
     return result
 
 
@@ -138,16 +138,17 @@ async def suggest_positions(body: SuggestPositionsRequest, user: dict = Depends(
     if not body.cv_text or not body.cv_text.strip():
         raise HTTPException(status_code=400, detail="CV text tidak boleh kosong")
 
-    active = ai_service.get_active_provider()
+    active = ai_service.get_active_provider(user["id"])
     meta = ai_service.PROVIDERS[active]
-    from app_secrets import get_secret
-    if not get_secret(meta["api_key_env"], ""):
+    from app_secrets import get_user_secret
+    if not get_user_secret(user["id"], meta["api_key_env"], ""):
         raise HTTPException(
             status_code=400,
             detail=f"API key untuk {meta['label']} belum di-set. Set dulu di kartu provider yang dipilih.",
         )
 
     result = await ai_service.suggest_positions_from_cv(
+        user["id"],
         body.cv_text,
         max_positions=max(1, min(body.max_positions, 15)),
     )
@@ -178,7 +179,7 @@ async def chat(body: ChatRequest, user: dict = Depends(get_current_user)):
     prompt_text = body.prompt.strip()
     guard_block, guard_reason = _guard_prompt(prompt_text)
     if guard_block:
-        active = ai_service.get_active_provider()
+        active = ai_service.get_active_provider(user["id"])
         meta = ai_service.PROVIDERS[active]
         return {
             "ok": True,
@@ -189,10 +190,10 @@ async def chat(body: ChatRequest, user: dict = Depends(get_current_user)):
             "error": None,
         }
 
-    active = ai_service.get_active_provider()
+    active = ai_service.get_active_provider(user["id"])
     meta = ai_service.PROVIDERS[active]
-    from app_secrets import get_secret
-    if not get_secret(meta["api_key_env"], ""):
+    from app_secrets import get_user_secret
+    if not get_user_secret(user["id"], meta["api_key_env"], ""):
         raise HTTPException(
             status_code=400,
             detail=f"API key untuk {meta['label']} belum di-set. Set dulu di kartu provider yang dipilih.",
@@ -215,6 +216,7 @@ async def chat(body: ChatRequest, user: dict = Depends(get_current_user)):
         final_system = default_system + "\n\nAdditional instructions:\n" + body.system_prompt.strip()
 
     response = await ai_service.chat(
+        user["id"],
         body.prompt,
         system_prompt=final_system,
         max_tokens=body.max_tokens,

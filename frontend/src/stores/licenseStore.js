@@ -75,6 +75,19 @@ const useLicenseStore = create((set, get) => ({
         })
         return false
       }
+      if (detail?.code === 'TRIAL_NOT_ELIGIBLE') {
+        set({
+          showPaymentModal: true,
+          paymentModalStep: 'choose',
+          forced: true,
+          status: {
+            ...get().status,
+            trial: { started: false, status: 'not_eligible' },
+            access: { allowed: false, reason: 'trial_not_eligible' },
+          },
+        })
+        return false
+      }
       throw err
     }
   },

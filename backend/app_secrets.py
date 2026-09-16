@@ -11,13 +11,17 @@ GEMINI_API_KEY/TELEGRAM_BOT_TOKEN dibaca, fall back ke DB dulu, lalu env.
 from __future__ import annotations
 
 import os
+import json
+import threading
 from typing import Optional
 
-from database import get_db
+from database import get_db, get_data_dir
 
 # Lazy import encryption untuk avoid circular import di edge cases
 _encrypt = None
 _decrypt = None
+_local_lock = threading.Lock()
+_LOCAL_SECRETS_PATH = os.path.join(get_data_dir(), "user-secrets.json")
 
 
 def _get_cipher():
@@ -102,10 +106,64 @@ def has_secret(key: str) -> bool:
     return bool(val)
 
 
+def _read_local_secrets() -> dict:
+    if not os.path.exists(_LOCAL_SECRETS_PATH):
+        return {}
+    try:
+        with open(_LOCAL_SECRETS_PATH, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_local_secrets(data: dict) -> None:
+    os.makedirs(os.path.dirname(_LOCAL_SECRETS_PATH), exist_ok=True)
+    temp_path = _LOCAL_SECRETS_PATH + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, separators=(",", ":"))
+    os.chmod(temp_path, 0o600)
+    os.replace(temp_path, _LOCAL_SECRETS_PATH)
+
+
+def get_user_secret(user_id: str, key: str, default: str = "") -> str:
+    with _local_lock:
+        encrypted = _read_local_secrets().get(str(user_id), {}).get(key)
+    if not encrypted:
+        return os.getenv(key, default)
+    _, decrypt_fn = _get_cipher()
+    try:
+        return decrypt_fn(encrypted)
+    except Exception:
+        return default
+
+
+def set_user_secret(user_id: str, key: str, value: str) -> None:
+    encrypt_fn, _ = _get_cipher()
+    with _local_lock:
+        data = _read_local_secrets()
+        bucket = data.setdefault(str(user_id), {})
+        if value:
+            bucket[key] = encrypt_fn(value)
+        else:
+            bucket.pop(key, None)
+        if not bucket:
+            data.pop(str(user_id), None)
+        _write_local_secrets(data)
+
+
+def get_local_secret(key: str, default: str = "") -> str:
+    return get_user_secret("_device", key, default)
+
+
+def set_local_secret(key: str, value: str) -> None:
+    set_user_secret("_device", key, value)
+
+
 # ── Convenience wrappers ──────────────────────────────────────────────────────
 def get_gemini_api_key() -> str:
     return get_secret("GEMINI_API_KEY")
 
 
 def get_telegram_bot_token() -> str:
-    return get_secret("TELEGRAM_BOT_TOKEN")
+    return get_local_secret("TELEGRAM_BOT_TOKEN")

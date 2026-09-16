@@ -370,6 +370,7 @@ Write the cover letter template now (body only, no additional explanation):
     try:
         from workers.gemini_service import answer_question
         template = await answer_question(
+            user_id=user["id"],
             question=prompt,
             field_type="textarea",
             cv_text=cv_text,
