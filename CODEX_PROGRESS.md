@@ -3,7 +3,7 @@
 Last updated: 2026-09-17
 Branch: `codex/desktop-control-plane`
 Base commit: `a003a72`
-Current work is local and not pushed.
+Implementation commit: `2c0eec6` (pushed to `origin/codex/desktop-control-plane`).
 
 ## Goal
 
