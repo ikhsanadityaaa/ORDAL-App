@@ -3,6 +3,8 @@
 Last updated: 2026-09-17
 Branch: `codex/secure-architecture-v2`
 Base commit: `a003a72`
+Latest pushed commit: `8b1b346`
+Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
 
@@ -57,7 +59,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Build Windows package and inspect final bundle for secrets.
 - Build/sign/notarize macOS package and inspect final bundle for secrets.
 - Obtain Windows Authenticode certificate and Apple Developer ID before public distribution.
-- Commit and push the feature branch, then test its Vercel preview.
+- Test the desktop app against the Web feature branch Vercel preview.
 
 ## External Setup Dependency
 
