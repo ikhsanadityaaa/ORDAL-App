@@ -674,10 +674,14 @@ def init_db():
 
     db = get_db()
     try:
-        cur = db.cursor()
-        cur.executescript(SCHEMA_SQL)
-        db.commit()
-        print("[INFO] Schema app dan kolom kompatibilitas web siap")
+        if os.getenv("ORDAL_RUN_SCHEMA_MIGRATIONS", "").strip().lower() in ("1", "true", "yes"):
+            cur = db.cursor()
+            cur.executescript(SCHEMA_SQL)
+            db.commit()
+            print("[WARN] Schema migration dijalankan dari desktop karena ORDAL_RUN_SCHEMA_MIGRATIONS aktif")
+        else:
+            db.execute("SELECT 1")
+            print("[INFO] Koneksi PostgreSQL siap; schema dikelola migration pipeline")
     finally:
         db.close()
 

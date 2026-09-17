@@ -1,56 +1,15 @@
 import os
 import secrets
-import jwt
 import hashlib
 import platform
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passwords import hash_password, verify_password, verify_password_ex
 
-# v3: APP_MODE single-user dihapus — semua request wajib pakai JWT
-# yang ter-bind ke device terdaftar (maks 2 device per akun).
+# Access tokens are opaque server sessions issued by ORDAL-Web.
 
-
-def _resolve_key_file() -> str:
-    explicit = os.getenv("JWT_SECRET_FILE", "").strip()
-    if explicit:
-        return explicit
-    from database import get_data_dir
-    data_dir = get_data_dir()
-    os.makedirs(data_dir, exist_ok=True)
-    return os.path.join(data_dir, "secret.key")
-
-
-_KEY_FILE = _resolve_key_file()
-
-
-def _get_secret() -> str:
-    """Production: JWT_SECRET dari environment (WAJIB disamakan antar device
-    kalau backend di-deploy terpusat; di desktop app backend jalan lokal,
-    tiap device punya secret sendiri — token hanya dipakai device itu).
-    Fallback lokal: secret.key di data dir."""
-    env_secret = os.getenv("JWT_SECRET", "").strip()
-    if env_secret:
-        return env_secret
-
-    if os.path.exists(_KEY_FILE):
-        with open(_KEY_FILE, "r", encoding="utf-8") as f:
-            return f.read().strip()
-
-    key = secrets.token_hex(32)
-    os.makedirs(os.path.dirname(_KEY_FILE) or ".", exist_ok=True)
-    with open(_KEY_FILE, "w", encoding="utf-8") as f:
-        f.write(key)
-    print(f"secret.key dibuat otomatis: {_KEY_FILE}")
-    return key
-
-
-SECRET_KEY = _get_secret()
-ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 30
 
 security = HTTPBearer(auto_error=True)
 
@@ -127,55 +86,17 @@ def get_app_version() -> str:
     return os.getenv("ORDAL_APP_VERSION", "3.0.0")
 
 
-# ── JWT ──────────────────────────────────────────────────────────────────
-
-def create_token(user_id: str, email: str, device_id: str) -> str:
-    payload = {
-        "sub": str(user_id),
-        "email": email,
-        "did": device_id,
-        "exp": datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS),
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-
-def decode_token(token: str) -> dict:
-    try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-def _device_is_active(user_id: str, device_id: str) -> bool:
-    """Cek device masih terdaftar (belum dikeluarkan lewat dashboard device)."""
-    from database import query_one
-    row = query_one(
-        "SELECT id FROM app_devices WHERE user_id = ? AND device_id = ?",
-        (user_id, device_id),
-    )
-    return row is not None
-
-
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Decode JWT + validasi device masih aktif. Return {"id","email","device_id"}.
-    Kalau device sudah dikeluarkan dari akun → 401 (auto-logout di frontend)."""
+    """Validate opaque token with web control plane."""
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = decode_token(credentials.credentials)
-    user_id = str(payload["sub"])
-    device_id = str(payload.get("did") or "")
-    if not device_id or not _device_is_active(user_id, device_id):
-        raise HTTPException(status_code=401, detail="Device tidak terdaftar — silakan login ulang")
-    return {"id": user_id, "email": payload.get("email", ""), "device_id": device_id}
+    from control_plane import validate_session
+    return validate_session(credentials.credentials)
 
 
 def get_user_from_token(token: str) -> dict:
-    """Untuk endpoint yang menerima token lewat query param (SSE EventSource)."""
-    payload = decode_token(token)
-    user_id = str(payload["sub"])
-    device_id = str(payload.get("did") or "")
-    if not device_id or not _device_is_active(user_id, device_id):
-        raise HTTPException(status_code=401, detail="Device tidak terdaftar — silakan login ulang")
-    return {"id": user_id, "email": payload.get("email", ""), "device_id": device_id}
+    """Validate query-token used by EventSource."""
+    if not token:
+        raise HTTPException(status_code=401, detail="Token tidak valid")
+    from control_plane import validate_session
+    return validate_session(token)

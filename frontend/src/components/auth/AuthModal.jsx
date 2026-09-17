@@ -52,7 +52,7 @@ export default function AuthModal() {
       setError(t('auth.err_name'))
       return
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setError(t('auth.err_pass_len'))
       return
     }

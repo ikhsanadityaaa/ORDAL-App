@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // v3: App selalu multi-user — login wajib sebelum pakai app.
-// Token JWT ter-bind ke device (maks 2 device per akun, konsep WhatsApp).
+// Opaque session token diterbitkan ORDAL-Web dan terikat ke device.
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 

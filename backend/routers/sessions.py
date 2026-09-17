@@ -18,8 +18,8 @@ async def start_session(user=Depends(get_current_user)):
       tersimpan di DB pusat → install ulang app TIDAK mereset trial).
     - Trial habis & belum aktivasi → 403 TRIAL_EXPIRED → app menampilkan
       pop-up pembayaran."""
-    status = require_access(user["id"])  # raise 403 kalau trial habis & belum aktivasi
-    _, just_started = ensure_trial_started(user["id"])
+    status = require_access(user)  # server-authoritative access check
+    _, just_started = ensure_trial_started(user)
     result = await session_manager.start_session_for_user(user_id=user["id"], source="manual")
     if not result.get("ok"):
         raise HTTPException(status_code=400, detail=result.get("message", "Gagal memulai session"))
