@@ -63,7 +63,21 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 
 ## External Setup Dependency
 
-Web API is not usable in production until required Vercel environment variables and Google/Resend/payment accounts are configured. See Web repository `CODEX_PROGRESS.md`.
+Web security/database variables and Google OAuth are configured. Resend, Midtrans, PayPal, download URLs, and the final custom domain remain pending. See Web repository `CODEX_PROGRESS.md`.
+
+## MacBook Handoff
+
+Session stopped because the user moved work to another computer. Repository is clean before this documentation-only update.
+
+Next desktop steps, after Web Production Google login is verified:
+
+1. Pull branch `codex/secure-architecture-v2` and confirm commit `9c8b20d` is present.
+2. Create a local virtual environment, install existing dependencies, and run FastAPI import/startup checks.
+3. Point the desktop app only at the approved Web Preview or Production API; never add Supabase or payment secrets.
+4. Test Google login, verified-email login, two-device enforcement/removal, three-day trial start, reinstall resistance, payment polling, permanent license access, and logout.
+5. Replace local-storage app session token storage with OS keychain storage before public release.
+6. Build the Windows portable package and inspect the final bundle for secrets.
+7. Build macOS package on the MacBook; signing/notarization requires an Apple Developer ID.
 
 ## Rules For Next AI
 
