@@ -156,47 +156,12 @@ cp -R frontend/dist "$APP_BUNDLE/Contents/Resources/frontend/dist"
 echo "  → Copy mac-app/launcher.py..."
 cp mac-app/launcher.py "$APP_BUNDLE/Contents/Resources/mac-app/launcher.py"
 
-# ── 6b. Konfigurasi .env — database pusat (WAJIB agar app bisa jalan) ────────
-# v3: app wajib login ke database pusat PostgreSQL (sama dengan ORDAL-Web).
-# Tanpa DATABASE URL, backend tidak bisa start → app tertutup saat dibuka.
-# build.sh mem-bundle backend/.env ke dalam app.
-# Prioritas saat app berjalan (launcher):
-#   env sistem > ~/Library/Application Support/ORDAL/.env > bundled .env
-#   (user bisa meng-override DATABASE URL tanpa rebuild app)
-echo "  → Konfigurasi database (.env)..."
-ENV_SRC="$REPO_ROOT/backend/.env"
-BUNDLED_ENV="$APP_BUNDLE/Contents/Resources/backend/.env"
-
-_db_url_from_file() {
-    grep -E '^(ORDAL_DATABASE_URL|DATABASE_URL)=' "$1" 2>/dev/null | head -1 | cut -d= -f2-
-}
-
-CURRENT_DB_URL="$(_db_url_from_file "$ENV_SRC")"
-if [[ -f "$ENV_SRC" && -n "$CURRENT_DB_URL" && "$CURRENT_DB_URL" != *"127.0.0.1:5432"* ]]; then
-    # .env sudah berisi URL production (Supabase dll) → bundle langsung
-    cp "$ENV_SRC" "$BUNDLED_ENV"
-    echo "    ✓ backend/.env (production) di-bundle ke app"
-else
-    echo "    ⚠ backend/.env belum berisi DATABASE URL production."
-    echo ""
-    echo "      App BUTUH koneksi ke database pusat (PostgreSQL — Supabase yang"
-    echo "      dipakai ORDAL-Web). Contoh format:"
-    echo "      postgresql://postgres.abc123:PASSWORD@aws-0.ap-southeast-1.pooler.supabase.com:6543/postgres"
-    echo ""
-    read -p "      Paste DATABASE URL sekarang (Enter = skip; app akan menanyakannya saat pertama dibuka): " DB_URL_INPUT
-    if [[ -n "${DB_URL_INPUT// /}" ]]; then
-        # Susun .env bundle: variabel lain dari .env yang ada + URL baru
-        {
-            if [[ -f "$ENV_SRC" ]]; then
-                grep -vE '^(ORDAL_DATABASE_URL|DATABASE_URL)=' "$ENV_SRC" || true
-            fi
-            echo "ORDAL_DATABASE_URL=${DB_URL_INPUT}"
-        } > "$BUNDLED_ENV"
-        echo "    ✓ DATABASE URL di-bundle ke app"
-    else
-        echo "    → Skip. App akan menampilkan dialog input DATABASE URL saat pertama dibuka."
-    fi
+# Secret produksi tetap di Vercel. Build desktop tidak boleh membawa .env.
+if [[ -f "$REPO_ROOT/backend/.env" ]]; then
+    echo "ERROR: hapus backend/.env sebelum build."
+    exit 1
 fi
+rm -f "$APP_BUNDLE/Contents/Resources/backend/.env"
 
 # ── 7. Icon app (logo ORDAL baru: kotak oranye + ring "O" putih) ─────────────
 echo ""
@@ -275,11 +240,7 @@ echo "  📦 App:  $APP_BUNDLE"
 echo "  📏 Size: $APP_SIZE"
 echo "  🎨 Icon: logo baru — kotak oranye + ring \"O\" putih (icns multi-size fix v3.2.3)"
 echo "  🔒 Gatekeeper: xattr quarantine dibersihkan sebelum sign (fix v3.2.2)"
-if [[ -f "$BUNDLED_ENV" ]]; then
-    echo "  🗄️  Database: .env ter-bundle (bisa di-override via ~/Library/Application Support/ORDAL/.env)"
-else
-    echo "  🗄️  Database: TANPA .env — app akan minta DATABASE URL saat pertama dibuka"
-fi
+echo "  🔐 Secret production: tidak disertakan dalam app"
 echo ""
 echo "Cara pakai:"
 echo "  1. Buka Finder → drag ORDAL.app ke /Applications/"

@@ -146,7 +146,7 @@ def save_progress(req: OnboardingSaveRequest, user=Depends(get_current_user)):
 
         db.execute(
             """UPDATE app_onboarding
-               SET current_step = ?, cv_id = ?, preferences = ?, cover_letter = ?, platforms = ?, updated_at = NOW()
+               SET current_step = ?, cv_id = ?, preferences = ?, cover_letter = ?, platforms = ?, updated_at = datetime('now')
                WHERE user_id = ?""",
             (int(req.step), cv_id, json.dumps(prefs), cover_letter, platforms_csv, user["id"]),
         )
@@ -221,22 +221,22 @@ def complete_onboarding(user=Depends(get_current_user)):
         # ── Simpan preferensi umum ──
         db.execute(
             """INSERT INTO user_preferences (user_id, expected_salary, available_join, updated_at)
-               VALUES (?, ?, ?, NOW())
+               VALUES (?, ?, ?, datetime('now'))
                ON CONFLICT (user_id) DO UPDATE SET
                  expected_salary = excluded.expected_salary,
                  available_join = excluded.available_join,
-                 updated_at = NOW()""",
+                 updated_at = datetime('now')""",
             (user["id"], prefs.get("expected_salary") or "", prefs.get("available_join") or ""),
         )
 
         # ── Tandai selesai ──
         db.execute(
-            "UPDATE app_onboarding SET completed = TRUE, completed_at = NOW(), current_step = 7, updated_at = NOW() WHERE user_id = ?",
+            "UPDATE app_onboarding SET completed = 1, completed_at = datetime('now'), current_step = 7, updated_at = datetime('now') WHERE user_id = ?",
             (user["id"],),
         )
         db.execute(
-            "INSERT INTO app_user_profile (user_id, onboarding_completed) VALUES (?, TRUE) "
-            "ON CONFLICT (user_id) DO UPDATE SET onboarding_completed = TRUE, updated_at = NOW()",
+            "INSERT INTO app_user_profile (user_id, onboarding_completed) VALUES (?, 1) "
+            "ON CONFLICT (user_id) DO UPDATE SET onboarding_completed = 1, updated_at = datetime('now')",
             (user["id"],),
         )
         db.commit()

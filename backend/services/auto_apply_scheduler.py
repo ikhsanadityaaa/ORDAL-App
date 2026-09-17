@@ -193,8 +193,8 @@ async def _try_auto_apply_for_user(user_id: str):
     # v3.1: Guard lisensi — auto-apply tidak jalan kalau trial habis & belum
     # aktivasi (trial dimulai saat user pertama kali klik "Cari Kerja").
     try:
-        from routers.license import get_access_status
-        access = get_access_status(user_id)
+        from routers.license import ensure_trial_started
+        access, _ = ensure_trial_started(user_id)
         if not access["access"]["allowed"]:
             print(f"[auto_apply_scheduler] user {user_id}: trial habis / belum aktivasi — auto-apply dilewati")
             _mark_auto_applied(user_id)

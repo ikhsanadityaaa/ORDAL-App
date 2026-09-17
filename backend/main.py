@@ -85,7 +85,7 @@ async def startup():
     init_db()
     restore_persisted_files()
     db = get_db()
-    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=NOW() WHERE status='running'")
+    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=datetime('now') WHERE status='running'")
     db.commit()
     db.close()
     from services.telegram_service import start_background_tasks

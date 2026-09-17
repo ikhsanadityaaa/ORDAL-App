@@ -109,6 +109,10 @@ export default function AuthModal() {
           } else if (d.status === 'device_limit') {
             stopPolling()
             setGoogleWaiting(false)
+            if (d.devices?.length) {
+              setDeviceLimit({ code: 'DEVICE_LIMIT', message: t('device.limit_msg'), devices: d.devices })
+              return
+            }
             try {
               const dl = await api.get('/auth/devices')
               setDeviceLimit({ code: 'DEVICE_LIMIT', message: t('device.limit_msg'), devices: dl.data.devices })

@@ -2,7 +2,7 @@
 ORDAL Telegram Bot Service — Telegram-first UI.
 
 Semua operasi yang sebelumnya via React dashboard sekarang via command Telegram:
-- Auth: /register, /login, /logout, /profile
+- Auth: link dari aplikasi, /logout, /profile
 - Target: /targets, /target_add, /target_del
 - CV: /cv (upload via reply document), /cv_del
 - Preferences: /prefs, /pref_set
@@ -71,17 +71,15 @@ def _api_url(method: str) -> str:
 
 
 def ensure_telegram_columns(cur):
-    # v3 (Postgres): DDL PostgreSQL — user_id TEXT (cuid) → "User"("id").
-    # Skema utama sudah dibuat init_db di database.py; ini fallback defensif.
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS telegram_users (
-            user_id     TEXT PRIMARY KEY REFERENCES "User"("id") ON DELETE CASCADE,
+            user_id     TEXT PRIMARY KEY,
             chat_id     TEXT UNIQUE,
             link_code   TEXT UNIQUE,
-            enabled     SMALLINT NOT NULL DEFAULT 1,
-            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            enabled     INTEGER NOT NULL DEFAULT 1,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
         )
         """
     )
@@ -123,9 +121,9 @@ def _get_user_by_chat(chat_id: str) -> dict | None:
     try:
         row = db.execute(
             """
-            SELECT u."id", u."email", u."name", t.enabled
+            SELECT u.id, u.email, u.name, t.enabled
             FROM telegram_users t
-            JOIN "User" u ON u."id" = t.user_id
+            JOIN local_users u ON u.id = t.user_id
             WHERE t.chat_id = ? AND t.enabled = 1
             """,
             (chat_id,),
@@ -430,12 +428,9 @@ async def send_question_to_telegram(user_id: str, prompt_event: dict) -> None:
 
 def format_application_report(user_id: str, today_only: bool = True) -> str:
     db = get_db()
-    # v3 (Postgres): SQLite date(x,'localtime') tidak ada — bandingkan tanggal
-    # di timezone app (default Asia/Jakarta) lewat AT TIME ZONE.
-    tz_name = str(APP_TZ)
     if today_only:
-        date_filter = "AND (l.applied_at AT TIME ZONE ?)::date = (NOW() AT TIME ZONE ?)::date"
-        params = (user_id, tz_name, tz_name)
+        date_filter = "AND date(l.applied_at, 'localtime') = date('now', 'localtime')"
+        params = (user_id,)
     else:
         date_filter = ""
         params = (user_id,)
@@ -508,8 +503,7 @@ async def _answer_prompt_from_telegram(user_id: str, prompt_id: str, answer: str
 HELP_TEXT = (
     "<b>ORDAL — Auto Apply Bot</b>\n\n"
     "<b>Akun:</b>\n"
-    "  /register &lt;nama&gt;|&lt;email&gt;|&lt;password&gt; — daftar akun baru\n"
-    "  /login &lt;email&gt;|&lt;password&gt; — hubungkan akun existing\n"
+    "  Hubungkan Telegram dari aplikasi ORDAL\n"
     "  /logout — putuskan koneksi Telegram\n"
     "  /profile — lihat info akun\n\n"
     "<b>Target Lowongan:</b>\n"
@@ -551,106 +545,13 @@ HELP_TEXT = (
 # ── Auth commands ──────────────────────────────────────────────────────
 
 async def _cmd_register(chat_id: str, args: str):
-    """Register akun baru dan langsung link ke chat_id."""
-    parts = [p.strip() for p in args.split("|") if p.strip()]
-    if len(parts) < 3:
-        await send_telegram_message(
-            chat_id,
-            "Format: /register <i>nama|email|password</i>\n"
-            "Contoh: /register Budi|budi@email.com|rahasia123",
-        )
-        return
-
-    name, email, password = parts[0], parts[1], parts[2]
-    if len(password) < 6:
-        await send_telegram_message(chat_id, "Password minimal 6 karakter.")
-        return
-
-    from auth_utils import hash_password
-    from routers.auth import _create_web_user
-    db = get_db()
-    try:
-        existing = db.execute('SELECT "id" FROM "User" WHERE "email" = ?', (email,)).fetchone()
-        if existing:
-            await send_telegram_message(chat_id, f"Email {email} sudah terdaftar. Gunakan /login.")
-            return
-        hashed = hash_password(password)
-        try:
-            # v3 (Postgres): akun dibuat di tabel "User" (schema Prisma web)
-            # + app_user_profile — sama seperti register via app; trial belum dimulai.
-            # _create_web_user meng-commit sendiri dan return {"id", "email", ...}.
-            created = _create_web_user(db, email, name, hashed, "email")
-        except Exception:
-            await send_telegram_message(chat_id, "Gagal membuat akun, coba lagi.")
-            return
-        user_id = created["id"]
-        db.execute(
-            """
-            INSERT INTO telegram_users (user_id, chat_id, enabled, link_code)
-            VALUES (?, ?, 1, ?)
-            """,
-            (user_id, chat_id, secrets.token_urlsafe(8)[:10].upper()),
-        )
-        db.commit()
-        await send_telegram_message(
-            chat_id,
-            f"<b>Akun berhasil dibuat!</b>\n"
-            f"Nama: {html.escape(name)}\n"
-            f"Email: {html.escape(email)}\n\n"
-            f"Langkah berikutnya:\n"
-            f"1. /cv_add — upload CV\n"
-            f"2. /cookie linkedin — upload cookie LinkedIn\n"
-            f"3. /target_add — tambah target lowongan\n"
-            f"4. /autoapply on — aktifkan auto-apply",
-        )
-    finally:
-        db.close()
+    """Block account creation outside the central API."""
+    await send_telegram_message(chat_id, "Pendaftaran hanya tersedia melalui aplikasi ORDAL agar verifikasi email dan device tetap aman.")
 
 
 async def _cmd_login(chat_id: str, args: str):
-    """Login akun existing dan link ke chat_id."""
-    parts = [p.strip() for p in args.split("|") if p.strip()]
-    if len(parts) < 2:
-        await send_telegram_message(
-            chat_id,
-            "Format: /login <i>email|password</i>\n"
-            "Contoh: /login budi@email.com|rahasia123",
-        )
-        return
-
-    email, password = parts[0], parts[1]
-    from auth_utils import verify_password
-    db = get_db()
-    try:
-        user = db.execute(
-            'SELECT "id", "email", "name", "password" FROM "User" WHERE "email" = ?',
-            (email,),
-        ).fetchone()
-        if not user or not verify_password(password, user["password"]):
-            await send_telegram_message(chat_id, "Email atau password salah.")
-            return
-        # Link chat_id
-        db.execute(
-            """
-            INSERT INTO telegram_users (user_id, chat_id, enabled, link_code)
-            VALUES (?, ?, 1, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                chat_id = excluded.chat_id,
-                enabled = 1,
-                updated_at = datetime('now')
-            """,
-            (user["id"], chat_id, secrets.token_urlsafe(8)[:10].upper()),
-        )
-        db.commit()
-        await send_telegram_message(
-            chat_id,
-            f"<b>Berhasil login!</b>\n"
-            f"Nama: {html.escape(user['name'])}\n"
-            f"Email: {html.escape(user['email'])}\n\n"
-            f"Kirim /help untuk lihat semua perintah.",
-        )
-    finally:
-        db.close()
+    """Block password submission through Telegram."""
+    await send_telegram_message(chat_id, "Login password melalui Telegram dinonaktifkan. Hubungkan Telegram dari aplikasi ORDAL.")
 
 
 async def _cmd_logout(chat_id: str):
@@ -665,7 +566,7 @@ async def _cmd_logout(chat_id: str):
     finally:
         db.close()
     _conversation_state.pop(chat_id, None)
-    await send_telegram_message(chat_id, "Telegram diputus dari akun ORDAL. Kirim /register atau /login untuk menghubungkan lagi.")
+    await send_telegram_message(chat_id, "Telegram diputus dari akun ORDAL. Hubungkan kembali dari aplikasi ORDAL.")
 
 
 async def _cmd_profile(chat_id: str, user: dict):
@@ -1224,7 +1125,7 @@ async def _handle_document(message: dict):
         if caption.lower().startswith("/cookie") or file_name.lower().endswith(".json"):
             user = _get_user_by_chat(chat_id)
             if not user:
-                await send_telegram_message(chat_id, "Akun belum terhubung. /register atau /login dulu.")
+                await send_telegram_message(chat_id, "Akun belum terhubung. Hubungkan Telegram dari aplikasi ORDAL.")
                 return
             parts = caption.split()
             platform = parts[1].lower() if len(parts) > 1 else ""
@@ -1236,7 +1137,7 @@ async def _handle_document(message: dict):
         if file_name.lower().endswith(".pdf"):
             user = _get_user_by_chat(chat_id)
             if not user:
-                await send_telegram_message(chat_id, "Akun belum terhubung. /register atau /login dulu.")
+                await send_telegram_message(chat_id, "Akun belum terhubung. Hubungkan Telegram dari aplikasi ORDAL.")
                 return
             position_label = caption or "General"
             await _save_cv_file(chat_id, user["id"], file_id, file_name, position_label)
@@ -1448,7 +1349,7 @@ async def _handle_message(message: dict) -> None:
     if "document" in message:
         user = _get_user_by_chat(chat_id)
         if not user:
-            await send_telegram_message(chat_id, "Akun belum terhubung. /register atau /login dulu.")
+            await send_telegram_message(chat_id, "Akun belum terhubung. Hubungkan Telegram dari aplikasi ORDAL.")
             return
         await _handle_document(message)
         return
@@ -1467,15 +1368,10 @@ async def _handle_message(message: dict) -> None:
                 await send_telegram_message(chat_id, f"Halo {html.escape(user['name'])}! Kirim /help untuk lihat perintah.")
                 return
 
-            # v3: APP_MODE single-user sudah dihapus — semua user wajib
-            # /register, /login, atau /start <link_code> dari halaman Settings.
             await send_telegram_message(
                 chat_id,
                 "Selamat datang di ORDAL Auto Apply Bot!\n\n"
-                "Daftar akun baru: /register <i>nama|email|password</i>\n"
-                "Login akun existing: /login <i>email|password</i>\n"
-                "Atau buka halaman Settings di app, copy perintah /start <i>kode</i> Anda.\n\n"
-                "Contoh: /register Budi|budi@email.com|rahasia123",
+                "Buka halaman Settings di aplikasi ORDAL, lalu kirim perintah /start <i>kode</i> Anda.",
             )
             return
         code = parts[1].strip().upper()
@@ -1483,7 +1379,7 @@ async def _handle_message(message: dict) -> None:
         row = db.execute("SELECT user_id FROM telegram_users WHERE link_code=?", (code,)).fetchone()
         if not row:
             db.close()
-            await send_telegram_message(chat_id, "Kode tidak valid. Gunakan /register atau /login.")
+            await send_telegram_message(chat_id, "Kode tidak valid. Buat kode baru dari aplikasi ORDAL.")
             return
         db.execute("UPDATE telegram_users SET chat_id=?, enabled=1, updated_at=datetime('now') WHERE user_id=?", (chat_id, row["user_id"]))
         db.commit()
@@ -1511,7 +1407,7 @@ async def _handle_message(message: dict) -> None:
     if not user:
         await send_telegram_message(
             chat_id,
-            "Akun belum terhubung.\n/register <i>nama|email|password</i>\n/login <i>email|password</i>",
+            "Akun belum terhubung. Hubungkan Telegram dari aplikasi ORDAL.",
         )
         return
 
@@ -1615,7 +1511,7 @@ async def _handle_callback(callback: dict) -> None:
     if data_str.startswith(("qa:", "qo:")):
         user = _get_user_by_chat(chat_id)
         if not user:
-            await answer_callback_query(callback_query_id, "Akun belum terhubung. /register atau /login dulu.", show_alert=True)
+            await answer_callback_query(callback_query_id, "Akun belum terhubung. Hubungkan Telegram dari aplikasi ORDAL.", show_alert=True)
             _log.warning(f"Telegram callback: akun belum terhubung untuk chat_id={chat_id}")
             return
         user_id = user["id"]
