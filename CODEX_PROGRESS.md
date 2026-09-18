@@ -1,6 +1,6 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-17
+Last updated: 2026-09-18
 Branch: `codex/desktop-control-plane`
 Base commit: `a003a72`
 Implementation commit: `2c0eec6` (pushed to `origin/codex/desktop-control-plane`).
@@ -20,7 +20,9 @@ Keep PostgreSQL as centralized storage while moving security authority and secre
 - Disabled desktop schema mutation by default; `ORDAL_RUN_SCHEMA_MIGRATIONS=true` is development-only.
 - Added a runnable control-plane self-check.
 - Confirmed production Google config endpoint responds through the control-plane client.
+- Updated payment UI fallback prices to Rp179,000 and US$12, including the Rp210,000 Indonesia reference price and Rp31,000 discount.
 - Python compile, control-plane import, self-check, and frontend production build pass.
+- Frontend production build passes after the pricing update. Control-plane self-check needs local `psycopg2`; no control-plane code changed in this update.
 
 ## PostgreSQL Decision
 

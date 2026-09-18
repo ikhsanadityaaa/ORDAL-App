@@ -146,8 +146,8 @@ Flow yang diimplementasikan: **PKCE + loopback redirect** — app membuka browse
 
 ```env
 TRIAL_HOURS=72                  # durasi trial (default 3 hari)
-LICENSE_PRICE_IDR=159000        # harga QRIS (Rp)
-LICENSE_PRICE_USD=10.00         # harga PayPal (US$)
+LICENSE_PRICE_IDR=179000        # harga QRIS (Rp)
+LICENSE_PRICE_USD=12.00         # harga PayPal (US$)
 LICENSE_DURATION_DAYS=0         # 0 = lisensi selamanya; mis. 30 = 30 hari
 ADMIN_ACTIVATION_CODE=            # opsional; isi kode acak khusus owner/testing
 ADMIN_TOKEN=...                 # token utk endpoint /api/admin/*

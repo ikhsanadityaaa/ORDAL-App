@@ -269,7 +269,9 @@ export default function PaymentModal() {
                   <QRISMark size={34} />
                   <div className="pay-method-name">{t('lic.method_qris')}</div>
                   <div className="pay-method-desc">{t('lic.method_qris_desc')}</div>
-                  <div className="pay-method-price">{pricing.display_idr || 'Rp 159.000'}</div>
+                  <div style={{ fontSize: 11, color: '#8A8D94', textDecoration: 'line-through' }}>Rp 210.000</div>
+                  <div className="pay-method-price">{pricing.display_idr || 'Rp 179.000'}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, color: '#F2661A' }}>HEMAT RP 31.000</div>
                 </button>
                 <button
                   onClick={() => createPayment('paypal')}
@@ -279,7 +281,7 @@ export default function PaymentModal() {
                   <PayPalLogo size={26} withWordmark={false} />
                   <div className="pay-method-name">PayPal</div>
                   <div className="pay-method-desc">{t('lic.method_paypal_desc')}</div>
-                  <div className="pay-method-price">{pricing.display_usd || 'US$ 10.00'}</div>
+                  <div className="pay-method-price">{pricing.display_usd || 'US$ 12.00'}</div>
                 </button>
               </div>
               {creating && (
