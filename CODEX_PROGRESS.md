@@ -1,9 +1,9 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-18
+Last updated: 2026-09-20
 Branch: `codex/desktop-control-plane`
 Base commit: `a003a72`
-Implementation commit: `2c0eec6` (pushed to `origin/codex/desktop-control-plane`).
+Implementation commit: `7aa7aaa` (pushed to `origin/codex/desktop-control-plane`).
 
 ## Goal
 
@@ -21,6 +21,7 @@ Keep PostgreSQL as centralized storage while moving security authority and secre
 - Added a runnable control-plane self-check.
 - Confirmed production Google config endpoint responds through the control-plane client.
 - Updated payment UI fallback prices to Rp179,000 and US$12, including the Rp210,000 Indonesia reference price and Rp31,000 discount.
+- Kept the existing sticker-style UI; the proposed minimalist redesign was canceled before commit.
 - Python compile, control-plane import, self-check, and frontend production build pass.
 - Frontend production build passes after the pricing update. Control-plane self-check needs local `psycopg2`; no control-plane code changed in this update.
 
@@ -38,6 +39,13 @@ Keep PostgreSQL as centralized storage while moving security authority and secre
 - Move Telegram account commands away from direct `User` password queries.
 - Remove `ORDAL_DATABASE_URL`, `DATABASE_URL`, `psycopg2`, and database setup prompts from desktop builds only after all callers use server APIs.
 - Test auth, device removal, trial start, payment, activation, and expired-session flows against Preview.
+- After Midtrans registration is confirmed, test QRIS payment, invoice email, activation code delivery, and license unlock end to end.
+
+## External Setup Status
+
+- Google signup works on the protected ORDAL-Web Preview branch.
+- Resend Preview variables are configured; production still needs a verified custom sender domain.
+- Midtrans account registration is awaiting confirmation.
 
 ## Rules For Next AI
 
