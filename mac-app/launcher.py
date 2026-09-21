@@ -21,6 +21,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 # ── Setup file logging di launcher juga (sebelum backend start) ──────────
 # Supaya log launcher (sebelum backend import) juga tertulis ke file yang
@@ -116,7 +117,30 @@ def resolve_user_data_dir() -> Path:
 #   1. env sistem (dari shell)
 #   2. ~/Library/Application Support/ORDAL/.env   (user override, per-device)
 #   3. backend/.env yang di-bundle build.sh      (default dari build)
-_DEV_DB_URL = "postgresql://ordal:ordal@127.0.0.1:5432/ordal"
+_DEV_DB_URL = ""
+_KEYCHAIN_SERVICE = "com.ordal.app.postgres-url"
+
+
+def _keychain_get() -> str:
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-a", os.getenv("USER", "ordal"), "-s", _KEYCHAIN_SERVICE, "-w"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def _keychain_set(value: str) -> bool:
+    try:
+        result = subprocess.run(
+            ["security", "add-generic-password", "-U", "-a", os.getenv("USER", "ordal"), "-s", _KEYCHAIN_SERVICE, "-w", value],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -159,13 +183,30 @@ def _load_env_layers(user_data: Path, backend_dir: Path) -> None:
             log.info(f"Bundled backend/.env dimuat ({len(loaded)} keys)")
 
 
+def _usable_database_url(value: str) -> str:
+    value = (value or "").strip()
+    return "" if not value or any(marker in value for marker in ("<", ">", "YOUR-", "YOUR_")) else value
+
+
 def _resolve_db_url() -> str:
-    """Sama seperti database.py: ORDAL_DATABASE_URL → DATABASE_URL → dev default."""
-    return (
-        os.getenv("ORDAL_DATABASE_URL", "").strip()
-        or os.getenv("DATABASE_URL", "").strip()
-        or _DEV_DB_URL
-    )
+    """Resolve production PostgreSQL env ORDAL-Web; reject placeholders."""
+    direct = next((value for value in (
+        os.getenv("POSTGRES_URL", ""),
+        os.getenv("POSTGRES_URL_NON_POOLING", ""),
+        os.getenv("POSTGRES_PRISMA_URL", ""),
+        os.getenv("ORDAL_DATABASE_URL", ""),
+        os.getenv("DATABASE_URL", ""),
+        _keychain_get(),
+    ) if _usable_database_url(value)), "")
+    if direct:
+        return direct
+    host = os.getenv("POSTGRES_HOST", "").strip()
+    user = os.getenv("POSTGRES_USER", "").strip()
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    database = os.getenv("POSTGRES_DATABASE", "").strip()
+    if host and user and database:
+        return f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@{host}/{quote(database, safe='')}"
+    return _DEV_DB_URL
 
 
 def _db_reachable(url: str, timeout: int = 8) -> tuple[bool, str]:
@@ -189,7 +230,7 @@ def _ask_db_url_dialog(prefill: str, error_note: str) -> str | None:
         f"Error: {error_note[:120]}\\n\\n"
         f"Paste DATABASE URL PostgreSQL (Supabase yang dipakai ORDAL-Web):\\n"
         f"postgresql://user:password@host:5432/postgres\\n\\n"
-        f"URL disimpan di komputer ini saja (\\~/Library/Application Support/ORDAL/.env)\\n"
+        f"URL disimpan aman di macOS Keychain komputer ini\\n"
         f"dan tidak menghapus data apa pun."
     )
     msg = msg.replace('"', "'")  # amankan quoting AppleScript
@@ -214,18 +255,23 @@ def _ask_db_url_dialog(prefill: str, error_note: str) -> str | None:
         return None
 
 
-def _save_db_url_to_user_env(user_data: Path, url: str) -> None:
-    """Simpan ORDAL_DATABASE_URL ke user_data/.env (persisten antar update app)."""
+def _save_db_url_to_keychain(user_data: Path, url: str) -> bool:
+    """Simpan database URL di macOS Keychain, bukan file plaintext."""
+    if not _keychain_set(url):
+        log.error("Gagal menyimpan database URL ke macOS Keychain.")
+        return False
     env_file = user_data / ".env"
-    lines: list[str] = []
     if env_file.exists():
         lines = [
-            l for l in env_file.read_text(encoding="utf-8").splitlines()
-            if not l.strip().startswith(("ORDAL_DATABASE_URL=", "DATABASE_URL="))
+            line for line in env_file.read_text(encoding="utf-8").splitlines()
+            if not line.split("=", 1)[0].strip() in {
+                "POSTGRES_URL", "ORDAL_DATABASE_URL", "POSTGRES_URL_NON_POOLING",
+                "POSTGRES_PRISMA_URL", "DATABASE_URL",
+            }
         ]
-    lines.append(f"ORDAL_DATABASE_URL={url}")
-    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    log.info(f"DATABASE URL disimpan ke {env_file}")
+        env_file.write_text(("\n".join(lines) + "\n") if lines else "", encoding="utf-8")
+    log.info("Database URL disimpan di macOS Keychain.")
+    return True
 
 
 def _ensure_database_ready(user_data: Path, backend_dir: Path) -> bool:
@@ -234,8 +280,13 @@ def _ensure_database_ready(user_data: Path, backend_dir: Path) -> bool:
     di log + dialog — TIDAK close diam-diam."""
     for attempt in range(1, 4):
         url = _resolve_db_url()
-        safe_host = url.split("@")[-1] if "@" in url else url
-        ok, err = _db_reachable(url)
+        if not url:
+            safe_host = "belum dikonfigurasi"
+            err = "URL Supabase belum diisi"
+            ok = False
+        else:
+            safe_host = url.split("@")[-1] if "@" in url else url
+            ok, err = _db_reachable(url)
         if ok:
             log.info(f"Database pusat OK ({safe_host})")
             return True
@@ -248,7 +299,8 @@ def _ensure_database_ready(user_data: Path, backend_dir: Path) -> bool:
         if not answer:
             log.warning("User membatalkan dialog konfigurasi database.")
             break
-        _save_db_url_to_user_env(user_data, answer)
+        if not _save_db_url_to_keychain(user_data, answer):
+            break
         os.environ["ORDAL_DATABASE_URL"] = answer
     log.error("App tidak bisa lanjut tanpa koneksi database pusat. Exit dengan pesan ini.")
     return False

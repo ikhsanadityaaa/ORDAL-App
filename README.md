@@ -82,18 +82,50 @@ register → verifikasi email → onboarding → app utama
 
 ## Setup Development
 
-### 1. Database PostgreSQL
+### 1. Database PostgreSQL ORDAL-Web
 
-Pakai PostgreSQL lokal atau URL Supabase yang sama dengan web:
+App wajib memakai database PostgreSQL yang sama dengan ORDAL-Web/Vercel. Database lokal tidak didukung.
 
-```bash
-# backend/.env
-ORDAL_DATABASE_URL=postgresql://user:password@host:5432/dbname
+ORDAL-Web menyediakan variabel berikut di Vercel:
+
+```env
+POSTGRES_URL=
+POSTGRES_USER=
+POSTGRES_HOST=
+POSTGRES_PASSWORD=
+POSTGRES_DATABASE=
 ```
 
-> Catatan: app pakai `ORDAL_DATABASE_URL` (prioritas) dengan fallback `DATABASE_URL`, supaya tidak bentrok dengan env lain di sistem.
+Backend App membaca `POSTGRES_URL` atau merakit URL dari lima variabel tersebut. Alias `ORDAL_DATABASE_URL`, `POSTGRES_URL_NON_POOLING`, `POSTGRES_PRISMA_URL`, dan `DATABASE_URL` tetap didukung untuk kompatibilitas.
 
-Tabel web dibuat oleh Prisma (jalankan `prisma migrate deploy` dari repo web, atau import SQL migration-nya). Tabel app dibuat **otomatis** saat backend start.
+Tabel web dibuat oleh Prisma dari repo ORDAL-Web. Tabel App dibuat **otomatis** saat backend start.
+
+#### macOS: penyimpanan aman URL database
+
+Launcher macOS menyimpan URL database di macOS Keychain dengan service:
+
+```text
+com.ordal.app.postgres-url
+```
+
+URL tidak disimpan di source code atau file `.env` plaintext. Saat pertama kali URL belum tersedia, launcher menampilkan dialog; masukkan URL PostgreSQL Supabase ORDAL-Web sekali. Launcher mengetes koneksi sebelum backend start.
+
+Build ulang setelah perubahan launcher:
+
+```bash
+./build_clean_mac.sh
+open ./dist/ORDAL.app
+```
+
+Tanda startup berhasil di log:
+
+```text
+Database pusat OK
+Backend ready
+Opening window
+```
+
+Tabel web dibuat oleh Prisma (jalankan migration dari repo ORDAL-Web). Tabel App dibuat **otomatis** saat backend start.
 
 ### 2. Backend
 
@@ -146,8 +178,8 @@ Flow yang diimplementasikan: **PKCE + loopback redirect** — app membuka browse
 
 ```env
 TRIAL_HOURS=72                  # durasi trial (default 3 hari)
-LICENSE_PRICE_IDR=159000        # harga QRIS (Rp)
-LICENSE_PRICE_USD=10.00         # harga PayPal (US$)
+LICENSE_PRICE_IDR=179000        # harga QRIS (Rp), sama dengan ORDAL-Web
+LICENSE_PRICE_USD=12.00         # harga PayPal (US$), sama dengan ORDAL-Web
 LICENSE_DURATION_DAYS=0         # 0 = lisensi selamanya; mis. 30 = 30 hari
 ADMIN_ACTIVATION_CODE=            # opsional; isi kode acak khusus owner/testing
 ADMIN_TOKEN=...                 # token utk endpoint /api/admin/*

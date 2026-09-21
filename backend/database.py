@@ -3,6 +3,7 @@ import base64
 import sys
 import threading
 from pathlib import Path
+from urllib.parse import quote
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,14 +52,41 @@ DATA_DIR = _resolve_persistent_data_dir()
 APP_MODE = False
 
 # ── PostgreSQL connection ────────────────────────────────────────────────
-# ORDAL_DATABASE_URL (prioritas — hindari bentrok dengan env lain di sistem)
-# → DATABASE_URL → default dev lokal.
-# Production: isi dengan URL Supabase yang sama dengan ORDAL-Web.
-DATABASE_URL = (
-    os.getenv("ORDAL_DATABASE_URL", "").strip()
-    or os.getenv("DATABASE_URL", "").strip()
-    or "postgresql://ordal:ordal@127.0.0.1:5432/ordal"
-)
+# ORDAL_DATABASE_URL (prioritas — hindari bentrok dengan env lain di sistem).
+# Kompatibel dengan env ORDAL-Web/Supabase:
+# - POSTGRES_URL_NON_POOLING: preferred untuk psycopg2 connection pool.
+# - POSTGRES_PRISMA_URL: fallback, biasanya Supabase transaction pooler.
+# → DATABASE_URL. Tidak ada fallback database lokal; ORDAL wajib memakai Supabase ORDAL-Web.
+def _usable_database_url(value: str) -> str:
+    value = (value or "").strip()
+    return "" if not value or any(marker in value for marker in ("<", ">", "YOUR-", "YOUR_")) else value
+
+
+def _resolve_database_url() -> str:
+    direct = next((value for value in (
+        os.getenv("POSTGRES_URL", ""),
+        os.getenv("POSTGRES_URL_NON_POOLING", ""),
+        os.getenv("POSTGRES_PRISMA_URL", ""),
+        os.getenv("ORDAL_DATABASE_URL", ""),
+        os.getenv("DATABASE_URL", ""),
+    ) if _usable_database_url(value)), "")
+    if direct:
+        return direct
+    host = os.getenv("POSTGRES_HOST", "").strip()
+    user = os.getenv("POSTGRES_USER", "").strip()
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    database = os.getenv("POSTGRES_DATABASE", "").strip()
+    if host and user and database:
+        return f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@{host}/{quote(database, safe='')}"
+    return ""
+
+
+DATABASE_URL = _resolve_database_url()
+if not DATABASE_URL:
+    raise RuntimeError(
+        "Database Supabase belum dikonfigurasi. Isi ORDAL_DATABASE_URL, "
+        "POSTGRES_URL_NON_POOLING, atau POSTGRES_PRISMA_URL dari ORDAL-Web."
+    )
 
 import psycopg2
 from psycopg2.pool import ThreadedConnectionPool

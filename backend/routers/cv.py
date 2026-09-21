@@ -390,13 +390,25 @@ Write the cover letter template now (body only, no additional explanation):
             detail="AI tidak mengembalikan template. Coba lagi atau set API key AI di halaman AI.",
         )
 
-    # ── Validasi: pastikan ada placeholder ──
-    # v18: support {company}/{position} (English) DAN {perusahaan}/{posisi} (Indonesia)
-    if "{company}" not in template and "{position}" not in template and "{perusahaan}" not in template and "{posisi}" not in template:
-        # AI tidak ikuti instruksi — tambah placeholder di tempat yang masuk akal
+    # ── Validasi: pastikan kedua placeholder ada ──
+    # v18: support {company}/{position} (English) DAN {perusahaan}/{posisi} (Indonesia).
+    # AI kadang hanya mengembalikan salah satu placeholder; template tetap terlihat
+    # berhasil, tetapi posisi/perusahaan tidak pernah terisi saat apply.
+    has_company = any(token in template for token in ("{company}", "{perusahaan}"))
+    has_position = any(token in template for token in ("{position}", "{posisi}"))
+    if not has_company:
         template = template.replace("di perusahaan", "di {company}")
         template = template.replace("at the company", "at {company}")
-        template = template.replace("at {company}", "at {company}")  # idempotent
+        has_company = any(token in template for token in ("{company}", "{perusahaan}"))
+    if not has_position:
+        if has_company:
+            template = template.replace("posisi ini", "posisi {position}")
+            template = template.replace("this position", "the {position} position")
+        if not any(token in template for token in ("{position}", "{posisi}")):
+            template += "\n\nSaya tertarik melamar posisi {position} di {company}."
+    if not has_company:
+        template += "\n\nSaya tertarik bergabung dengan {company}."
+
 
     return {
         "ok": True,

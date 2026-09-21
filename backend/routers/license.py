@@ -23,8 +23,8 @@ Alur:
 
 Env baru (lihat .env.example):
   TRIAL_HOURS=72
-  LICENSE_PRICE_IDR=159000
-  LICENSE_PRICE_USD=10.00
+  LICENSE_PRICE_IDR=179000
+  LICENSE_PRICE_USD=12.00
   LICENSE_DURATION_DAYS=0            # 0 = selamanya
   INVOICE_TTL_MINUTES=60
   PAYMENTS_SIMULATION=false          # true = mode demo (tombol simulasi)
@@ -32,9 +32,9 @@ Env baru (lihat .env.example):
   ADMIN_TOKEN=...                    # utk endpoint /api/admin/*
   ADMIN_EMAIL=...                    # notifikasi pembayaran manual
   BCA_ACCOUNT_NAME= / BCA_ACCOUNT_NUMBER= / BCA_QRIS_IMAGE=
-  PAYPAL_CLIENT_ID= / PAYPAL_CLIENT_SECRET= / PAYPAL_MODE=sandbox|live
+  PAYPAL_CLIENT_ID= / PAYPAL_CLIENT_SECRET= / PAYPAL_PRODUCTION=false # sama dengan ORDAL-Web
   PAYPAL_ME_LINK=                    # fallback tanpa API (paypal.me/...)
-  MIDTRANS_SERVER_KEY= / MIDTRANS_IS_PRODUCTION=false
+  MIDTRANS_SERVER_KEY= / MIDTRANS_PRODUCTION=false # sama dengan ORDAL-Web
 """
 import base64
 import hashlib
@@ -62,8 +62,8 @@ router = APIRouter()
 
 # ── Konfigurasi ───────────────────────────────────────────────────────────
 TRIAL_HOURS = float(os.getenv("TRIAL_HOURS", "72") or 72)
-LICENSE_PRICE_IDR = int(os.getenv("LICENSE_PRICE_IDR", "159000") or 159000)
-LICENSE_PRICE_USD = float(os.getenv("LICENSE_PRICE_USD", "10.00") or 10.00)
+LICENSE_PRICE_IDR = int(os.getenv("LICENSE_PRICE_IDR", "179000") or 179000)
+LICENSE_PRICE_USD = float(os.getenv("LICENSE_PRICE_USD", "12.00") or 12.00)
 LICENSE_DURATION_DAYS = int(os.getenv("LICENSE_DURATION_DAYS", "0") or 0)
 INVOICE_TTL_MINUTES = int(os.getenv("INVOICE_TTL_MINUTES", "60") or 60)
 PAYMENTS_SIMULATION = os.getenv("PAYMENTS_SIMULATION", "").strip().lower() in ("1", "true", "yes", "on")
@@ -75,10 +75,15 @@ BCA_ACCOUNT_NUMBER = os.getenv("BCA_ACCOUNT_NUMBER", "").strip()
 BCA_QRIS_IMAGE = os.getenv("BCA_QRIS_IMAGE", "").strip()
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "").strip()
 PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET", "").strip()
-PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox").strip().lower()
+PAYPAL_MODE = os.getenv("PAYPAL_MODE", "").strip().lower() or (
+    "live" if os.getenv("PAYPAL_PRODUCTION", "").strip().lower() in ("1", "true", "yes", "on") else "sandbox"
+)
 PAYPAL_ME_LINK = os.getenv("PAYPAL_ME_LINK", "").strip()
 MIDTRANS_SERVER_KEY = os.getenv("MIDTRANS_SERVER_KEY", "").strip()
-MIDTRANS_IS_PRODUCTION = os.getenv("MIDTRANS_IS_PRODUCTION", "").strip().lower() in ("1", "true", "yes", "on")
+MIDTRANS_IS_PRODUCTION = (
+    os.getenv("MIDTRANS_IS_PRODUCTION", "").strip().lower()
+    or os.getenv("MIDTRANS_PRODUCTION", "").strip().lower()
+) in ("1", "true", "yes", "on")
 
 CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _resend_lock = threading.Lock()

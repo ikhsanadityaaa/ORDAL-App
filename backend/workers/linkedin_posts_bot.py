@@ -1473,7 +1473,9 @@ class LinkedInPostsBot:
                             "type": "status", "platform": "linkedin_posts",
                             "message": f"🔧 Email dikoreksi oleh AI: {'; '.join(issues[:2])}",
                         })
-                    subject = validated.get("subject") or subject
+                    # Subject wajib berasal dari instruksi post atau fallback deterministik.
+                    # AI validator tidak menerima konteks post, jadi tidak boleh menebak
+                    # atau mengganti subject yang sudah diekstrak secara presisi.
                     body = validated.get("body") or body
             except Exception as ve:
                 _blog(f"  Gemini email validation failed (continuing with original): {ve}")

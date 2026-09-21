@@ -234,6 +234,12 @@ Rules:
 - Prefer posts that match the target position and location.
 - If there is no email or application URL, leave those fields empty but still assess the post.
 - Draft a concise email body in English, max 180 words, tailored to the post and CV.
+- Subject instruction is highest priority: copy the exact requested email subject from the post.
+- Treat text after "subject", "email subject", or "subjek" as an explicit subject instruction.
+- Replace only explicit placeholders such as [Position], [Your Name], or [Location] with supplied values.
+- Never invent, paraphrase, translate, add a greeting, or add a prefix/suffix to an explicit subject.
+- If no subject instruction exists, return an empty draft_email_subject; do not guess one.
+- Return draft_email_subject as one line only, without labels, quotes, or explanation.
 """
     raw = await _call_gemini(user_id, prompt)
     if not raw:

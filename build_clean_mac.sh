@@ -32,10 +32,10 @@ echo "=========================================="
 echo ""
 echo "→ Membersihkan build sebelumnya..."
 
-# Hapus user data (setara %LOCALAPPDATA%\ORDAL di Windows)
+# Pertahankan user data: berisi URL Supabase, secret, CV, cookies, dan konfigurasi user.
+# Clean build hanya menghapus artefak build, bukan data aplikasi.
 if [[ -d "$USER_DATA_DIR" ]]; then
-    echo "  → Hapus $USER_DATA_DIR"
-    rm -rf "$USER_DATA_DIR"
+    echo "  ✓ Pertahankan user data $USER_DATA_DIR"
 fi
 
 # Hapus dist folder

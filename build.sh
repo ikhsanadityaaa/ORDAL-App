@@ -168,7 +168,7 @@ ENV_SRC="$REPO_ROOT/backend/.env"
 BUNDLED_ENV="$APP_BUNDLE/Contents/Resources/backend/.env"
 
 _db_url_from_file() {
-    grep -E '^(ORDAL_DATABASE_URL|DATABASE_URL)=' "$1" 2>/dev/null | head -1 | cut -d= -f2-
+    grep -E '^(POSTGRES_URL|ORDAL_DATABASE_URL|POSTGRES_URL_NON_POOLING|POSTGRES_PRISMA_URL|DATABASE_URL)=' "$1" 2>/dev/null | head -1 | cut -d= -f2-
 }
 
 CURRENT_DB_URL="$(_db_url_from_file "$ENV_SRC")"

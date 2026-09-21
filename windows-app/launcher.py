@@ -32,6 +32,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 # ── Setup file logging di launcher juga (sebelum backend start) ──────────
 # Supaya log launcher (sebelum backend import) juga tertulis ke file yang
@@ -125,7 +126,7 @@ def resolve_user_data_dir() -> Path:
 #   1. env sistem (dari shell)
 #   2. %LOCALAPPDATA%\\ORDAL\\.env   (user override, per-device)
 #   3. backend/.env yang di-bundle ke ORDAL.exe (default dari build)
-_DEV_DB_URL = "postgresql://ordal:ordal@127.0.0.1:5432/ordal"
+_DEV_DB_URL = ""
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -168,13 +169,29 @@ def _load_env_layers(user_data: Path, backend_dir: Path) -> None:
             log.info(f"Bundled backend/.env dimuat ({len(loaded)} keys)")
 
 
+def _usable_database_url(value: str) -> str:
+    value = (value or "").strip()
+    return "" if not value or any(marker in value for marker in ("<", ">", "YOUR-", "YOUR_")) else value
+
+
 def _resolve_db_url() -> str:
-    """Sama seperti database.py: ORDAL_DATABASE_URL → DATABASE_URL → dev default."""
-    return (
-        os.getenv("ORDAL_DATABASE_URL", "").strip()
-        or os.getenv("DATABASE_URL", "").strip()
-        or _DEV_DB_URL
-    )
+    """Resolve production PostgreSQL env ORDAL-Web; reject placeholders."""
+    direct = next((value for value in (
+        os.getenv("POSTGRES_URL", ""),
+        os.getenv("POSTGRES_URL_NON_POOLING", ""),
+        os.getenv("POSTGRES_PRISMA_URL", ""),
+        os.getenv("ORDAL_DATABASE_URL", ""),
+        os.getenv("DATABASE_URL", ""),
+    ) if _usable_database_url(value)), "")
+    if direct:
+        return direct
+    host = os.getenv("POSTGRES_HOST", "").strip()
+    user = os.getenv("POSTGRES_USER", "").strip()
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    database = os.getenv("POSTGRES_DATABASE", "").strip()
+    if host and user and database:
+        return f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@{host}/{quote(database, safe='')}"
+    return _DEV_DB_URL
 
 
 def _db_reachable(url: str, timeout: int = 8) -> tuple[bool, str]:
@@ -257,8 +274,13 @@ def _ensure_database_ready(user_data: Path, backend_dir: Path) -> bool:
     di log + dialog — TIDAK close diam-diam."""
     for attempt in range(1, 4):
         url = _resolve_db_url()
-        safe_host = url.split("@")[-1] if "@" in url else url
-        ok, err = _db_reachable(url)
+        if not url:
+            safe_host = "belum dikonfigurasi"
+            err = "URL Supabase belum diisi"
+            ok = False
+        else:
+            safe_host = url.split("@")[-1] if "@" in url else url
+            ok, err = _db_reachable(url)
         if ok:
             log.info(f"Database pusat OK ({safe_host})")
             return True
