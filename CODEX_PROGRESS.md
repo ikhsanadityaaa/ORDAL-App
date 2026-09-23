@@ -3,6 +3,8 @@
 Last updated: 2026-09-23
 Branch: `codex/secure-architecture-v2`
 Base commit: `a003a72`
+Implementation commit: `8b1b346`
+Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
 
@@ -70,7 +72,17 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 
 ## External Setup Dependency
 
-Web API is not usable in production until required Vercel environment variables and Google/Resend/payment accounts are configured. See Web repository `CODEX_PROGRESS.md`.
+Web security/database variables and Google OAuth are configured. Resend, Midtrans, PayPal, download URLs, and the final custom domain remain pending. See Web repository `CODEX_PROGRESS.md`.
+
+## MacBook Handoff
+
+Latest desktop build is installed and running on the MacBook. Next release checks:
+
+1. Test Google login and callback auto-close with a real user account.
+2. Test verified-email login, device enforcement/removal, trial, payment polling, permanent license, and logout.
+3. Replace local-storage session token storage with OS keychain storage before public release.
+4. Build and inspect the Windows package.
+5. Sign and notarize the macOS package with an Apple Developer ID.
 
 ## Rules For Next AI
 
