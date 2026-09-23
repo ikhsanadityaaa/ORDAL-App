@@ -362,6 +362,28 @@ mark.hl {
 }
 .input::placeholder, .textarea::placeholder { color: var(--gray-400); }
 
+.select-sticker-wrap { position: relative; }
+.select-sticker {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 46px;
+  padding-right: 44px;
+  border: 2px solid var(--black);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 4px 4px 0 var(--black);
+  font-weight: 700;
+  cursor: pointer;
+}
+.select-sticker-wrap svg {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--orange);
+}
+
 .input-label {
   display: block;
   font-size: 13px;
@@ -376,6 +398,98 @@ mark.hl {
   color: var(--gray-500);
   margin-top: 5px;
   line-height: 1.4;
+}
+
+/* ── First-launch language choice ───────────────────────────────── */
+.language-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--black);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(242,102,26,.2) 0 8%, transparent 8.5%),
+    linear-gradient(135deg, #F4F2EC 0 62%, #E8E4DA 62% 100%);
+}
+.language-gate-card {
+  width: min(680px, 100%);
+  padding: 42px;
+  background: rgba(255,255,255,.92);
+  border: 3px solid var(--black);
+  border-radius: 28px;
+  box-shadow: 12px 12px 0 var(--black);
+}
+.language-mark {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  color: white;
+  background: var(--orange);
+  border: 3px solid var(--black);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--black);
+  font-size: 30px;
+  font-weight: 900;
+}
+.language-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--orange-700);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.language-gate h1 {
+  margin: 10px 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 6vw, 52px);
+  line-height: 1;
+}
+.language-gate p { margin: 0; color: var(--gray-600); }
+.language-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 30px;
+}
+.language-options button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  text-align: left;
+  background: var(--cream);
+  border: 2px solid var(--black);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--black);
+  cursor: pointer;
+}
+.language-options button:hover {
+  color: white;
+  background: var(--orange);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--black);
+}
+.language-code {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: white;
+  background: var(--black);
+  border-radius: 11px;
+  font-weight: 900;
+}
+.language-options strong,
+.language-options small { display: block; }
+.language-options small { margin-top: 3px; opacity: .72; }
+@media (max-width: 640px) {
+  .language-gate-card { padding: 28px 22px; box-shadow: 7px 7px 0 var(--black); }
+  .language-options { grid-template-columns: 1fr; }
 }
 
 /* ── Badges (pill) ───────────────────────────────────────────────── */

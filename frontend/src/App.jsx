@@ -15,6 +15,8 @@ import DeviceLimitModal from './components/auth/DeviceLimitModal'
 import OnboardingWizard from './components/onboarding/OnboardingWizard'
 import PaymentModal from './components/license/PaymentModal'
 import TrialToast from './components/license/TrialToast'
+import LanguageGate from './components/LanguageGate'
+import useI18n from './stores/i18nStore'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App v3.1 — wajib login (APP_MODE dihapus):
@@ -30,11 +32,13 @@ import TrialToast from './components/license/TrialToast'
 
 function App() {
   const { token, booted, onboarding, refresh } = useAuthStore()
+  const languageChosen = useI18n((s) => s.languageChosen)
   const license = useLicenseStore()
   const licenseStatus = useLicenseStore((s) => s.status)
 
   // Cek sesi tersimpan saat app dibuka (+ listen event session expired)
   useEffect(() => {
+    if (!languageChosen) return
     refresh()
     const onExpired = () => {
       useAuthStore.setState({
@@ -44,7 +48,7 @@ function App() {
     }
     window.addEventListener('ordal:session-expired', onExpired)
     return () => window.removeEventListener('ordal:session-expired', onExpired)
-  }, [])
+  }, [languageChosen])
 
   // v3.1 — license: poll status tiap 60 dtk + listen event 403 TRIAL_EXPIRED.
   // Trial habis → licenseStore otomatis membuka pop-up pembayaran (forced).
@@ -59,6 +63,10 @@ function App() {
       window.removeEventListener('ordal:trial-expired', onTrialExpired)
     }
   }, [token, onboarding.completed])
+
+  if (!languageChosen) {
+    return <LanguageGate />
+  }
 
   // Belum selesai cek sesi → layar kosong cream
   if (!booted) {

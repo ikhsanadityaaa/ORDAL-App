@@ -16,12 +16,10 @@
 #     biasa) jadi ini aman — cuma kehilangan sedikit micro-optimization.
 # ==============================================================================
 
-psycopg2-binary==2.9.9
 fastapi==0.115.0
 uvicorn==0.30.6
 python-multipart==0.0.9
 pydantic[email]>=2.12,<3
-PyJWT==2.9.0
 bcrypt>=4.2.0
 cryptography>=44.0.0
 httpx==0.27.2

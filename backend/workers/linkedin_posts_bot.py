@@ -209,11 +209,11 @@ def _get_email_config(user_id: str) -> dict:
         db = get_db()
         row = db.execute(
             """
-            SELECT COALESCE(u."name", '') AS user_name,
+            SELECT COALESCE(u.name, '') AS user_name,
                    COALESCE(p.testing_email_mode, 0) AS testing_email_mode
-            FROM "User" u
-            LEFT JOIN user_preferences p ON p.user_id = u."id"
-            WHERE u."id" = ?
+            FROM local_users u
+            LEFT JOIN user_preferences p ON p.user_id = u.id
+            WHERE u.id = ?
             """,
             (user_id,),
         ).fetchone()

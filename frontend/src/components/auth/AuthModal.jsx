@@ -14,7 +14,7 @@ import { GoogleGlyph } from '../brand'
 export default function AuthModal() {
   const { t } = useI18n()
   const {
-    showAuthModal, googleConfigured,
+    showAuthModal,
     login, register, setDeviceLimit,
   } = useAuthStore()
 
@@ -78,15 +78,14 @@ export default function AuthModal() {
 
   const startGoogle = async () => {
     setError('')
-    // Cek konfigurasi (cache dari /auth/me; kalau belum ada, cek langsung)
-    let configured = googleConfigured
-    if (configured === undefined || configured === null) {
-      try {
-        const res = await api.get('/auth/google/config')
-        configured = res.data?.configured
-      } catch (e) {
-        configured = false
-      }
+    // Selalu cek server; user yang belum login belum pernah memanggil /auth/me.
+    let configured = false
+    try {
+      const config = await api.get('/auth/google/config')
+      configured = config.data?.configured === true
+    } catch (e) {
+      setError(t('auth.google_unreachable'))
+      return
     }
     if (!configured) {
       setError(t('auth.google_soon'))
@@ -96,6 +95,7 @@ export default function AuthModal() {
     try {
       const res = await api.post('/auth/google/start', {})
       const state = res.data?.state
+      if (!state) throw new Error('Google OAuth state tidak tersedia')
       // backend sudah buka browser sistem — poll sampai selesai
       stopPolling()
       pollRef.current = setInterval(async () => {
@@ -109,6 +109,10 @@ export default function AuthModal() {
           } else if (d.status === 'device_limit') {
             stopPolling()
             setGoogleWaiting(false)
+            if (d.devices?.length) {
+              setDeviceLimit({ code: 'DEVICE_LIMIT', message: t('device.limit_msg'), devices: d.devices })
+              return
+            }
             try {
               const dl = await api.get('/auth/devices')
               setDeviceLimit({ code: 'DEVICE_LIMIT', message: t('device.limit_msg'), devices: dl.data.devices })
@@ -120,12 +124,19 @@ export default function AuthModal() {
             setGoogleWaiting(false)
             setError(t('auth.google_failed'))
           }
-        } catch (e) { /* keep polling */ }
+        } catch (e) {
+          if (e.response?.status && e.response.status < 500) {
+            stopPolling()
+            setGoogleWaiting(false)
+            const detail = e.response?.data?.detail
+            setError(detail?.message || (typeof detail === 'string' ? detail : t('auth.google_failed')))
+          }
+        }
       }, 1500)
     } catch (err) {
       setGoogleWaiting(false)
-      const msg = err.response?.data?.detail
-      setError(typeof msg === 'string' ? msg : t('auth.google_failed'))
+      const detail = err.response?.data?.detail
+      setError(detail?.message || (typeof detail === 'string' ? detail : t('auth.google_failed')))
     }
   }
 

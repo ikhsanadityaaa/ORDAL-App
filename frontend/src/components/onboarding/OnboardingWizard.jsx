@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Loader2, ArrowRight, ArrowLeft, FileText, Upload, CheckCircle2, Eye,
   Briefcase, MapPin, Wallet, CalendarClock, Building2, Ban, Sparkles,
-  Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle,
+  Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle, ChevronDown,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 import useI18n from '../../stores/i18nStore'
@@ -16,7 +16,7 @@ import CoverLetterExampleModal from './CoverLetterExampleModal'
 // Langkah: 1) Upload CV  2) Preferensi kerja  3) Cover letter (lihat contoh
 // {company}/{position})  4) Pilih job platform  5) Email (wajib utk LinkedIn
 // Posts)  6) Login job platform (wajib min. satu) → selesai.
-// Progress tersimpan di DB pusat → bisa dilanjutkan di device lain.
+// Progress tersimpan di SQLite lokal per device.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PLATFORM_CARDS = [
@@ -95,7 +95,7 @@ export default function OnboardingWizard() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [load])
 
-  // ── simpan progress ke DB pusat ──
+  // ── simpan progress ke database lokal ──
   const save = async (stepNum, extra = {}) => {
     setSaving(true)
     try {
@@ -236,6 +236,10 @@ export default function OnboardingWizard() {
 
   // ── layar sukses ──
   if (step === 7) {
+    const enterApp = (path) => {
+      window.history.replaceState({}, '', path)
+      setOnboarding({ completed: true, current_step: 7 })
+    }
     return (
       <div className="sticker-overlay">
         <div className="sticker-modal" role="dialog" aria-modal="true">
@@ -267,13 +271,26 @@ export default function OnboardingWizard() {
                 </div>
               ))}
             </div>
+            <div className="notice notice-info" style={{ marginTop: 14, textAlign: 'left' }}>
+              <Sparkles size={17} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                <strong style={{ display: 'block', marginBottom: 3 }}>{t('onb.ai_title')}</strong>
+                {t('onb.ai_sub')}
+              </span>
+            </div>
           </div>
-          <div className="sticker-modal-footer" style={{ justifyContent: 'center' }}>
+          <div className="sticker-modal-footer" style={{ justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary btn-lg"
-              onClick={() => setOnboarding({ completed: true, current_step: 7 })}
+              onClick={() => enterApp('/ai')}
             >
-              {t('onb.start_btn')} <ArrowRight size={17} />
+              <Sparkles size={17} /> {t('onb.ai_setup')}
+            </button>
+            <button
+              className="btn btn-secondary btn-lg"
+              onClick={() => enterApp('/kerja')}
+            >
+              {t('onb.ai_skip')} <ArrowRight size={17} />
             </button>
           </div>
         </div>
@@ -597,6 +614,7 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           value={prefs.positions}
           onChange={(v) => up('positions', v)}
           placeholder={t('onb.f_positions_ph')}
+          helper={t('onb.f_positions_help')}
         />
       </Field>
 
@@ -605,6 +623,7 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           value={prefs.locations}
           onChange={(v) => up('locations', v)}
           placeholder={t('onb.f_locations_ph')}
+          helper={t('onb.f_locations_help')}
         />
       </Field>
 
@@ -618,15 +637,18 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           />
         </Field>
         <Field icon={CalendarClock} label={t('onb.f_join')}>
-          <select
-            className="select"
-            value={prefs.available_join}
-            onChange={(e) => up('available_join', e.target.value)}
-          >
-            {JOIN_OPTIONS.map((j) => (
-              <option key={j} value={j}>{t(`onb.join_${j}`)}</option>
-            ))}
-          </select>
+          <div className="select-sticker-wrap">
+            <select
+              className="select select-sticker"
+              value={prefs.available_join}
+              onChange={(e) => up('available_join', e.target.value)}
+            >
+              {JOIN_OPTIONS.map((j) => (
+                <option key={j} value={j}>{t(`onb.join_${j}`)}</option>
+              ))}
+            </select>
+            <ChevronDown size={18} strokeWidth={3} />
+          </div>
         </Field>
       </div>
 

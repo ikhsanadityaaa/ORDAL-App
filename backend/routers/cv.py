@@ -172,14 +172,6 @@ async def upload_cv(
     cv_id = cur.lastrowid
     db.close()
 
-    # Backup isi PDF ke kolom DB pusat (PostgreSQL), supaya
-    # bisa direstore ke disk kalau host-nya ephemeral / login di device lain.
-    try:
-        from database import backup_file_to_db
-        backup_file_to_db("cvs", "id", cv_id, "file_data", content)
-    except Exception:
-        pass
-
     return {
         "id": cv_id,
         "position_label": position_label,

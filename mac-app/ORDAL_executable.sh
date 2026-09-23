@@ -15,6 +15,9 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RESOURCES_DIR="$(cd "$SCRIPT_DIR/../Resources" && pwd)"
 
+# Keep runtime imports from modifying the signed app bundle.
+export PYTHONDONTWRITEBYTECODE=1
+
 # User data dir (persistent antar versi app)
 USER_DATA_DIR="$HOME/Library/Application Support/ORDAL"
 VENV_DIR="$HOME/.ordal/venv"
@@ -201,10 +204,7 @@ $LOG_FILE\" buttons {\"OK\"} default button 1 with title \"ORDAL Error\" with ic
 fi
 
 # ── 3. Set env vars ──────────────────────────────────────────────────────────
-# v3: ORDAL_APP_MODE dihapus — login wajib (DB pusat PostgreSQL).
-# v3.1.1: launcher memuat .env berlapis (user override + bundled) dan memastikan
-# database reachable SEBELUM start backend — app tidak pernah "close sendiri"
-# tanpa pesan; kalau DB belum dikonfigurasi, muncul dialog input DATABASE URL.
+# Login wajib melalui API HTTPS ORDAL-Web; data bot tetap di SQLite lokal.
 export ORDAL_DATA_DIR="$USER_DATA_DIR"
 export ORDAL_BACKEND_DIR="$RESOURCES_DIR/backend"
 export JWT_SECRET_FILE="$USER_DATA_DIR/secret.key"

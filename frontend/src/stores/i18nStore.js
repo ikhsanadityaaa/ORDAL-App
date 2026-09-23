@@ -16,6 +16,7 @@ import { create } from 'zustand'
 // ditemukan, fallback ke key itu sendiri (supaya app tidak crash).
 
 const STORAGE_KEY = 'ordal_lang'
+const CONFIRMED_KEY = 'ordal_language_confirmed'
 
 function loadStoredLang() {
   try {
@@ -25,6 +26,14 @@ function loadStoredLang() {
     // localStorage tidak tersedia (mis. SSR) — abaikan
   }
   return 'id'  // default Indonesia — konsisten dengan ORDAL-Web
+}
+
+function hasStoredLang() {
+  try {
+    return localStorage.getItem(CONFIRMED_KEY) === '1'
+  } catch (e) {
+    return false
+  }
 }
 
 // ── Dictionary ─────────────────────────────────────────────────────────────
@@ -48,6 +57,10 @@ const TRANSLATIONS = {
   // ── Language switcher ────────────────────────────────────────────────
   'lang.label':              { id: 'Bahasa',                en: 'Language' },
   'lang.toggle_to_en':       { id: 'Switch to English',     en: 'Ganti ke Indonesia' },
+  'lang.choose_title':       { id: 'Pilih bahasa',          en: 'Choose your language' },
+  'lang.choose_sub':         { id: 'Bahasa bisa diubah lagi dari sidebar.', en: 'You can change this later from the sidebar.' },
+  'lang.indonesian':         { id: 'Bahasa Indonesia',      en: 'Bahasa Indonesia' },
+  'lang.english':            { id: 'English',               en: 'English' },
 
   // ── Page: Cari Kerja ─────────────────────────────────────────────────
   'page.cari_kerja.title':         { id: 'Cari Kerja',           en: 'Find Jobs' },
@@ -108,6 +121,10 @@ const TRANSLATIONS = {
   'page.ai.no_key_desc': {
     id: 'Pilih salah satu provider di bawah, dapatkan API key dari link yang tersedia, lalu simpan. Setelah itu, klik "Pakai" untuk mengaktifkan provider tersebut.',
     en: 'Pick a provider below, get an API key from the link provided, then save. After that, click "Use" to activate that provider.',
+  },
+  'page.ai.oauth_note': {
+    id: 'Koneksi API AI tidak sama dengan login akun biasa. Gemini, OpenAI, Claude, dan Groq memakai API key developer. OpenRouter mendukung OAuth PKCE, tetapi ORDAL tetap memakai key manual agar penyimpanan lokal dan pergantian provider konsisten.',
+    en: 'AI API access is separate from normal account sign-in. Gemini, OpenAI, Claude, and Groq use developer API keys. OpenRouter supports OAuth PKCE, but ORDAL keeps manual keys for consistent local storage and provider switching.',
   },
   'page.ai.section_provider': { id: 'Provider AI', en: 'AI Provider' },
   'page.ai.section_provider_desc': {
@@ -360,7 +377,8 @@ const TRANSLATIONS = {
   'auth.register_title':  { id: 'Buat akun ORDAL',         en: 'Create your ORDAL account' },
   'auth.register_sub':   { id: 'Gratis — mulai auto-apply sekarang.', en: 'Free — start auto-applying now.' },
   'auth.google_btn':     { id: 'Lanjut dengan Google',    en: 'Continue with Google' },
-  'auth.google_soon':    { id: 'Login Google belum dikonfigurasi. Isi GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET di backend/.env (OAuth Client tipe "Desktop app" dari Google Cloud Console), lalu jalankan ulang aplikasi.', en: 'Google login is not configured yet. Fill GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET in backend/.env (a "Desktop app" OAuth Client from Google Cloud Console), then restart the app.' },
+  'auth.google_soon':    { id: 'Login Google belum aktif di server ORDAL-Web. Hubungi admin ORDAL.', en: 'Google login is not enabled on the ORDAL-Web server. Contact the ORDAL administrator.' },
+  'auth.google_unreachable': { id: 'Server ORDAL tidak dapat dihubungi. Periksa koneksi internet lalu coba lagi.', en: 'The ORDAL server could not be reached. Check your internet connection and try again.' },
   'auth.google_waiting': { id: 'Menunggu login Google...', en: 'Waiting for Google login...' },
   'auth.google_waiting_sub': { id: 'Browser telah terbuka. Selesaikan login Google, lalu kembali ke aplikasi ini.', en: 'Your browser has opened. Complete Google sign-in, then return to this app.' },
   'auth.google_failed':  { id: 'Login Google gagal atau dibatalkan.', en: 'Google login failed or was cancelled.' },
@@ -446,8 +464,10 @@ const TRANSLATIONS = {
 
   'onb.f_positions':     { id: 'Posisi yang diincar', en: 'Target positions' },
   'onb.f_positions_ph':  { id: 'cth: Backend Engineer — tekan Enter', en: 'e.g. Backend Engineer — press Enter' },
+  'onb.f_positions_help': { id: 'Ketik satu posisi lalu tekan Enter. Ulangi untuk menambahkan beberapa posisi.', en: 'Type one position and press Enter. Repeat to add multiple positions.' },
   'onb.f_locations':     { id: 'Lokasi kerja', en: 'Work locations' },
   'onb.f_locations_ph':  { id: 'cth: Jakarta — tekan Enter', en: 'e.g. Jakarta — press Enter' },
+  'onb.f_locations_help': { id: 'Ketik satu lokasi lalu tekan Enter. Kamu bisa menambahkan beberapa kota atau area.', en: 'Type one location and press Enter. You can add multiple cities or areas.' },
   'onb.f_salary':        { id: 'Gaji yang diharapkan', en: 'Expected salary' },
   'onb.f_salary_ph':     { id: 'cth: Rp 10-15 juta', en: 'e.g. IDR 10-15 million' },
   'onb.f_join':          { id: 'Kapan bisa bergabung', en: 'Available to join' },
@@ -499,6 +519,10 @@ const TRANSLATIONS = {
   'onb.done_platforms': { id: 'Job platform terpilih', en: 'Job platforms selected' },
   'onb.done_login':     { id: 'Sesi job platform aktif', en: 'Job platform session active' },
   'onb.start_btn':      { id: 'Mulai Pakai ORDAL', en: 'Start using ORDAL' },
+  'onb.ai_title':       { id: 'Hubungkan AI agar bot bekerja maksimal', en: 'Connect AI for the best results' },
+  'onb.ai_sub':         { id: 'Opsional, tetapi direkomendasikan untuk menjawab formulir, menilai kecocokan, dan membuat cover letter.', en: 'Optional, but recommended for answering forms, matching jobs, and writing cover letters.' },
+  'onb.ai_setup':       { id: 'Atur AI sekarang', en: 'Set up AI now' },
+  'onb.ai_skip':        { id: 'Lewati untuk sekarang', en: 'Skip for now' },
 
   'onb.err_load':           { id: 'Gagal memuat onboarding.', en: 'Failed to load onboarding.' },
   'onb.err_cv':             { id: 'Pilih atau upload CV dulu.', en: 'Select or upload a CV first.' },
@@ -624,15 +648,17 @@ function translateJoin(value, lang) {
 
 const useI18n = create((set, get) => ({
   lang: loadStoredLang(),
+  languageChosen: hasStoredLang(),
 
   setLang: (lang) => {
     if (lang !== 'id' && lang !== 'en') return
     try {
       localStorage.setItem(STORAGE_KEY, lang)
+      localStorage.setItem(CONFIRMED_KEY, '1')
     } catch (e) {
       // localStorage tidak tersedia — abaikan, tetap update state
     }
-    set({ lang })
+    set({ lang, languageChosen: true })
   },
 
   toggleLang: () => {

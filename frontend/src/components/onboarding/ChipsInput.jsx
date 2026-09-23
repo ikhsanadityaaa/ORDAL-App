@@ -7,7 +7,7 @@ import useI18n from '../../stores/i18nStore'
 // Enter/koma untuk tambah, klik X untuk hapus.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ChipsInput({ value = [], onChange, placeholder, addLabel }) {
+export default function ChipsInput({ value = [], onChange, placeholder, addLabel, helper }) {
   const { t } = useI18n()
   const [draft, setDraft] = useState('')
 
@@ -69,6 +69,7 @@ export default function ChipsInput({ value = [], onChange, placeholder, addLabel
           }}
         />
       </div>
+      {helper && <div className="input-help">{helper}</div>}
       {draft && (
         <button
           type="button"
