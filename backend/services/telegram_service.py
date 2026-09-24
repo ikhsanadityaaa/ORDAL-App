@@ -273,16 +273,8 @@ def clean_question_text(question: str) -> str:
 def prompt_kind(field_type: str, question: str) -> str:
     """Tentukan tipe jawaban untuk prompt ke Telegram/UI.
 
-    Penting (v10 fix):
-    - Kalau pertanyaan punya opsi (parse_prompt_options non-empty), ALWAYS
-      return "dropdown" — TIDAK peduli apakah pertanyaan mengandung keyword
-      "tahun"/"bulan"/"year"/"month"/"salary"/"gaji" dll.
-    - Sebelumnya, kalau question mengandung "tahun" (mis. "Berapa lama pengalaman?
-      Options: 1 tahun; 2 tahun; 3 tahun"), prompt_kind return "number" SEBELUM
-      cek opsi → Telegram tidak tampilkan inline keyboard → user harus ketik
-      angka manual, padahal opsi sudah tersedia.
-    - Sekarang: cek opsi DULU. Kalau ada opsi → dropdown. Kalau tidak ada opsi
-      baru cek keyword number.
+    Opsi asli selalu menjadi dropdown. Tanpa opsi, metadata field dari halaman
+    menentukan kontrol; kata seperti "tahun" tidak boleh mengubah text menjadi number.
     """
     field = (field_type or "").lower()
 
@@ -291,19 +283,13 @@ def prompt_kind(field_type: str, question: str) -> str:
     if parsed_opts:
         return "dropdown"
 
-    # ── Priority 2: field_type yes_no ──
-    if field == "yes_no":
+    # Field metadata wins. Question wording must not turn a text field into number.
+    if field in ("dropdown", "select", "choice", "radio"):
+        return "text"
+    if field in ("yes_no", "checkbox"):
         return "yes_no"
-
-    # ── Priority 3: field_type number ATAU keyword number ──
-    text = f"{question or ''} {field}".lower()
-    if field == "number" or any(k in text for k in (
-        "gaji", "salary", "umur", "usia", "tahun", "bulan",
-        "year", "month", "nominal", "amount",
-    )):
+    if field == "number":
         return "number"
-
-    # ── Priority 4: field_type textarea ──
     if field == "textarea":
         return "textarea"
 

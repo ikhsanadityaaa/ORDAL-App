@@ -10,13 +10,33 @@ const PLATFORM_LABELS = {
   linkedin_posts: 'LinkedIn Posts',
 }
 
+function splitQuestionOptions(rawQuestion = '') {
+  const raw = rawQuestion.trim()
+  const match = raw.match(/^(.*?)\s*(?:\n|\s)+Options?\s*:\s*(.+)$/is)
+  if (!match) return { questionText: raw, options: [] }
+  return {
+    questionText: match[1].trim(),
+    options: match[2].split(/[;,]\s*/).map(v => v.trim()).filter(Boolean),
+  }
+}
+
+function answerControlKind(fieldType = '', options = []) {
+  const type = fieldType.toLowerCase()
+  if (options.length) return 'dropdown'
+  if (['dropdown', 'select', 'choice', 'radio'].includes(type)) return 'text'
+  if (type === 'yes_no' || type === 'checkbox') return 'yes_no'
+  if (type === 'number') return 'number'
+  if (type === 'textarea') return 'textarea'
+  return 'text'
+}
+
 export default function KumpulanPertanyaan() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  const [form, setForm] = useState({ question: '', answer: '', platform: '', field_type: 'text' })
+  const [form, setForm] = useState({ question: '', answer: '', platform: '', field_type: 'text', options: '' })
   const { t } = useI18n()
 
   const load = () => {
@@ -37,10 +57,22 @@ export default function KumpulanPertanyaan() {
 
   const create = async () => {
     if (!form.question.trim() || !form.answer.trim()) { setError(t('pertanyaan.qa_wajib')); return }
+    const options = form.options.split(/[;,\n]/).map(v => v.trim()).filter(Boolean)
+    if (form.field_type === 'dropdown' && !options.length) {
+      setError(t('pertanyaan.opsi_wajib'))
+      return
+    }
+    if (options.length && !options.some(option => option.toLowerCase() === form.answer.trim().toLowerCase())) {
+      setError(t('pertanyaan.jawaban_harus_opsi'))
+      return
+    }
     setSaving(true); setError('')
     try {
-      await api.post('/questions/', form)
-      setForm({ question: '', answer: '', platform: '', field_type: 'text' })
+      await api.post('/questions/', {
+        ...form,
+        question: options.length ? `${form.question.trim()}\nOptions: ${options.join('; ')}` : form.question.trim(),
+      })
+      setForm({ question: '', answer: '', platform: '', field_type: 'text', options: '' })
       load()
     } catch (err) { setError(err.response?.data?.detail || t('pertanyaan.gagal_menyimpan')) }
     finally { setSaving(false) }
@@ -87,7 +119,7 @@ export default function KumpulanPertanyaan() {
           <div className="card-title">{t('page.pertanyaan.add_manual')}</div>
         </div>
         <div className="card-pad" style={{ paddingTop: 16, paddingBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr auto', gap: 10, alignItems: 'start' }}>
+          <div className="question-create-grid">
             <textarea
               rows={2}
               value={form.question}
@@ -96,14 +128,19 @@ export default function KumpulanPertanyaan() {
               className="textarea"
               style={{ resize: 'vertical' }}
             />
-            <textarea
-              rows={2}
-              value={form.answer}
-              onChange={e => setForm(f => ({ ...f, answer: e.target.value }))}
-              placeholder="Jawaban"
-              className="textarea"
-              style={{ resize: 'vertical' }}
-            />
+            <div style={{ display: 'grid', gap: 8 }}>
+              <select className="select" value={form.field_type} onChange={e => setForm(f => ({ ...f, field_type: e.target.value, answer: '', options: e.target.value === 'dropdown' ? f.options : '' }))}>
+                <option value="text">Text</option>
+                <option value="textarea">Long text</option>
+                <option value="number">Number</option>
+                <option value="yes_no">Yes / No</option>
+                <option value="dropdown">Dropdown</option>
+              </select>
+              {form.field_type === 'dropdown' && (
+                <textarea className="textarea" rows={2} value={form.options} onChange={e => setForm(f => ({ ...f, options: e.target.value }))} placeholder={t('pertanyaan.opsi_ph')} />
+              )}
+            </div>
+            <ManualAnswerInput form={form} setForm={setForm} t={t} />
             <button onClick={create} disabled={saving} className="btn btn-primary" style={{ height: 60 }}>
               {saving ? null : <Plus size={13} />} Tambah
             </button>
@@ -138,6 +175,32 @@ export default function KumpulanPertanyaan() {
   )
 }
 
+function ManualAnswerInput({ form, setForm, t }) {
+  const options = form.options.split(/[;,\n]/).map(v => v.trim()).filter(Boolean)
+  const setAnswer = answer => setForm(f => ({ ...f, answer }))
+  if (form.field_type === 'dropdown') {
+    return (
+      <select className="select" value={form.answer} onChange={e => setAnswer(e.target.value)}>
+        <option value="">{t('pertanyaan.pilih_jawaban')}</option>
+        {options.map(option => <option key={option} value={option}>{option}</option>)}
+      </select>
+    )
+  }
+  if (form.field_type === 'yes_no') {
+    return (
+      <select className="select" value={form.answer} onChange={e => setAnswer(e.target.value)}>
+        <option value="">{t('pertanyaan.pilih_jawaban')}</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    )
+  }
+  if (form.field_type === 'number') {
+    return <input className="input" type="number" inputMode="decimal" value={form.answer} onChange={e => setAnswer(e.target.value)} placeholder={t('pertanyaan.jawaban')} />
+  }
+  return <textarea rows={2} value={form.answer} onChange={e => setAnswer(e.target.value)} placeholder={t('pertanyaan.jawaban')} className="textarea" style={{ resize: 'vertical' }} />
+}
+
 function QuestionRow({ row, setRows, update, remove, saving }) {
   const patch = changes => setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...changes } : r))
   const answerRows = Math.min(5, Math.max(1, Math.ceil(((row.answer || '').length || 1) / 80)))
@@ -151,14 +214,10 @@ function QuestionRow({ row, setRows, update, remove, saving }) {
     const raw = (row.question || '').trim()
     if (!raw) return { questionText: '(tidak ada pertanyaan)', optionsList: [] }
 
-    // Pattern: "Question?\nOptions: A; B; C" atau "Question? Options: A; B; C"
-    const match = raw.match(/^(.*?)\s*(?:\n|\s)+Options?\s*:\s*(.+)$/is)
-    if (match) {
-      let q = match[1].trim()
-      const opts = match[2]
-        .split(/[;,]\s*/)
-        .map(o => o.trim())
-        .filter(Boolean)
+    const parsed = splitQuestionOptions(raw)
+    if (parsed.options.length) {
+      let q = parsed.questionText
+      const opts = parsed.options
       // Kalau question text kosong/generik, tampilkan label fallback yang jelas
       if (!q || q.toLowerCase() === 'dropdown question') {
         q = '(Pertanyaan dropdown — label tidak terbaca dari halaman JobStreet)'
@@ -188,6 +247,7 @@ function QuestionRow({ row, setRows, update, remove, saving }) {
   const shownOptions = optionsList.slice(0, maxShow)
   const hiddenCount = optionsList.length - shownOptions.length
   const colCount = shownOptions.length <= 6 ? 1 : (shownOptions.length <= 15 ? 2 : 3)
+  const controlKind = answerControlKind(row.field_type, optionsList)
 
   return (
     <div style={{
@@ -257,13 +317,28 @@ function QuestionRow({ row, setRows, update, remove, saving }) {
             </div>
           )}
         </div>
-        <textarea
-          rows={Math.max(answerRows, optionsList.length > 0 ? 3 : 1)}
-          value={row.answer || ''}
-          onChange={e => patch({ answer: e.target.value })}
-          className="textarea"
-          style={{ resize: 'none', overflow: 'hidden', fontSize: 13 }}
-        />
+        {controlKind === 'dropdown' ? (
+          <select className="select" value={row.answer || ''} onChange={e => patch({ answer: e.target.value })}>
+            <option value="">Pilih jawaban</option>
+            {optionsList.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ) : controlKind === 'yes_no' ? (
+          <select className="select" value={row.answer || ''} onChange={e => patch({ answer: e.target.value })}>
+            <option value="">Pilih jawaban</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        ) : controlKind === 'number' ? (
+          <input className="input" type="number" inputMode="decimal" value={row.answer || ''} onChange={e => patch({ answer: e.target.value })} />
+        ) : (
+          <textarea
+            rows={controlKind === 'textarea' ? Math.max(3, answerRows) : answerRows}
+            value={row.answer || ''}
+            onChange={e => patch({ answer: e.target.value })}
+            className="textarea"
+            style={{ resize: controlKind === 'textarea' ? 'vertical' : 'none', overflow: 'hidden', fontSize: 13 }}
+          />
+        )}
         <button onClick={() => update(row)} disabled={saving} className="btn btn-secondary" style={{ height: 36 }}>
           <Save size={13} /> Simpan
         </button>

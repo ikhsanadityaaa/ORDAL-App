@@ -4,7 +4,7 @@ import { create } from 'zustand'
 // i18n Store — Internationalization (Indonesia / English)
 // ─────────────────────────────────────────────────────────────────────────────
 // Sederhana: pakai object dictionary, bukan library berat seperti i18next.
-// Bahasa default: 'id' (Indonesia). Disimpan di localStorage supaya persist
+// Bahasa default: English. Disimpan di localStorage supaya persist
 // antar session.
 //
 // Cara pakai:
@@ -25,7 +25,7 @@ function loadStoredLang() {
   } catch (e) {
     // localStorage tidak tersedia (mis. SSR) — abaikan
   }
-  return 'id'  // default Indonesia — konsisten dengan ORDAL-Web
+  return 'en'
 }
 
 function hasStoredLang() {
@@ -58,7 +58,7 @@ const TRANSLATIONS = {
   'lang.label':              { id: 'Bahasa',                en: 'Language' },
   'lang.toggle_to_en':       { id: 'Switch to English',     en: 'Ganti ke Indonesia' },
   'lang.choose_title':       { id: 'Pilih bahasa',          en: 'Choose your language' },
-  'lang.choose_sub':         { id: 'Bahasa bisa diubah lagi dari sidebar.', en: 'You can change this later from the sidebar.' },
+  'lang.choose_sub':         { id: 'Mari mulai dengan bahasa yang paling nyaman untukmu. Kamu bisa mengubahnya lagi nanti.', en: 'Let’s begin in the language that feels most comfortable. You can change it later.' },
   'lang.indonesian':         { id: 'Bahasa Indonesia',      en: 'Bahasa Indonesia' },
   'lang.english':            { id: 'English',               en: 'English' },
 
@@ -352,6 +352,11 @@ const TRANSLATIONS = {
   // ── KumpulanPertanyaan (v43) ──────────────────────────────────────────
   'pertanyaan.gagal_memuat':     { id: 'Gagal memuat pertanyaan', en: 'Failed to load questions' },
   'pertanyaan.qa_wajib':         { id: 'Pertanyaan dan jawaban wajib diisi', en: 'Question and answer are required' },
+  'pertanyaan.opsi_wajib':       { id: 'Isi minimal satu opsi untuk pertanyaan dropdown.', en: 'Add at least one option for a dropdown question.' },
+  'pertanyaan.jawaban_harus_opsi': { id: 'Jawaban dropdown harus dipilih dari opsi yang tersedia.', en: 'A dropdown answer must be selected from the available options.' },
+  'pertanyaan.opsi_ph':          { id: 'Opsi, pisahkan dengan koma atau baris baru', en: 'Options, separated by commas or new lines' },
+  'pertanyaan.pilih_jawaban':    { id: 'Pilih jawaban', en: 'Choose an answer' },
+  'pertanyaan.jawaban':          { id: 'Jawaban', en: 'Answer' },
   'pertanyaan.gagal_menyimpan': { id: 'Gagal menyimpan', en: 'Failed to save' },
   'pertanyaan.gagal_update':     { id: 'Gagal update', en: 'Failed to update' },
 
@@ -449,6 +454,19 @@ const TRANSLATIONS = {
   'onb.step_login':     { id: 'Login Job Platform', en: 'Sign in to Job Platforms' },
   'onb.step_of':        { id: 'Langkah {n} dari {total}', en: 'Step {n} of {total}' },
   'onb.loading':        { id: 'Memuat progres onboarding...', en: 'Loading onboarding progress...' },
+  'onb.name_title':     { id: 'Kami boleh memanggilmu siapa?', en: 'What should we call you?' },
+  'onb.name_sub':       { id: 'Nama ini dipakai ORDAL untuk menyambutmu dan membuat pengalaman terasa lebih personal.', en: 'ORDAL will use this name to welcome you and make the experience feel personal.' },
+  'onb.name_label':     { id: 'Nama panggilan', en: 'Preferred name' },
+  'onb.name_ph':        { id: 'Contoh: Ikhsan', en: 'For example: Alex' },
+  'onb.name_error':     { id: 'Isi nama panggilan dulu.', en: 'Please enter the name you want us to use.' },
+  'onb.hello_title':    { id: 'Halo, {name}!', en: 'Hello, {name}!' },
+  'onb.hello_sub':      { id: 'Senang bertemu denganmu. Mulai sekarang, ORDAL akan menemanimu menyiapkan pencarian kerja satu langkah demi satu langkah.', en: 'It’s great to meet you. From here, ORDAL will guide your job search one clear step at a time.' },
+  'onb.intro_title':    { id: 'Mari siapkan perjalananmu', en: 'Let’s prepare your journey' },
+  'onb.intro_sub':      { id: 'Kami akan membaca CV, memahami target kerja, dan meminta jawabanmu jika informasi penting belum tersedia. Tidak ada jawaban yang akan dibuat-buat.', en: 'We’ll read your CV, understand your job goals, and ask whenever important information is missing. No made-up answers.' },
+  'onb.intro_cv':       { id: 'CV yang bisa dibaca dan dipahami ORDAL', en: 'A CV ORDAL can read and understand' },
+  'onb.intro_prefs':    { id: 'Posisi, lokasi, dan preferensi kerja', en: 'Roles, locations, and job preferences' },
+  'onb.intro_questions': { id: 'Jawaban faktual untuk pertanyaan lamaran', en: 'Factual answers for application questions' },
+  'onb.lets_begin':     { id: 'Mulai persiapan', en: 'Start setup' },
   'onb.finish':         { id: 'Selesaikan & Mulai', en: 'Finish & start' },
   'onb.view_example':   { id: 'Lihat Contoh', en: 'View example' },
   'onb.cover_hint':     { id: 'Tulis cover letter dengan placeholder', en: 'Write your cover letter using the placeholders' },
@@ -458,6 +476,10 @@ const TRANSLATIONS = {
 
   'onb.cv_title':     { id: 'Klik untuk pilih file PDF', en: 'Click to select a PDF file' },
   'onb.cv_hint':      { id: 'Format PDF · teks harus bisa dibaca (bukan hasil scan)', en: 'PDF format · text must be selectable (not a scan)' },
+  'onb.cv_ats_title': { id: 'Tips sebelum upload: gunakan CV ATS-friendly', en: 'Before uploading: use an ATS-friendly CV' },
+  'onb.cv_ats_desc':  { id: 'ATS adalah sistem yang membaca dan menyaring CV sebelum dilihat recruiter. Gunakan layout sederhana, judul bagian yang jelas, kata kunci relevan, dan teks asli—bukan gambar atau hasil scan.', en: 'An ATS reads and filters CVs before a recruiter sees them. Use a simple layout, clear section headings, relevant keywords, and real text—not images or scanned pages.' },
+  'onb.cv_ai_tip':    { id: 'AI boleh membantu merapikan kalimat dan struktur, tetapi semua pengalaman, tanggal, keahlian, dan pencapaian harus tetap benar.', en: 'AI can help improve wording and structure, but every experience, date, skill, and achievement must remain true.' },
+  'onb.cv_read_ok':   { id: 'CV sudah terbaca. ORDAL akan memakai isi CV ini sebagai sumber utama dan bertanya jika informasi tidak ditemukan.', en: 'CV read successfully. ORDAL will use it as the main source and ask you whenever information is missing.' },
   'onb.cv_label':     { id: 'Label posisi untuk CV ini', en: 'Position label for this CV' },
   'onb.cv_label_ph':  { id: 'cth: Backend Engineer', en: 'e.g. Backend Engineer' },
   'onb.cv_list':      { id: 'Pilih CV aktif', en: 'Select active CV' },

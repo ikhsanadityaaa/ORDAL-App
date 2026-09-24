@@ -59,6 +59,8 @@ def _parse_prefs(raw) -> dict:
     except Exception:
         data = {}
     defaults = {
+        "preferred_name": "",
+        "welcome_completed": False,
         "positions": [],
         "locations": [],
         "expected_salary": "",
@@ -89,7 +91,9 @@ def get_status(user=Depends(get_current_user)):
 
     prefs = _parse_prefs(row.get("preferences"))
     cvs = query_all(
-        "SELECT id, position_label, file_name, created_at FROM cvs WHERE user_id = ? ORDER BY id DESC",
+        """SELECT id, position_label, file_name, cv_memory, created_at,
+                  CASE WHEN length(trim(COALESCE(cv_text, ''))) >= 50 THEN 1 ELSE 0 END AS has_text
+           FROM cvs WHERE user_id = ? ORDER BY id DESC""",
         (user["id"],),
     )
     for cv in cvs:
@@ -128,7 +132,7 @@ def save_progress(req: OnboardingSaveRequest, user=Depends(get_current_user)):
         prefs = _parse_prefs(row.get("preferences"))
         if req.preferences is not None:
             incoming = {k: v for k, v in req.preferences.items()
-                        if k in ("positions", "locations", "expected_salary", "available_join",
+                        if k in ("preferred_name", "welcome_completed", "positions", "locations", "expected_salary", "available_join",
                                  "employment_type", "excluded_positions", "excluded_companies")}
             prefs.update(incoming)
 

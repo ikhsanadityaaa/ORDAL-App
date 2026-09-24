@@ -135,16 +135,13 @@ function stableJobKey(event) {
 
 function promptKind(question) {
   const fieldType = (question?.answer_mode || question?.field_type || '').toLowerCase()
-  const text = `${question?.question || ''} ${fieldType}`.toLowerCase()
-  // v40: Cek options DULU sebelum number.
-  // Sebelumnya, "number" dicek lebih dulu → kalau pertanyaan mengandung
-  // "bulan"/"tahun" (mis. notice period), dropdown dengan opsi diabaikan.
-  // Sekarang: kalau ada options, SELALU render dropdown.
   if (promptOptions(question).length) return 'dropdown'
-  if (fieldType === 'number' || /\b(gaji|salary|umur|usia|tahun|bulan|years?|months?|nominal|amount)\b/.test(text)) return 'number'
-  if (fieldType === 'yes_no') return 'yes_no'
+  if (['dropdown', 'select', 'choice', 'radio'].includes(fieldType)) return 'text'
+  if (fieldType === 'number') return 'number'
+  if (fieldType === 'yes_no' || fieldType === 'checkbox') return 'yes_no'
   if (fieldType === 'textarea') return 'textarea'
-  return text.length > 180 ? 'textarea' : 'text'
+  if (['text', 'email', 'tel', 'url', 'search'].includes(fieldType)) return 'text'
+  return (question?.question || '').length > 180 ? 'textarea' : 'text'
 }
 
 function promptOptions(question) {

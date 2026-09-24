@@ -3,6 +3,7 @@ import {
   Loader2, ArrowRight, ArrowLeft, FileText, Upload, CheckCircle2, Eye,
   Briefcase, MapPin, Wallet, CalendarClock, Building2, Ban, Sparkles,
   Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle, ChevronDown,
+  UserRound, ShieldCheck, Compass,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 import useI18n from '../../stores/i18nStore'
@@ -43,11 +44,14 @@ export default function OnboardingWizard() {
   const [finishing, setFinishing] = useState(false)
   const [error, setError] = useState('')
   const [showExample, setShowExample] = useState(false)
+  const [welcomePhase, setWelcomePhase] = useState('name')
+  const [preferredName, setPreferredName] = useState('')
 
   // data wizard
   const [cvId, setCvId] = useState(null)
   const [cvs, setCvs] = useState([])
   const [prefs, setPrefs] = useState({
+    preferred_name: '', welcome_completed: false,
     positions: [], locations: [], expected_salary: '',
     available_join: 'immediately', employment_type: 'full_time',
     excluded_positions: [], excluded_companies: [],
@@ -77,7 +81,10 @@ export default function OnboardingWizard() {
       const d = res.data
       setCvId(d.cv_id)
       setCvs(d.cvs || [])
-      setPrefs((p) => ({ ...p, ...(d.preferences || {}) }))
+      const loadedPrefs = d.preferences || {}
+      setPrefs((p) => ({ ...p, ...loadedPrefs }))
+      setPreferredName(loadedPrefs.preferred_name || '')
+      setWelcomePhase(loadedPrefs.welcome_completed ? 'wizard' : (loadedPrefs.preferred_name ? 'hello' : 'name'))
       setCoverLetter(d.cover_letter || '')
       setPlatforms(d.platforms || [])
       setPlatformLogins(d.platform_logins || {})
@@ -112,6 +119,27 @@ export default function OnboardingWizard() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const rememberName = async () => {
+    const name = preferredName.trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!name) {
+      setError(t('onb.name_error'))
+      return
+    }
+    const nextPrefs = { ...prefs, preferred_name: name }
+    setPreferredName(name)
+    setPrefs(nextPrefs)
+    setError('')
+    await save(1, { preferences: nextPrefs })
+    setWelcomePhase('hello')
+  }
+
+  const beginSetup = async () => {
+    const nextPrefs = { ...prefs, preferred_name: preferredName, welcome_completed: true }
+    setPrefs(nextPrefs)
+    await save(1, { preferences: nextPrefs })
+    setWelcomePhase('wizard')
   }
 
   const refreshLogins = async () => {
@@ -194,7 +222,13 @@ export default function OnboardingWizard() {
     try {
       const res = await api.post('/cvs/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       const d = res.data
-      const newCv = { id: d.id, position_label: d.position_label || label, file_name: d.file_name || file.name }
+      const newCv = {
+        id: d.id,
+        position_label: d.position_label || label,
+        file_name: d.file_name || file.name,
+        has_text: Boolean(d.has_text),
+        cv_memory: d.cv_memory || {},
+      }
       setCvs((c) => [newCv, ...c])
       setCvId(d.id)
     } catch (e) {
@@ -234,6 +268,33 @@ export default function OnboardingWizard() {
 
   if (onboarding.completed && step !== 7) return null
 
+  if (loading) {
+    return (
+      <main className="onboarding-shell">
+        <div className="onboarding-journey-card">
+          <Loader2 size={34} className="animate-spin" color="#F2661A" />
+          <p>{t('onb.loading')}</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (welcomePhase !== 'wizard') {
+    return (
+      <WarmWelcome
+        phase={welcomePhase}
+        name={preferredName}
+        setName={setPreferredName}
+        onRememberName={rememberName}
+        onNext={() => setWelcomePhase('intro')}
+        onBegin={beginSetup}
+        saving={saving}
+        error={error}
+        t={t}
+      />
+    )
+  }
+
   // ── layar sukses ──
   if (step === 7) {
     const enterApp = (path) => {
@@ -241,8 +302,8 @@ export default function OnboardingWizard() {
       setOnboarding({ completed: true, current_step: 7 })
     }
     return (
-      <div className="sticker-overlay">
-        <div className="sticker-modal" role="dialog" aria-modal="true">
+      <main className="onboarding-shell">
+        <section className="onboarding-frame onboarding-complete" aria-labelledby="onboarding-complete-title">
           <div className="sticker-modal-header" style={{ textAlign: 'center', paddingBottom: 30 }}>
             <span className="deco-glyph animate-float" style={{ top: 20, left: 28, color: 'rgba(242,102,26,0.6)', fontSize: 26 }}>✦</span>
             <span className="deco-glyph animate-wiggle" style={{ bottom: 20, right: 30, color: 'rgba(244,242,236,0.25)', fontSize: 30 }}>✳</span>
@@ -253,7 +314,7 @@ export default function OnboardingWizard() {
             }}>
               <PartyPopper size={30} strokeWidth={2} />
             </div>
-            <h2>{t('onb.done_title')}</h2>
+            <h2 id="onboarding-complete-title">{t('onb.done_title')}</h2>
             <p>{t('onb.done_sub')}</p>
           </div>
           <div className="sticker-modal-body" style={{ textAlign: 'center' }}>
@@ -293,8 +354,8 @@ export default function OnboardingWizard() {
               {t('onb.ai_skip')} <ArrowRight size={17} />
             </button>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     )
   }
 
@@ -302,8 +363,8 @@ export default function OnboardingWizard() {
   const progressPct = Math.round(((step - 1) / 5) * 100)
 
   return (
-    <div className="sticker-overlay" style={{ background: 'rgba(20,22,26,0.35)' }}>
-      <div className="sticker-modal wide" role="dialog" aria-modal="true">
+    <main className="onboarding-shell">
+      <section className="onboarding-frame" aria-labelledby="onboarding-step-title">
 
         {/* Header + progress */}
         <div className="sticker-modal-header" style={{ paddingBottom: 20 }}>
@@ -322,7 +383,8 @@ export default function OnboardingWizard() {
               {t('onb.step_of', { n: step > 5 && !needsEmailStep ? 5 : steps.findIndex((s) => s.n === step) + 1, total: needsEmailStep ? 6 : 5 })}
             </div>
           </div>
-          <h2 style={{ fontSize: 20 }}>{stepInfo ? t(stepInfo.key) : ''}</h2>
+          <h2 id="onboarding-step-title" style={{ fontSize: 24 }}>{stepInfo ? t(stepInfo.key) : ''}</h2>
+          <p>{t('onb.hello_title', { name: preferredName })}</p>
           <div style={{ marginTop: 12 }}>
             <div className="progress-determinate" style={{ background: 'rgba(244,242,236,0.25)', border: 'none' }}>
               <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
@@ -331,13 +393,7 @@ export default function OnboardingWizard() {
         </div>
 
         {/* Body */}
-        <div className="sticker-modal-body" style={{ maxHeight: '56vh', overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '30px 0' }}>
-              <Loader2 size={32} className="animate-spin" color="#F2661A" style={{ margin: '0 auto 12px' }} />
-              <div style={{ color: '#6B6E76', fontSize: 13 }}>{t('onb.loading')}</div>
-            </div>
-          ) : (
+        <div className="sticker-modal-body onboarding-body">
             <>
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
@@ -456,7 +512,6 @@ export default function OnboardingWizard() {
                 </div>
               )}
             </>
-          )}
         </div>
 
         {/* Footer navigasi */}
@@ -476,14 +531,95 @@ export default function OnboardingWizard() {
             </button>
           )}
         </div>
-      </div>
+      </section>
 
       <CoverLetterExampleModal
         open={showExample}
         onClose={() => setShowExample(false)}
         onUse={(text) => { setCoverLetter(text); setShowExample(false) }}
       />
-    </div>
+    </main>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Sambutan awal — full-screen, bukan modal.
+// ═════════════════════════════════════════════════════════════════════════════
+
+function WarmWelcome({ phase, name, setName, onRememberName, onNext, onBegin, saving, error, t }) {
+  const content = {
+    name: {
+      icon: UserRound,
+      title: t('onb.name_title'),
+      sub: t('onb.name_sub'),
+    },
+    hello: {
+      icon: Sparkles,
+      title: t('onb.hello_title', { name }),
+      sub: t('onb.hello_sub'),
+    },
+    intro: {
+      icon: Compass,
+      title: t('onb.intro_title'),
+      sub: t('onb.intro_sub'),
+    },
+  }[phase]
+  const Icon = content.icon
+
+  return (
+    <main className="onboarding-shell onboarding-welcome">
+      <section className="onboarding-journey-card" aria-labelledby="welcome-journey-title">
+        <div className="onboarding-orbit" aria-hidden="true">✦</div>
+        <div className="onboarding-hero-icon"><Icon size={34} strokeWidth={2.1} /></div>
+        <div className="onboarding-kicker">ORDAL · YOUR JOB SEARCH COMPANION</div>
+        <h1 id="welcome-journey-title">{content.title}</h1>
+        <p className="onboarding-lead">{content.sub}</p>
+
+        {phase === 'name' && (
+          <div className="onboarding-name-form">
+            <label className="input-label" htmlFor="preferred-name">{t('onb.name_label')}</label>
+            <input
+              id="preferred-name"
+              className="input onboarding-name-input"
+              autoFocus
+              maxLength={60}
+              placeholder={t('onb.name_ph')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onRememberName() }}
+            />
+          </div>
+        )}
+
+        {phase === 'intro' && (
+          <div className="onboarding-promise-grid">
+            {[
+              [FileText, t('onb.intro_cv')],
+              [Briefcase, t('onb.intro_prefs')],
+              [ShieldCheck, t('onb.intro_questions')],
+            ].map(([ItemIcon, text]) => (
+              <div className="onboarding-promise" key={text}>
+                <ItemIcon size={20} />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <div className="notice notice-error"><AlertCircle size={15} /> {error}</div>}
+
+        <button
+          type="button"
+          className="btn btn-primary btn-lg onboarding-journey-next"
+          disabled={saving}
+          onClick={phase === 'name' ? onRememberName : phase === 'hello' ? onNext : onBegin}
+        >
+          {saving && <Loader2 size={16} className="animate-spin" />}
+          {phase === 'name' ? t('common.next') : phase === 'hello' ? t('common.next') : t('onb.lets_begin')}
+          <ArrowRight size={17} />
+        </button>
+      </section>
+    </main>
   )
 }
 
@@ -495,6 +631,7 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
   const [label, setLabel] = useState(positionLabel || '')
   const fileRef = useRef(null)
   const [fileName, setFileName] = useState('')
+  const activeCv = cvs.find((cv) => cv.id === cvId)
 
   const pick = () => fileRef.current?.click()
 
@@ -508,6 +645,15 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
 
   return (
     <div>
+      <div className="ats-guide" style={{ marginBottom: 18 }}>
+        <div className="ats-guide-icon"><ShieldCheck size={21} /></div>
+        <div>
+          <strong>{t('onb.cv_ats_title')}</strong>
+          <p>{t('onb.cv_ats_desc')}</p>
+          <small><Sparkles size={13} /> {t('onb.cv_ai_tip')}</small>
+        </div>
+      </div>
+
       {/* Dropzone */}
       <div
         className="card-flat"
@@ -584,6 +730,13 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
           </div>
         </div>
       )}
+
+      {activeCv?.has_text ? (
+        <div className="notice notice-success" style={{ marginTop: 14 }}>
+          <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+          <span>{t('onb.cv_read_ok')}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

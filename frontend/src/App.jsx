@@ -85,14 +85,9 @@ function App() {
     )
   }
 
-  // Onboarding belum selesai → wizard interaktif di atas WelcomeScreen
+  // Onboarding belum selesai → pengalaman full-screen di dalam app.
   if (!onboarding.completed) {
-    return (
-      <>
-        <WelcomeScreen />
-        <OnboardingWizard />
-      </>
-    )
+    return <OnboardingWizard />
   }
 
   // Aplikasi utama (+ pop-up pembayaran / toast trial)

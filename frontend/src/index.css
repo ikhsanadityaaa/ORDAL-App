@@ -654,6 +654,84 @@ mark.hl {
   justify-content: flex-end;
 }
 
+/* ── Full-screen first-run journey ───────────────────────────────── */
+.onboarding-shell {
+  min-height: 100vh;
+  padding: clamp(18px, 4vw, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(242,102,26,0.2), transparent 28%),
+    radial-gradient(circle at 88% 82%, rgba(51,54,63,0.12), transparent 30%),
+    linear-gradient(135deg, #F8F5ED 0%, #EEE9DD 100%);
+}
+.onboarding-frame {
+  width: min(980px, 100%);
+  min-height: min(780px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--cream);
+  border: 2px solid var(--black);
+  border-radius: 28px;
+  box-shadow: 12px 12px 0 var(--black);
+  animation: onboarding-arrive 0.45s var(--ease-bounce);
+}
+.onboarding-frame .sticker-modal-header { padding: 30px 42px 26px; }
+.onboarding-frame .sticker-modal-body { padding: 30px 42px; }
+.onboarding-frame .sticker-modal-footer { padding: 20px 42px 28px; }
+.onboarding-body { overflow-y: auto; }
+.onboarding-complete { width: min(700px, 100%); min-height: auto; }
+@keyframes onboarding-arrive {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.onboarding-journey-card {
+  position: relative;
+  width: min(760px, 100%);
+  padding: clamp(34px, 7vw, 76px);
+  overflow: hidden;
+  text-align: center;
+  background: rgba(255,255,255,0.88);
+  border: 2px solid var(--black);
+  border-radius: 32px;
+  box-shadow: 12px 12px 0 var(--black);
+  animation: onboarding-arrive 0.48s var(--ease-bounce);
+}
+.onboarding-orbit { position: absolute; top: 22px; right: 30px; color: var(--orange); font-size: 34px; }
+.onboarding-hero-icon {
+  width: 76px; height: 76px; margin: 0 auto 22px;
+  display: grid; place-items: center;
+  color: white; background: var(--orange);
+  border: 2px solid var(--black); border-radius: 22px;
+  box-shadow: 6px 6px 0 var(--black);
+}
+.onboarding-kicker { margin-bottom: 12px; color: var(--orange); font-size: 11px; font-weight: 900; letter-spacing: 0.14em; }
+.onboarding-journey-card h1 { margin: 0; color: var(--black); font-family: var(--font-display); font-size: clamp(38px, 7vw, 70px); line-height: 0.98; letter-spacing: -0.055em; }
+.onboarding-lead { max-width: 600px; margin: 20px auto 28px; color: var(--gray-600); font-size: clamp(15px, 2vw, 18px); line-height: 1.65; }
+.onboarding-name-form { max-width: 480px; margin: 0 auto 18px; text-align: left; }
+.onboarding-name-input { height: 58px; font-size: 20px; font-weight: 750; }
+.onboarding-journey-next { min-width: 210px; justify-content: center; margin-top: 8px; }
+.onboarding-promise-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 26px; }
+.onboarding-promise { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 14px; color: var(--black); background: var(--cream); border: 2px solid var(--black); border-radius: 16px; font-size: 13px; font-weight: 750; box-shadow: 4px 4px 0 rgba(51,54,63,0.28); }
+.onboarding-promise svg { color: var(--orange); }
+.ats-guide { display: flex; gap: 14px; padding: 16px; background: #FFF7E2; border: 2px solid #B8860B; border-radius: 16px; }
+.ats-guide-icon { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; color: #7A5107; background: #FFE3A1; border: 2px solid #B8860B; border-radius: 11px; }
+.ats-guide strong { display: block; color: #5F4008; font-size: 14px; }
+.ats-guide p { margin: 5px 0 8px; color: #72561F; font-size: 12.5px; line-height: 1.55; }
+.ats-guide small { display: flex; align-items: flex-start; gap: 6px; color: #72561F; font-size: 11.5px; line-height: 1.45; }
+
+@media (max-width: 700px) {
+  .onboarding-shell { padding: 0; align-items: stretch; }
+  .onboarding-frame, .onboarding-journey-card { min-height: 100vh; border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+  .onboarding-frame .sticker-modal-header, .onboarding-frame .sticker-modal-body, .onboarding-frame .sticker-modal-footer { padding-left: 20px; padding-right: 20px; }
+  .onboarding-journey-card { display: flex; flex-direction: column; justify-content: center; padding: 34px 22px; }
+  .onboarding-promise-grid { grid-template-columns: 1fr; }
+  .onboarding-promise { flex-direction: row; text-align: left; }
+}
+
 /* Dekorasi ✦ di header modal */
 .deco-glyph {
   position: absolute;
@@ -1170,6 +1248,13 @@ hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
   line-height: 1.45;
 }
 
+.question-create-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.8fr 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
 @media (max-width: 760px) {
   .ai-connect-layout {
     grid-template-columns: 1fr;
@@ -1177,5 +1262,9 @@ hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
 
   .ai-provider-list {
     position: static;
+  }
+
+  .question-create-grid {
+    grid-template-columns: 1fr;
   }
 }

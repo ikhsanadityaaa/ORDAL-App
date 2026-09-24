@@ -1,6 +1,6 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-23
+Last updated: 2026-09-24
 Branch: `codex/secure-architecture-v2`
 Base commit: `a003a72`
 Implementation commit: `8b1b346`
@@ -42,6 +42,15 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Prevented Python bytecode writes inside the signed macOS app bundle.
 - Installed the latest build at `/Applications/ORDAL.app`; app starts with one launcher process.
 - Verified the installed bundle remains ad-hoc signed after startup and creates no runtime bytecode inside the bundle.
+- Replaced modal onboarding with a full-screen first-run journey inside the app.
+- Changed fresh-install language default to English while keeping English/Indonesia selection.
+- Added persistent preferred-name capture, personal greeting, and guided setup introduction.
+- Added ATS-friendly CV guidance and explicit confirmation that readable CV text is the source for answers.
+- Made Question Bank answer controls follow actual field types: dropdown, yes/no, number, text, and textarea.
+- Removed keyword-based number guessing for text questions in app and Telegram prompts.
+- Hardened AI grounding: missing personal facts are asked from the user or left unanswered, never invented.
+- Added `backend/onboarding_question_self_check.py` for field typing and grounded-answer regression checks.
+- Built and installed the 2026-09-24 macOS bundle; signature, startup, browser QA, and no-runtime-bytecode checks pass.
 
 ## Security Result
 

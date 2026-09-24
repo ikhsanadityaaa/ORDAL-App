@@ -196,6 +196,9 @@ Candidate background:
 {cv_text[:800]}
 
 Rules:
+- Use only facts explicitly present in the candidate background.
+- Never invent experience, salary, dates, certifications, education, skills, or personal details.
+- If the CV does not contain enough information to answer safely, reply exactly NEEDS_USER_INPUT.
 - For yes/no: reply only "Yes" or "No"
 - For number: reply only the number
 - For text: keep it under 100 words, professional

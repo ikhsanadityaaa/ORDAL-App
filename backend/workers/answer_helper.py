@@ -587,6 +587,13 @@ def save_question_answer(user_id: int, platform: str, question: str, answer: str
     db.close()
 
 
+def _grounded_ai_answer(answer: str) -> str:
+    value = (answer or "").strip()
+    if value.upper() in {"NEEDS_USER_INPUT", "ASK_USER", "UNKNOWN"}:
+        return ""
+    return value
+
+
 async def answer_application_question(user_id: int, platform: str, question: str, field_type: str,
                                       cv_text: str, job_title: str, ask_user_question=None,
                                       options: list = None) -> str:
@@ -668,16 +675,21 @@ async def answer_application_question(user_id: int, platform: str, question: str
             or _looks_like_language_question(question)
             or _looks_like_expected_salary(question)
             or _looks_like_join_date(question)
-            or _looks_like_current_salary(question)
         )
         if can_auto_answer:
-            answer = await answer_question(user_id, question, field_type, cv_text, job_title)
+            answer = _grounded_ai_answer(await answer_question(user_id, question, field_type, cv_text, job_title))
             if answer and field_type == "number":
                 answer = _numeric_answer(question, answer)
             if answer:
                 save_question_answer(user_id, platform, question, answer, field_type, source="ai")
                 _notify_ai_answer(user_id, platform, question, answer)
-            return answer or ""
+                return answer
+            if ask_user_question:
+                answer = await ask_user_question(platform, question, field_type, job_title, options)
+                if answer:
+                    save_question_answer(user_id, platform, question, answer, field_type, source="manual")
+                    return answer
+            return ""
         else:
             # Tidak bisa auto-answer → prompt user via Telegram (blocking)
             if ask_user_question:
@@ -702,9 +714,6 @@ async def answer_application_question(user_id: int, platform: str, question: str
             save_question_answer(user_id, platform, question, answer, field_type, source="manual")
             return answer
 
-    answer = await answer_question(user_id, question, field_type, cv_text, job_title)
-    if answer and field_type == "number":
-        answer = _numeric_answer(question, answer)
-    if answer:
-        save_question_answer(user_id, platform, question, answer, field_type, source="ai")
-    return answer
+    # Tanpa jalur untuk bertanya kepada user, lebih aman melewati field daripada
+    # mengirim fakta pribadi yang dibuat AI.
+    return ""
