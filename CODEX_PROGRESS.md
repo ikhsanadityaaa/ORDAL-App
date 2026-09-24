@@ -2,8 +2,8 @@
 
 Last updated: 2026-09-24
 Branch: `codex/secure-architecture-v2`
-Base commit: `a003a72`
-Implementation commit: `8b1b346`
+Base commit: `e00954b`
+Implementation commit: `f826463`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -51,6 +51,11 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Hardened AI grounding: missing personal facts are asked from the user or left unanswered, never invented.
 - Added `backend/onboarding_question_self_check.py` for field typing and grounded-answer regression checks.
 - Built and installed the 2026-09-24 macOS bundle; signature, startup, browser QA, and no-runtime-bytecode checks pass.
+- Fixed Google OAuth polling race that could show an expired-login error after a successful callback.
+- Removed AppleScript browser control and its macOS Automation permission prompt; OAuth now uses the user's default browser without requiring Chrome.
+- Changed login and email verification from layered popups to full-screen app screens using the same typography, buttons, palette, and layout system as onboarding.
+- Added `backend/oauth_self_check.py` for OAuth polling and macOS permission regression checks.
+- Installed the OAuth-corrected macOS bundle at `/Applications/ORDAL.app`; signature, startup, English flow, and single-process checks pass.
 
 ## Security Result
 
@@ -71,7 +76,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 ## Remaining Engineering Work
 
 - Run end-to-end desktop login/device/trial/payment tests against Vercel preview.
-- Confirm Google OAuth callback auto-close with one real user login.
+- Confirm Google OAuth completion with one real user login; the browser result tab remains user-controlled to avoid macOS browser-control permission prompts.
 - Add local SQLite migration/import path if preservation of old device data is required.
 - Add OS keychain storage for app session token; current frontend stores token in local storage.
 - Build Windows package and inspect final bundle for secrets.
@@ -87,7 +92,7 @@ Web security/database variables and Google OAuth are configured. Resend, Midtran
 
 Latest desktop build is installed and running on the MacBook. Next release checks:
 
-1. Test Google login and callback auto-close with a real user account.
+1. Test Google login completion and automatic return-to-app focus with a real user account.
 2. Test verified-email login, device enforcement/removal, trial, payment polling, permanent license, and logout.
 3. Replace local-storage session token storage with OS keychain storage before public release.
 4. Build and inspect the Windows package.
