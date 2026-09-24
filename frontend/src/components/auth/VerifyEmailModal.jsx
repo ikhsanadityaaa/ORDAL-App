@@ -108,8 +108,8 @@ export default function VerifyEmailModal() {
   const code = digits.join('')
 
   return (
-    <div className="sticker-overlay">
-      <div className="sticker-modal" role="dialog" aria-modal="true">
+    <main className="onboarding-shell auth-shell auth-step-layer">
+      <section className="onboarding-frame auth-frame" role="dialog" aria-modal="true">
         {/* Header */}
         <div className="sticker-modal-header">
           <span className="deco-glyph" style={{ top: 14, right: 22, color: 'rgba(242,102,26,0.55)' }}>✦</span>
@@ -218,7 +218,7 @@ export default function VerifyEmailModal() {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

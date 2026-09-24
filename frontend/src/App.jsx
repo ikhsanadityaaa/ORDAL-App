@@ -8,7 +8,6 @@ import RiwayatLamaran from './pages/RiwayatLamaran'
 import KumpulanPertanyaan from './pages/KumpulanPertanyaan'
 import AI from './pages/AI'
 import Layout from './components/Layout'
-import WelcomeScreen from './components/WelcomeScreen'
 import AuthModal from './components/auth/AuthModal'
 import VerifyEmailModal from './components/auth/VerifyEmailModal'
 import DeviceLimitModal from './components/auth/DeviceLimitModal'
@@ -73,11 +72,10 @@ function App() {
     return <div style={{ height: '100vh', background: '#F4F2EC' }} />
   }
 
-  // Belum login → WelcomeScreen + popup login + verifikasi email + batas device
+  // Belum login → layar auth penuh + verifikasi email + batas device
   if (!token) {
     return (
       <>
-        <WelcomeScreen />
         <AuthModal />
         <VerifyEmailModal />
         <DeviceLimitModal />

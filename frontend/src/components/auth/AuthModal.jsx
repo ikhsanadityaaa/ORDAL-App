@@ -6,7 +6,7 @@ import api from '../../api'
 import { GoogleGlyph } from '../brand'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthModal — popup login saat app dibuka (replika auth-modal ORDAL-Web):
+// AuthModal — layar login penuh saat app dibuka (replika auth ORDAL-Web):
 // header charcoal + strip oranye, tombol Google, divider "atau",
 // form email+password, toggle login/daftar.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,16 +27,18 @@ export default function AuthModal() {
   const [error, setError] = useState('')
   const [googleWaiting, setGoogleWaiting] = useState(false)
   const pollRef = useRef(null)
+  const pollCancelledRef = useRef(false)
 
   useEffect(() => () => {
-    if (pollRef.current) clearInterval(pollRef.current)
+    if (pollRef.current) clearTimeout(pollRef.current)
   }, [])
 
   if (!showAuthModal) return null
 
   const stopPolling = () => {
+    pollCancelledRef.current = true
     if (pollRef.current) {
-      clearInterval(pollRef.current)
+      clearTimeout(pollRef.current)
       pollRef.current = null
     }
   }
@@ -96,18 +98,24 @@ export default function AuthModal() {
       const res = await api.post('/auth/google/start', {})
       const state = res.data?.state
       if (!state) throw new Error('Google OAuth state tidak tersedia')
-      // backend sudah buka browser sistem — poll sampai selesai
+      // Poll berurutan. setInterval async sebelumnya membuat request tumpang tindih:
+      // request pertama menghapus state sukses, request lain lalu melaporkan kedaluwarsa.
       stopPolling()
-      pollRef.current = setInterval(async () => {
+      pollCancelledRef.current = false
+      const startedAt = Date.now()
+      const poll = async () => {
+        let continuePolling = true
         try {
           const r = await api.post('/auth/google/poll', { state })
           const d = r.data
           if (d.status === 'completed') {
             stopPolling()
+            continuePolling = false
             setGoogleWaiting(false)
             useAuthStore.getState().setAuth(d.token, d.user, d)
           } else if (d.status === 'device_limit') {
             stopPolling()
+            continuePolling = false
             setGoogleWaiting(false)
             if (d.devices?.length) {
               setDeviceLimit({ code: 'DEVICE_LIMIT', message: t('device.limit_msg'), devices: d.devices })
@@ -121,18 +129,28 @@ export default function AuthModal() {
             }
           } else if (d.status === 'error' || d.status === 'expired') {
             stopPolling()
+            continuePolling = false
             setGoogleWaiting(false)
             setError(t('auth.google_failed'))
           }
         } catch (e) {
           if (e.response?.status && e.response.status < 500) {
             stopPolling()
+            continuePolling = false
             setGoogleWaiting(false)
             const detail = e.response?.data?.detail
             setError(detail?.message || (typeof detail === 'string' ? detail : t('auth.google_failed')))
           }
         }
-      }, 1500)
+        if (continuePolling && !pollCancelledRef.current && Date.now() - startedAt < 10 * 60 * 1000) {
+          pollRef.current = setTimeout(poll, 1500)
+        } else if (continuePolling && !pollCancelledRef.current) {
+          stopPolling()
+          setGoogleWaiting(false)
+          setError(t('auth.google_timeout'))
+        }
+      }
+      pollRef.current = setTimeout(poll, 800)
     } catch (err) {
       setGoogleWaiting(false)
       const detail = err.response?.data?.detail
@@ -141,8 +159,8 @@ export default function AuthModal() {
   }
 
   return (
-    <div className="sticker-overlay">
-      <div className="sticker-modal" role="dialog" aria-modal="true">
+    <main className="onboarding-shell auth-shell">
+      <section className="onboarding-frame auth-frame" role="dialog" aria-modal="true">
 
         {/* Header charcoal + strip oranye (khas web) */}
         <div className="sticker-modal-header">
@@ -180,13 +198,15 @@ export default function AuthModal() {
             <>
               {/* Tombol Google */}
               <button
-                className="btn btn-block"
+                className="btn btn-secondary btn-block"
                 onClick={startGoogle}
-                style={{ height: 48, fontSize: 14.5, boxShadow: '3px 3px 0 #33363F' }}
+                style={{ height: 48, fontSize: 14.5 }}
               >
                 <GoogleGlyph size={20} />
                 {t('auth.google_btn')}
               </button>
+
+              <p className="auth-browser-note">{t('auth.browser_note')}</p>
 
               <div className="divider-or">{t('auth.or')}</div>
 
@@ -286,7 +306,7 @@ export default function AuthModal() {
             </>
           )}
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

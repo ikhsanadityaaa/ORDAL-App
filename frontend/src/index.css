@@ -684,6 +684,11 @@ mark.hl {
 .onboarding-frame .sticker-modal-footer { padding: 20px 42px 28px; }
 .onboarding-body { overflow-y: auto; }
 .onboarding-complete { width: min(700px, 100%); min-height: auto; }
+.auth-shell { position: fixed; inset: 0; z-index: 900; }
+.auth-step-layer { z-index: 950; }
+.auth-frame { width: min(620px, 100%); min-height: auto; }
+.auth-frame .sticker-modal-body { width: 100%; max-width: 520px; margin: 0 auto; }
+.auth-browser-note { margin: 12px 0 0; color: var(--gray-500); font-size: 12px; line-height: 1.5; text-align: center; }
 @keyframes onboarding-arrive {
   from { opacity: 0; transform: translateY(24px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }

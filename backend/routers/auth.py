@@ -14,12 +14,6 @@ router = APIRouter()
 def _return_to_app_after_google() -> None:
     if sys.platform != "darwin":
         return
-    scripts = (
-        'tell application "Google Chrome" to close (every tab of every window whose URL contains "/api/app/auth/google/callback")',
-        'tell application "Safari" to close (every document whose URL contains "/api/app/auth/google/callback")',
-    )
-    for script in scripts:
-        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=5, check=False)
     subprocess.run(["open", "-a", "ORDAL"], capture_output=True, timeout=5, check=False)
 
 

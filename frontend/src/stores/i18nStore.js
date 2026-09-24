@@ -387,6 +387,8 @@ const TRANSLATIONS = {
   'auth.google_waiting': { id: 'Menunggu login Google...', en: 'Waiting for Google login...' },
   'auth.google_waiting_sub': { id: 'Browser telah terbuka. Selesaikan login Google, lalu kembali ke aplikasi ini.', en: 'Your browser has opened. Complete Google sign-in, then return to this app.' },
   'auth.google_failed':  { id: 'Login Google gagal atau dibatalkan.', en: 'Google login failed or was cancelled.' },
+  'auth.google_timeout': { id: 'Waktu login Google habis. Silakan coba lagi.', en: 'Google sign-in timed out. Please try again.' },
+  'auth.browser_note':   { id: 'Chrome tidak wajib. Login dibuka aman di browser default kamu.', en: 'Chrome is not required. Sign-in opens safely in your default browser.' },
   'auth.or':             { id: 'atau', en: 'or' },
   'auth.name':           { id: 'Nama', en: 'Name' },
   'auth.name_ph':        { id: 'Aditya Pratama', en: 'Aditya Pratama' },
