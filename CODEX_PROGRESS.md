@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `1247c53`
+Implementation commit: `7563dda`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -71,6 +71,10 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Simplified the personal greeting to `Halo, {name}!`, removed the example name, and removed em dashes from translated interface copy.
 - Fixed clipped position/location chip inputs with more vertical room and explicit line height.
 - Clarified that existing position/location chips are resumed onboarding data for the same user and added a safe `Hapus semua` action.
+- Fixed JobStreet/LinkedIn Google sign-in by keeping OAuth tabs open, using the browser's real user agent, and preferring installed Google Chrome for manual job-platform authentication.
+- Verified JobStreet's `Lanjutkan dengan Google` opens `accounts.google.com` in the managed login browser without entering account credentials.
+- Replaced the approximate JobStreet icon with the current `jobstreet by seek` lockup and removed duplicated logo code from Settings.
+- Removed the repeated `Halo, {name}!` subtitle from every onboarding panel; the personal greeting now appears only in the welcome journey.
 
 ## Security Result
 
