@@ -1,9 +1,9 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-24
+Last updated: 2026-09-26
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `7860087`
+Implementation commit: `8132076`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -64,6 +64,9 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Replaced rigid Inter typography with Plus Jakarta Sans and Bricolage Grotesque across the app.
 - Added animated phase transitions, progress dots, floating icon/spark/blob motion, staggered benefit cards, and reduced-motion accessibility support.
 - Verified all three welcome phases at desktop and mobile sizes with no horizontal overflow, then rebuilt and installed `/Applications/ORDAL.app`.
+- Fixed macOS showing ORDAL and Python as two separate applications by launching the framework Python executable from inside the ORDAL bundle.
+- Verified the installed app runs as one process and one LaunchServices identity: `ORDAL` / `com.ordal.app`; no `Python` app identity remains.
+- Rebuilt, ad-hoc signed, installed, and launched `/Applications/ORDAL.app`; backend startup and local database checks pass.
 
 ## Security Result
 
