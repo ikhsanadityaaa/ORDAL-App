@@ -224,35 +224,7 @@ log "  script: mac-app/launcher.py"
 
 cd "$RESOURCES_DIR"
 
-# Run launcher.py — capture exit code
-"$VENV_DIR/bin/python" mac-app/launcher.py >> "$LOG_FILE" 2>&1
-EXIT_CODE=$?
-log "Launcher exited with code $EXIT_CODE"
-
-# Kalau launcher crash, tampilkan error dialog dengan log content
-if [[ $EXIT_CODE -ne 0 ]]; then
-    log "ERROR: Launcher crash dengan exit code $EXIT_CODE"
-    
-    # Ambil last 15 lines dari log untuk display
-    LAST_LINES=$(tail -15 "$LOG_FILE" 2>/dev/null | tr '\n' '|' | sed 's/|/\\\\n/g')
-    
-    ERROR_MSG="ORDAL gagal start (exit code $EXIT_CODE).
-
-Last 15 lines log:
-$LAST_LINES
-
-Cara debug:
-1. Lihat log lengkap:
-   open ~/Library/Application\\ Support/ORDAL/app.log
-
-2. Jalankan via terminal untuk lihat error real-time:
-   /Applications/ORDAL.app/Contents/MacOS/ORDAL
-
-3. Reset venv (kalau error import module):
-   rm -rf ~/.ordal/venv
-   Lalu buka app lagi (first-run setup ulang)."
-    
-    osascript -e "display dialog \"$ERROR_MSG\" buttons {\"OK\"} default button 1 with title \"ORDAL Error\" with icon stop" 2>/dev/null || true
-fi
-
-exit $EXIT_CODE
+# Jalankan executable Python dari dalam bundle. Stub Python venv biasa membuka
+# Python.app sebagai proses kedua sehingga dua aplikasi muncul di Dock.
+export __PYVENV_LAUNCHER__="$VENV_DIR/bin/python"
+exec "$RESOURCES_DIR/../MacOS/ORDALPython" mac-app/launcher.py >> "$LOG_FILE" 2>&1

@@ -127,6 +127,16 @@ cp mac-app/Info.plist "$APP_BUNDLE/Contents/Info.plist"
 cp mac-app/ORDAL_executable.sh "$APP_BUNDLE/Contents/MacOS/ORDAL"
 chmod +x "$APP_BUNDLE/Contents/MacOS/ORDAL"
 
+# Framework Python memakai stub yang membuka Python.app. Salin executable GUI
+# aslinya ke bundle supaya window tetap punya identitas ORDAL di Dock.
+PYTHON_GUI_EXECUTABLE="$($PYTHON -c 'import sys; print(sys.base_prefix + "/Resources/Python.app/Contents/MacOS/Python")')"
+if [[ ! -x "$PYTHON_GUI_EXECUTABLE" ]]; then
+    echo "ERROR: Python GUI executable tidak ditemukan: $PYTHON_GUI_EXECUTABLE"
+    exit 1
+fi
+cp "$PYTHON_GUI_EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/ORDALPython"
+chmod +x "$APP_BUNDLE/Contents/MacOS/ORDALPython"
+
 # Copy backend source
 echo "  → Copy backend/..."
 cp -R backend/* "$APP_BUNDLE/Contents/Resources/backend/"
