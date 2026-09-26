@@ -384,7 +384,6 @@ export default function OnboardingWizard() {
             </div>
           </div>
           <h2 id="onboarding-step-title" style={{ fontSize: 24 }}>{stepInfo ? t(stepInfo.key) : ''}</h2>
-          <p>{t('onb.hello_title', { name: preferredName })}</p>
           <div style={{ marginTop: 12 }}>
             <div className="progress-determinate" style={{ background: 'rgba(244,242,236,0.25)', border: 'none' }}>
               <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
@@ -458,11 +457,11 @@ export default function OnboardingWizard() {
                         }}
                       >
                         <div style={{
-                          width: 46, height: 46, borderRadius: 12, background: '#FFFFFF',
+                          width: p.id === 'jobstreet' ? 124 : 46, height: 46, borderRadius: 12, background: '#FFFFFF',
                           border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
                           flexShrink: 0,
                         }}>
-                          <PlatformLogo platformId={p.id} size={26} />
+                          <PlatformLogo platformId={p.id} size={p.id === 'jobstreet' ? 28 : 26} jobStreetWordmark />
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>
@@ -971,11 +970,11 @@ function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) 
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{
-          width: 48, height: 48, borderRadius: 12, background: '#fff',
+          width: platform === 'jobstreet' ? 128 : 48, height: 48, borderRadius: 12, background: '#fff',
           border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          {platform === 'jobstreet' ? <JobStreetLogo size={28} /> : <LinkedInLogo size={26} />}
+          {platform === 'jobstreet' ? <JobStreetLogo size={28} wordmark /> : <LinkedInLogo size={26} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

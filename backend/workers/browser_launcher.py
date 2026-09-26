@@ -113,7 +113,20 @@ def _get_launch_args() -> list[str]:
     return args
 
 
-async def launch_browser(p, headless: bool = True):
+def _system_chrome_path() -> str | None:
+    candidates = []
+    if sys.platform == "darwin":
+        candidates.append("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+    elif sys.platform == "win32":
+        for root in (os.getenv("PROGRAMFILES"), os.getenv("PROGRAMFILES(X86)"), os.getenv("LOCALAPPDATA")):
+            if root:
+                candidates.append(os.path.join(root, "Google", "Chrome", "Application", "chrome.exe"))
+    else:
+        candidates.extend(("/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"))
+    return next((path for path in candidates if os.path.isfile(path)), None)
+
+
+async def launch_browser(p, headless: bool = True, prefer_system_chrome: bool = False):
     """Return objek Browser dari Playwright. Pemanggil tetap pakai
     browser.new_context(...) dan browser.close() persis seperti sebelumnya —
     tidak perlu tahu apakah browsernya lokal atau remote Steel.dev.
@@ -157,4 +170,10 @@ async def launch_browser(p, headless: bool = True):
     # Default: Chromium lokal (perilaku sebelum ada Steel.dev)
     # v12: pakai platform-specific launch args untuk optimasi performa.
     launch_args = _get_launch_args()
-    return await p.chromium.launch(headless=headless, args=launch_args)
+    chrome_path = _system_chrome_path() if prefer_system_chrome else None
+    kwargs = {"headless": headless, "args": launch_args}
+    if chrome_path:
+        kwargs["executable_path"] = chrome_path
+        # Google menolak browser manual-login yang mengiklankan automation.
+        kwargs["ignore_default_args"] = ["--enable-automation"]
+    return await p.chromium.launch(**kwargs)

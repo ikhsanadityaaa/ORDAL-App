@@ -17,13 +17,6 @@ COOKIES_DIR = os.path.join(get_data_dir(), "cookies")
 os.makedirs(COOKIES_DIR, exist_ok=True)
 
 LOGIN_TIMEOUT_MS = int(os.getenv("LOGIN_TIMEOUT_MS", "300000"))
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
-)
-
-
 def cookies_path(user_id: str, platform_name: str) -> str:
     return os.path.join(COOKIES_DIR, f"{user_id}_{platform_name}.json")
 
@@ -209,9 +202,13 @@ async def _run_grab(platform_name: str, user_id: str):
         async with async_playwright() as p:
             # v14: pakai launch_browser() bukan p.chromium.launch langsung
             # supaya Mac launch args (v12) dipakai → lebih cepat & stabil.
-            browser = await launch_browser(p, headless=False)
+            # Pakai Chrome resmi kalau tersedia agar OAuth Google tidak menolak
+            # Chromium automation. Tetap fallback ke Playwright Chromium.
+            browser = await launch_browser(p, headless=False, prefer_system_chrome=True)
 
-            context_kwargs = {"user_agent": USER_AGENT}
+            # Pakai user agent asli browser. UA Windows Chrome 120 lama membuat
+            # Google menganggap browser tidak aman pada macOS.
+            context_kwargs = {}
             # v27: JANGAN load storage_state lama — mulai dari clean state.
             # Sebelumnya, storage_state lama (yang mungkin expired/false positive)
             # di-load → cookies lama bikin has_key True → false positive.
@@ -272,27 +269,16 @@ async def _run_grab(platform_name: str, user_id: str):
                 except Exception:
                     break
 
-                # v25: Handle popup/tab baru (mis. Facebook login popup dari JobStreet).
-                # JobStreet punya "Sign in with Facebook" yang buka tab baru.
-                # Tab baru ini bisa ganggu detection. Tutup semua tab selain page utama.
-                try:
-                    all_pages = context.pages
-                    for extra_page in all_pages:
-                        if extra_page != page:
-                            try:
-                                await extra_page.close()
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
+                # Popup OAuth harus tetap terbuka. Menutup semua tab tambahan di
+                # sini sebelumnya ikut menutup Google sesaat setelah tombol diklik.
 
-                # v25: Pastikan page utama masih aktif. Kalau page di-close
-                # (mis. user close tab utama), gunakan page pertama yang tersisa.
+                # Pastikan halaman platform masih aktif setelah popup OAuth selesai.
                 try:
                     _ = page.url
                 except Exception:
                     try:
-                        page = context.pages[0] if context.pages else page
+                        live_pages = [candidate for candidate in context.pages if not candidate.is_closed()]
+                        page = live_pages[0] if live_pages else page
                     except Exception:
                         break
 

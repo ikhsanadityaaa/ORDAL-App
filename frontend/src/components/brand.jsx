@@ -69,47 +69,36 @@ export function LinkedInLogo({ size = 28 }) {
   )
 }
 
-export function JobStreetLogo({ size = 28 }) {
-  // Logo JobStreet asli: lingkaran biru tua dengan panah putih dari titik-titik
+export function JobStreetLogo({ size = 28, wordmark = false }) {
+  const width = wordmark ? size * 4.2 : size
   return (
-    <svg width={size} height={size} viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="128" cy="128" r="128" fill="#0D3880"/>
-      <g fill="white">
-        <circle cx="70" cy="90" r="4"/>
-        <circle cx="95" cy="90" r="6"/>
-        <circle cx="125" cy="90" r="8"/>
-        <circle cx="160" cy="90" r="10"/>
-        <circle cx="200" cy="90" r="12"/>
-        <circle cx="70" cy="115" r="5"/>
-        <circle cx="98" cy="115" r="7"/>
-        <circle cx="130" cy="115" r="9"/>
-        <circle cx="167" cy="115" r="11"/>
-        <circle cx="208" cy="115" r="13"/>
-        <circle cx="70" cy="140" r="6"/>
-        <circle cx="100" cy="140" r="8"/>
-        <circle cx="135" cy="140" r="10"/>
-        <circle cx="175" cy="140" r="12"/>
-        <circle cx="215" cy="140" r="14"/>
-        <circle cx="75" cy="165" r="5"/>
-        <circle cx="103" cy="165" r="7"/>
-        <circle cx="135" cy="165" r="9"/>
-        <circle cx="172" cy="165" r="11"/>
-        <circle cx="213" cy="165" r="13"/>
-        <circle cx="80" cy="190" r="4"/>
-        <circle cx="105" cy="190" r="6"/>
-        <circle cx="135" cy="190" r="8"/>
-        <circle cx="170" cy="190" r="10"/>
-        <circle cx="208" cy="190" r="12"/>
+    <svg width={width} height={size} viewBox={wordmark ? '0 0 202 48' : '0 0 48 48'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Jobstreet by SEEK">
+      <circle cx="24" cy="24" r="22" fill="#0D3880" />
+      <g fill="#FFFFFF">
+        {[10, 15, 20, 25, 30].flatMap((x, column) =>
+          [14, 19, 24, 29, 34].map((y, row) => {
+            const distance = Math.abs(row - 2)
+            const radius = Math.max(0.9, 1.25 + column * 0.38 - distance * 0.16)
+            return <circle key={`${x}-${y}`} cx={x} cy={y} r={radius} />
+          })
+        )}
+        <circle cx="36" cy="24" r="3.2" />
       </g>
+      {wordmark && (
+        <>
+          <text x="54" y="30" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="25" letterSpacing="-1.1">jobstreet</text>
+          <text x="147" y="40" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="8">by seek</text>
+        </>
+      )}
     </svg>
   )
 }
 
-export function PlatformLogo({ platformId, size = 28 }) {
+export function PlatformLogo({ platformId, size = 28, jobStreetWordmark = false }) {
   if (platformId === 'linkedin' || platformId === 'linkedin_jobs' || platformId === 'linkedin_posts') {
     return <LinkedInLogo size={size} />
   }
-  if (platformId === 'jobstreet') return <JobStreetLogo size={size} />
+  if (platformId === 'jobstreet') return <JobStreetLogo size={size} wordmark={jobStreetWordmark} />
   return null
 }
 

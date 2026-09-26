@@ -5,67 +5,12 @@ import {
   AlertCircle, Info, FileText, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../api'
 import useI18n from '../stores/i18nStore'
+import { PlatformLogo } from '../components/brand'
 
 const PLATFORMS = [
   { id: 'linkedin',  label: 'LinkedIn',  desc: 'Dipakai untuk LinkedIn Jobs dan LinkedIn Posts', loginUrl: 'https://www.linkedin.com/login' },
   { id: 'jobstreet', label: 'JobStreet', desc: 'Dipakai untuk JobStreet Indonesia', loginUrl: 'https://id.jobstreet.com/id' },
 ]
-
-// ── Logo SVG asli LinkedIn dan JobStreet (v26) ──────────────────────────────
-function LinkedInLogo({ size = 28 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" fill="#0A66C2"/>
-    </svg>
-  )
-}
-function JobStreetLogo({ size = 28 }) {
-  // Logo JobStreet asli: lingkaran biru tua dengan panah putih dari titik-titik
-  // Source: webcatalog.io/catalog/jobstreet/jobstreet-icon-filled-256.png
-  return (
-    <svg width={size} height={size} viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="128" cy="128" r="128" fill="#0D3880"/>
-      {/* Panah dari titik-titik putih, dari kecil (kiri) ke besar (kanan) */}
-      <g fill="white">
-        {/* Row 1 (atas) */}
-        <circle cx="70" cy="90" r="4"/>
-        <circle cx="95" cy="90" r="6"/>
-        <circle cx="125" cy="90" r="8"/>
-        <circle cx="160" cy="90" r="10"/>
-        <circle cx="200" cy="90" r="12"/>
-        {/* Row 2 (tengah-atas) */}
-        <circle cx="70" cy="115" r="5"/>
-        <circle cx="98" cy="115" r="7"/>
-        <circle cx="130" cy="115" r="9"/>
-        <circle cx="167" cy="115" r="11"/>
-        <circle cx="208" cy="115" r="13"/>
-        {/* Row 3 (tengah) */}
-        <circle cx="70" cy="140" r="6"/>
-        <circle cx="100" cy="140" r="8"/>
-        <circle cx="135" cy="140" r="10"/>
-        <circle cx="175" cy="140" r="12"/>
-        <circle cx="215" cy="140" r="14"/>
-        {/* Row 4 (tengah-bawah) */}
-        <circle cx="75" cy="165" r="5"/>
-        <circle cx="103" cy="165" r="7"/>
-        <circle cx="135" cy="165" r="9"/>
-        <circle cx="172" cy="165" r="11"/>
-        <circle cx="213" cy="165" r="13"/>
-        {/* Row 5 (bawah) */}
-        <circle cx="80" cy="190" r="4"/>
-        <circle cx="105" cy="190" r="6"/>
-        <circle cx="135" cy="190" r="8"/>
-        <circle cx="170" cy="190" r="10"/>
-        <circle cx="208" cy="190" r="12"/>
-      </g>
-    </svg>
-  )
-}
-function PlatformLogo({ platformId, size = 28 }) {
-  if (platformId === 'linkedin') return <LinkedInLogo size={size} />
-  if (platformId === 'jobstreet') return <JobStreetLogo size={size} />
-  return null
-}
 
 function isPlaywrightError(text) {
   return text && (text.includes("Executable doesn't exist") || text.includes("playwright install") || text.includes("BrowserType.launch"))
