@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import sys
 import threading
@@ -19,6 +20,11 @@ os.makedirs(COOKIES_DIR, exist_ok=True)
 LOGIN_TIMEOUT_MS = int(os.getenv("LOGIN_TIMEOUT_MS", "300000"))
 def cookies_path(user_id: str, platform_name: str) -> str:
     return os.path.join(COOKIES_DIR, f"{user_id}_{platform_name}.json")
+
+
+def browser_profile_path(user_id: str) -> str:
+    profile_id = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:20]
+    return os.path.join(get_data_dir(), "browser-profiles", profile_id)
 
 
 def save_credential_marker(user_id: str, platform_name: str, method: str):
@@ -187,7 +193,7 @@ async def _run_grab(platform_name: str, user_id: str):
     3. Tambah retry untuk page.goto kalau timeout (network lambat di Mac).
     4. Cek page.url validity sebelum akses (page bisa closed di tengah loop).
     """
-    from workers.browser_launcher import launch_browser
+    from workers.browser_launcher import launch_persistent_login_context
 
     cfg = PLATFORM_CONFIG[platform_name]
     state_path = cookies_path(user_id, platform_name)
@@ -195,33 +201,26 @@ async def _run_grab(platform_name: str, user_id: str):
     logged_in    = False
     cookie_count = 0
     cookie_names_seen: list[str] = []
-    browser = None
+    context = None
     _iteration = 0  # v30: counter untuk periodic check
 
     try:
         async with async_playwright() as p:
-            # v14: pakai launch_browser() bukan p.chromium.launch langsung
-            # supaya Mac launch args (v12) dipakai → lebih cepat & stabil.
-            # Pakai Chrome resmi kalau tersedia agar OAuth Google tidak menolak
-            # Chromium automation. Tetap fallback ke Playwright Chromium.
-            browser = await launch_browser(p, headless=False, prefer_system_chrome=True)
-
-            # Pakai user agent asli browser. UA Windows Chrome 120 lama membuat
-            # Google menganggap browser tidak aman pada macOS.
-            context_kwargs = {}
-            # v27: JANGAN load storage_state lama — mulai dari clean state.
-            # Sebelumnya, storage_state lama (yang mungkin expired/false positive)
-            # di-load → cookies lama bikin has_key True → false positive.
-            # Sekarang: selalu mulai fresh. Kalau user login, session baru
-            # akan di-save.
+            # Profil khusus ORDAL menyimpan akun Google dan session job platform
+            # antar pembukaan tanpa menyentuh profil Chrome utama user.
+            context = await launch_persistent_login_context(
+                p,
+                browser_profile_path(user_id),
+            )
+            # File state bot dibuat ulang setelah login terkonfirmasi. Profil
+            # browser tetap persisten agar akun Google tidak hilang.
             if os.path.exists(state_path):
                 try:
                     os.remove(state_path)
                 except Exception:
                     pass
 
-            context = await browser.new_context(**context_kwargs)
-            page    = await context.new_page()
+            page = context.pages[0] if context.pages else await context.new_page()
 
             # Goto login_url dengan retry (Mac network kadang lambat)
             goto_ok = False
@@ -453,9 +452,9 @@ async def _run_grab(platform_name: str, user_id: str):
         raise RuntimeError(f"Gagal capture session {cfg['label']}: {e}")
     finally:
         # v14: pastikan browser di-close walau ada exception
-        if browser:
+        if context:
             try:
-                await browser.close()
+                await context.close()
             except Exception:
                 pass
 

@@ -541,7 +541,7 @@ const TRANSLATIONS = {
   'onb.logged_in':            { id: 'Sudah login', en: 'Signed in' },
   'onb.not_logged_in':        { id: 'Belum login', en: 'Not signed in' },
   'onb.waiting_login':        { id: 'Menunggu...', en: 'Waiting...' },
-  'onb.grab_hint':            { id: 'Browser sedang terbuka. Login akun kamu di sana, lalu status akan diperbarui otomatis.', en: 'A browser window has opened. Sign in there and the status will update automatically.' },
+  'onb.grab_hint':            { id: 'Browser ORDAL memakai profil terpisah dari Chrome utama. Login sekali di sini, lalu akun dan sesi akan tetap tersimpan untuk login berikutnya.', en: 'The ORDAL browser uses a separate profile from your main Chrome profile. Sign in once here and your account and session will remain available next time.' },
 
   'onb.done_title':     { id: 'Onboarding Selesai!', en: 'Onboarding Complete!' },
   'onb.done_sub':       { id: 'Semua siap. ORDAL siap mencarikan pekerjaan untukmu.', en: 'All set. ORDAL is ready to find jobs for you.' },

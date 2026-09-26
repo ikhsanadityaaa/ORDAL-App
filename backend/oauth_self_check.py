@@ -19,8 +19,9 @@ assert "setTimeout(poll" in auth_frontend
 assert "pollCancelledRef" in auth_frontend
 assert "10 * 60 * 1000" in auth_frontend
 assert "extra_page.close()" not in credentials_backend
-assert "prefer_system_chrome=True" in credentials_backend
-assert 'context_kwargs = {}' in credentials_backend
+assert "launch_persistent_login_context" in credentials_backend
+assert "browser_profile_path(user_id)" in credentials_backend
 assert 'ignore_default_args' in browser_launcher
+assert "launch_persistent_context" in browser_launcher
 
 print("desktop OAuth self-check passed")

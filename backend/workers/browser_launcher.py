@@ -177,3 +177,22 @@ async def launch_browser(p, headless: bool = True, prefer_system_chrome: bool = 
         # Google menolak browser manual-login yang mengiklankan automation.
         kwargs["ignore_default_args"] = ["--enable-automation"]
     return await p.chromium.launch(**kwargs)
+
+
+async def launch_persistent_login_context(p, user_data_dir: str, headless: bool = False):
+    """Browser manual-login dengan profil ORDAL yang tetap tersimpan.
+
+    Profil Chrome utama sengaja tidak dipakai karena bisa terkunci saat Chrome
+    sedang berjalan dan berisiko rusak jika dikontrol automation.
+    """
+    os.makedirs(user_data_dir, exist_ok=True)
+    kwargs = {
+        "user_data_dir": user_data_dir,
+        "headless": headless,
+        "args": _get_launch_args(),
+    }
+    chrome_path = _system_chrome_path()
+    if chrome_path:
+        kwargs["executable_path"] = chrome_path
+        kwargs["ignore_default_args"] = ["--enable-automation"]
+    return await p.chromium.launch_persistent_context(**kwargs)
