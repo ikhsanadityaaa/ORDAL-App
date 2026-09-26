@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `7563dda`
+Implementation commit: `aa0ad1d`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -75,6 +75,10 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Verified JobStreet's `Lanjutkan dengan Google` opens `accounts.google.com` in the managed login browser without entering account credentials.
 - Replaced the approximate JobStreet icon with the current `jobstreet by seek` lockup and removed duplicated logo code from Settings.
 - Removed the repeated `Halo, {name}!` subtitle from every onboarding panel; the personal greeting now appears only in the welcome journey.
+- Replaced temporary job-platform browser contexts with a persistent ORDAL browser profile scoped per ORDAL user.
+- Google and job-platform sessions now survive browser restarts after the user signs in once; the main Chrome profile remains isolated to avoid profile locking or corruption.
+- Added user-facing guidance explaining why accounts from the main Chrome profile do not initially appear in the ORDAL browser.
+- Verified persistent cookies survive closing and reopening the managed Chrome profile.
 
 ## Security Result
 
