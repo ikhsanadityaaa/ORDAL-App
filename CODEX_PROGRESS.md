@@ -2,8 +2,8 @@
 
 Last updated: 2026-09-24
 Branch: `codex/secure-architecture-v2`
-Base commit: `5a202c6`
-Implementation commit: `27f3ab8`
+Base commit: `0bf0819`
+Implementation commit: `7860087`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -60,6 +60,10 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Central API calls now use an IPv4 transport with bounded connect/read timeouts; Google loading state appears immediately after click.
 - Verified the installed app sends `config`, `start`, and `poll` requests successfully and shows the Google waiting screen.
 - Rebuilt and installed `/Applications/ORDAL.app`; signature, runtime logs, regression checks, and bundle integrity pass.
+- Rewrote the first-run welcome in conversational Indonesian and warmer English, including phase-specific calls to action.
+- Replaced rigid Inter typography with Plus Jakarta Sans and Bricolage Grotesque across the app.
+- Added animated phase transitions, progress dots, floating icon/spark/blob motion, staggered benefit cards, and reduced-motion accessibility support.
+- Verified all three welcome phases at desktop and mobile sizes with no horizontal overflow, then rebuilt and installed `/Applications/ORDAL.app`.
 
 ## Security Result
 
