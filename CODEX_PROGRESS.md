@@ -2,8 +2,8 @@
 
 Last updated: 2026-09-24
 Branch: `codex/secure-architecture-v2`
-Base commit: `e00954b`
-Implementation commit: `f826463`
+Base commit: `5a202c6`
+Implementation commit: `27f3ab8`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -56,6 +56,10 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Changed login and email verification from layered popups to full-screen app screens using the same typography, buttons, palette, and layout system as onboarding.
 - Added `backend/oauth_self_check.py` for OAuth polling and macOS permission regression checks.
 - Installed the OAuth-corrected macOS bundle at `/Applications/ORDAL.app`; signature, startup, English flow, and single-process checks pass.
+- Fixed Google login appearing unresponsive on networks where Python stalls on the Vercel IPv6/NAT64 address.
+- Central API calls now use an IPv4 transport with bounded connect/read timeouts; Google loading state appears immediately after click.
+- Verified the installed app sends `config`, `start`, and `poll` requests successfully and shows the Google waiting screen.
+- Rebuilt and installed `/Applications/ORDAL.app`; signature, runtime logs, regression checks, and bundle integrity pass.
 
 ## Security Result
 
