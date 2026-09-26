@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `8132076`
+Implementation commit: `0cde763`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -67,6 +67,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Fixed macOS showing ORDAL and Python as two separate applications by launching the framework Python executable from inside the ORDAL bundle.
 - Verified the installed app runs as one process and one LaunchServices identity: `ORDAL` / `com.ordal.app`; no `Python` app identity remains.
 - Rebuilt, ad-hoc signed, installed, and launched `/Applications/ORDAL.app`; backend startup and local database checks pass.
+- Reworded the preferred-name onboarding screen in conversational Indonesian and English, including its prompt, helper text, label, placeholder, validation, and CTA.
 
 ## Security Result
 
