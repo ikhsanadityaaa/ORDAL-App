@@ -3,7 +3,7 @@
 Last updated: 2026-09-26
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `0cde763`
+Implementation commit: `1247c53`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -68,6 +68,9 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Verified the installed app runs as one process and one LaunchServices identity: `ORDAL` / `com.ordal.app`; no `Python` app identity remains.
 - Rebuilt, ad-hoc signed, installed, and launched `/Applications/ORDAL.app`; backend startup and local database checks pass.
 - Reworded the preferred-name onboarding screen in conversational Indonesian and English, including its prompt, helper text, label, placeholder, validation, and CTA.
+- Simplified the personal greeting to `Halo, {name}!`, removed the example name, and removed em dashes from translated interface copy.
+- Fixed clipped position/location chip inputs with more vertical room and explicit line height.
+- Clarified that existing position/location chips are resumed onboarding data for the same user and added a safe `Hapus semua` action.
 
 ## Security Result
 
