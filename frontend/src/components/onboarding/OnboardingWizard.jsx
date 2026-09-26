@@ -550,28 +550,39 @@ function WarmWelcome({ phase, name, setName, onRememberName, onNext, onBegin, sa
   const content = {
     name: {
       icon: UserRound,
+      kicker: t('onb.name_kicker'),
       title: t('onb.name_title'),
       sub: t('onb.name_sub'),
+      cta: t('onb.name_cta'),
     },
     hello: {
       icon: Sparkles,
+      kicker: t('onb.hello_kicker'),
       title: t('onb.hello_title', { name }),
       sub: t('onb.hello_sub'),
+      cta: t('onb.hello_cta'),
     },
     intro: {
       icon: Compass,
+      kicker: t('onb.intro_kicker'),
       title: t('onb.intro_title'),
       sub: t('onb.intro_sub'),
+      cta: t('onb.lets_begin'),
     },
   }[phase]
   const Icon = content.icon
 
   return (
     <main className="onboarding-shell onboarding-welcome">
-      <section className="onboarding-journey-card" aria-labelledby="welcome-journey-title">
+      <section key={phase} className={`onboarding-journey-card welcome-phase-${phase}`} aria-labelledby="welcome-journey-title" aria-live="polite">
         <div className="onboarding-orbit" aria-hidden="true">✦</div>
+        <div className="onboarding-welcome-steps" aria-label="Welcome progress">
+          {['name', 'hello', 'intro'].map((item) => (
+            <span key={item} className={item === phase ? 'active' : ''} />
+          ))}
+        </div>
         <div className="onboarding-hero-icon"><Icon size={34} strokeWidth={2.1} /></div>
-        <div className="onboarding-kicker">ORDAL · YOUR JOB SEARCH COMPANION</div>
+        <div className="onboarding-kicker">{content.kicker}</div>
         <h1 id="welcome-journey-title">{content.title}</h1>
         <p className="onboarding-lead">{content.sub}</p>
 
@@ -615,7 +626,7 @@ function WarmWelcome({ phase, name, setName, onRememberName, onNext, onBegin, sa
           onClick={phase === 'name' ? onRememberName : phase === 'hello' ? onNext : onBegin}
         >
           {saving && <Loader2 size={16} className="animate-spin" />}
-          {phase === 'name' ? t('common.next') : phase === 'hello' ? t('common.next') : t('onb.lets_begin')}
+          {content.cta}
           <ArrowRight size={17} />
         </button>
       </section>

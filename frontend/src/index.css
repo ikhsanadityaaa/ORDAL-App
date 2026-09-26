@@ -3,13 +3,13 @@
    ============================================================
    Palette  : cream #F4F2EC · charcoal #33363F · orange #F2661A
               orange-dark #D65511 · navy #173E76 · border #DDD9CC
-   Font     : Inter (Google Fonts) — display 800 tight
+   Font     : Plus Jakarta Sans + Bricolage Grotesque
    Signature: border 2px charcoal + hard offset shadow (tanpa blur),
               radius besar (12-24px), hover lift / active press,
               chip pill, marquee band, ✦ dekorasi.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -56,8 +56,8 @@
   --danger-50:     #FDEDEE;
 
   /* Typography */
-  --font-sans:     'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-  --font-display:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans:     'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display:  'Bricolage Grotesque', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:     ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
   /* Layout */
@@ -656,6 +656,7 @@ mark.hl {
 
 /* ── Full-screen first-run journey ───────────────────────────────── */
 .onboarding-shell {
+  position: relative;
   min-height: 100vh;
   padding: clamp(18px, 4vw, 48px);
   display: flex;
@@ -667,6 +668,19 @@ mark.hl {
     radial-gradient(circle at 88% 82%, rgba(51,54,63,0.12), transparent 30%),
     linear-gradient(135deg, #F8F5ED 0%, #EEE9DD 100%);
 }
+.onboarding-welcome::before,
+.onboarding-welcome::after {
+  content: '';
+  position: fixed;
+  width: clamp(180px, 24vw, 360px);
+  aspect-ratio: 1;
+  pointer-events: none;
+  border: 2px solid rgba(51,54,63,0.14);
+  border-radius: 38% 62% 58% 42%;
+  animation: welcome-blob 12s ease-in-out infinite alternate;
+}
+.onboarding-welcome::before { top: -10%; left: -5%; background: rgba(242,102,26,0.1); transform: rotate(12deg); }
+.onboarding-welcome::after { right: -7%; bottom: -13%; background: rgba(23,62,118,0.07); animation-delay: -5s; animation-direction: alternate-reverse; }
 .onboarding-frame {
   width: min(980px, 100%);
   min-height: min(780px, calc(100vh - 48px));
@@ -699,29 +713,44 @@ mark.hl {
   padding: clamp(34px, 7vw, 76px);
   overflow: hidden;
   text-align: center;
-  background: rgba(255,255,255,0.88);
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(18px);
   border: 2px solid var(--black);
   border-radius: 32px;
   box-shadow: 12px 12px 0 var(--black);
-  animation: onboarding-arrive 0.48s var(--ease-bounce);
+  animation: welcome-card-in 0.58s var(--ease-bounce);
 }
-.onboarding-orbit { position: absolute; top: 22px; right: 30px; color: var(--orange); font-size: 34px; }
+.onboarding-orbit { position: absolute; top: 22px; right: 30px; color: var(--orange); font-size: 34px; animation: welcome-spark 3.4s ease-in-out infinite; }
+.onboarding-welcome-steps { display: flex; justify-content: center; gap: 7px; margin: -22px 0 28px; }
+.onboarding-welcome-steps span { width: 8px; height: 8px; background: var(--gray-200); border: 1.5px solid var(--black); border-radius: 999px; transition: width 0.35s var(--ease-bounce), background 0.25s ease; }
+.onboarding-welcome-steps span.active { width: 34px; background: var(--orange); }
 .onboarding-hero-icon {
   width: 76px; height: 76px; margin: 0 auto 22px;
   display: grid; place-items: center;
   color: white; background: var(--orange);
   border: 2px solid var(--black); border-radius: 22px;
   box-shadow: 6px 6px 0 var(--black);
+  animation: welcome-icon-in 0.7s 0.08s var(--ease-bounce) both, welcome-icon-float 3.6s 0.8s ease-in-out infinite;
 }
-.onboarding-kicker { margin-bottom: 12px; color: var(--orange); font-size: 11px; font-weight: 900; letter-spacing: 0.14em; }
-.onboarding-journey-card h1 { margin: 0; color: var(--black); font-family: var(--font-display); font-size: clamp(38px, 7vw, 70px); line-height: 0.98; letter-spacing: -0.055em; }
-.onboarding-lead { max-width: 600px; margin: 20px auto 28px; color: var(--gray-600); font-size: clamp(15px, 2vw, 18px); line-height: 1.65; }
+.onboarding-kicker { margin-bottom: 12px; color: var(--orange); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; animation: welcome-copy-in 0.5s 0.14s ease-out both; }
+.onboarding-journey-card h1 { margin: 0; color: var(--black); font-family: var(--font-display); font-size: clamp(40px, 7vw, 72px); font-weight: 700; line-height: 0.98; letter-spacing: -0.052em; text-wrap: balance; animation: welcome-copy-in 0.55s 0.2s ease-out both; }
+.onboarding-lead { max-width: 600px; margin: 20px auto 28px; color: var(--gray-600); font-size: clamp(15px, 2vw, 18px); line-height: 1.7; text-wrap: balance; animation: welcome-copy-in 0.55s 0.28s ease-out both; }
 .onboarding-name-form { max-width: 480px; margin: 0 auto 18px; text-align: left; }
-.onboarding-name-input { height: 58px; font-size: 20px; font-weight: 750; }
-.onboarding-journey-next { min-width: 210px; justify-content: center; margin-top: 8px; }
+.onboarding-name-input { height: 60px; font-size: 19px; font-weight: 650; border-radius: 16px; box-shadow: 4px 4px 0 rgba(51,54,63,0.22); }
+.onboarding-name-input:focus { box-shadow: 5px 5px 0 var(--orange); transform: translate(-1px, -1px); }
+.onboarding-journey-next { min-width: 210px; justify-content: center; margin-top: 8px; animation: welcome-copy-in 0.55s 0.38s ease-out both; }
 .onboarding-promise-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 26px; }
 .onboarding-promise { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 14px; color: var(--black); background: var(--cream); border: 2px solid var(--black); border-radius: 16px; font-size: 13px; font-weight: 750; box-shadow: 4px 4px 0 rgba(51,54,63,0.28); }
 .onboarding-promise svg { color: var(--orange); }
+.onboarding-promise:nth-child(1) { animation: welcome-copy-in 0.45s 0.28s ease-out both; }
+.onboarding-promise:nth-child(2) { animation: welcome-copy-in 0.45s 0.38s ease-out both; }
+.onboarding-promise:nth-child(3) { animation: welcome-copy-in 0.45s 0.48s ease-out both; }
+@keyframes welcome-card-in { from { opacity: 0; transform: translateY(28px) rotate(-0.6deg) scale(0.975); } to { opacity: 1; transform: translateY(0) rotate(0) scale(1); } }
+@keyframes welcome-copy-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes welcome-icon-in { from { opacity: 0; transform: scale(0.65) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes welcome-icon-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+@keyframes welcome-spark { 0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.65; } 50% { transform: rotate(24deg) scale(1.15); opacity: 1; } }
+@keyframes welcome-blob { from { transform: rotate(4deg) translate3d(0, 0, 0); border-radius: 38% 62% 58% 42%; } to { transform: rotate(18deg) translate3d(18px, -12px, 0); border-radius: 57% 43% 38% 62%; } }
 .ats-guide { display: flex; gap: 14px; padding: 16px; background: #FFF7E2; border: 2px solid #B8860B; border-radius: 16px; }
 .ats-guide-icon { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; color: #7A5107; background: #FFE3A1; border: 2px solid #B8860B; border-radius: 11px; }
 .ats-guide strong { display: block; color: #5F4008; font-size: 14px; }
@@ -735,6 +764,14 @@ mark.hl {
   .onboarding-journey-card { display: flex; flex-direction: column; justify-content: center; padding: 34px 22px; }
   .onboarding-promise-grid { grid-template-columns: 1fr; }
   .onboarding-promise { flex-direction: row; text-align: left; }
+  .onboarding-welcome-steps { margin-top: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-welcome::before, .onboarding-welcome::after, .onboarding-orbit,
+  .onboarding-hero-icon, .onboarding-kicker, .onboarding-journey-card h1,
+  .onboarding-lead, .onboarding-journey-next, .onboarding-promise,
+  .onboarding-journey-card { animation: none !important; }
 }
 
 /* Dekorasi ✦ di header modal */
