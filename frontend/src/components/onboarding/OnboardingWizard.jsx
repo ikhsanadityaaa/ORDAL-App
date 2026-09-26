@@ -779,6 +779,8 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           onChange={(v) => up('positions', v)}
           placeholder={t('onb.f_positions_ph')}
           helper={t('onb.f_positions_help')}
+          savedLabel={t('onb.f_saved_values')}
+          clearLabel={t('common.clear_all')}
         />
       </Field>
 
@@ -788,6 +790,8 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           onChange={(v) => up('locations', v)}
           placeholder={t('onb.f_locations_ph')}
           helper={t('onb.f_locations_help')}
+          savedLabel={t('onb.f_saved_values')}
+          clearLabel={t('common.clear_all')}
         />
       </Field>
 
