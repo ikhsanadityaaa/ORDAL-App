@@ -7,6 +7,10 @@ from fastapi import HTTPException
 
 
 BASE_URL = os.getenv("ORDAL_API_URL", "https://ordal-web.vercel.app/api/app").rstrip("/")
+_CLIENT = httpx.Client(
+    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    timeout=httpx.Timeout(15.0, connect=5.0),
+)
 
 
 def _device_payload() -> dict[str, str]:
@@ -35,15 +39,15 @@ def request(
     token: str = "",
     json: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = {**(json or {}), **_device_payload()}
+    is_get = method.upper() == "GET"
+    payload = None if is_get else {**(json or {}), **_device_payload()}
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
-        response = httpx.request(
+        response = _CLIENT.request(
             method,
             f"{BASE_URL}/{path.lstrip('/')}",
-            json=payload if method.upper() != "GET" else None,
+            json=payload,
             headers=headers,
-            timeout=20,
         )
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="Server ORDAL tidak dapat dihubungi") from exc

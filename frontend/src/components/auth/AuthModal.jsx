@@ -80,20 +80,22 @@ export default function AuthModal() {
 
   const startGoogle = async () => {
     setError('')
+    setGoogleWaiting(true)
     // Selalu cek server; user yang belum login belum pernah memanggil /auth/me.
     let configured = false
     try {
       const config = await api.get('/auth/google/config')
       configured = config.data?.configured === true
     } catch (e) {
+      setGoogleWaiting(false)
       setError(t('auth.google_unreachable'))
       return
     }
     if (!configured) {
+      setGoogleWaiting(false)
       setError(t('auth.google_soon'))
       return
     }
-    setGoogleWaiting(true)
     try {
       const res = await api.post('/auth/google/start', {})
       const state = res.data?.state
