@@ -417,263 +417,6 @@ function FinishModal({ jobs, sessionId, status, lang, onClose, onHistory }) {
   )
 }
 
-function samePosition(a, b) {
-  return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase()
-}
-
-// ── Cover Letter Editor (per position group) ──────────────────────────────────
-function CoverLetterEditor({ position, coverLetter, targetId, cvId, onSaved }) {
-  const { t, lang } = useI18n()
-  const [open,   setOpen]   = useState(false)
-  const [text,   setText]   = useState(coverLetter || '')
-  const [saving, setSaving] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const [genError, setGenError] = useState('')
-
-  // Sync jika coverLetter berubah dari luar
-  useEffect(() => { setText(coverLetter || '') }, [coverLetter])
-
-  const charCount = text.length
-  const hasPlaceholderCompany  = text.includes('{company}') || text.includes('{perusahaan}')
-  const hasPlaceholderPosition = text.includes('{position}') || text.includes('{posisi}')
-
-  // Preview dengan contoh penggantian
-  const preview = text
-    .replace(/\{company\}/g, position.split(' ')[0] + ' Corp')
-    .replace(/\{perusahaan\}/g, position.split(' ')[0] + ' Corp')
-    .replace(/\{position\}/g, position)
-    .replace(/\{posisi\}/g, position)
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await api.put(`/targets/${targetId}/cover-letter`, { cover_letter: text })
-      onSaved && onSaved(position, text)
-      setOpen(false) // Close after save
-    } catch (e) {
-      alert(t('cari_kerja.gagal_simpan_cover'))
-    } finally { setSaving(false) }
-  }
-
-  // ── Generate cover letter template dari CV via AI ──
-  // User request v11: tambah tombol "Buat Cover Letter dari CV" yang generate
-  // template pakai placeholder {perusahaan}/{posisi}. Bahasa mengikuti CV.
-  const handleGenerateFromCV = async () => {
-    if (!cvId) {
-      setGenError(t('cari_kerja.cv_not_selected'))
-      return
-    }
-    setGenerating(true)
-    setGenError('')
-    try {
-      const res = await api.post(`/cvs/${cvId}/generate-cover-letter-template`)
-      if (res.data?.ok && res.data?.template) {
-        setText(res.data.template)
-        setGenError('')
-      } else {
-        setGenError(res.data?.detail || t('cari_kerja.gagal_generate_cover'))
-      }
-    } catch (err) {
-      const detail = err.response?.data?.detail || err.message
-      setGenError(detail)
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  return (
-    <div style={{ marginTop: 0 }}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '6px',
-          background: coverLetter ? '#E8F7EE' : 'white',
-          border: '2px solid var(--black)',
-          boxShadow: '2px 2px 0 var(--black)',
-          cursor: 'pointer',
-          fontSize: '12px', color: coverLetter ? '#176B3A' : 'var(--black)',
-          fontFamily: 'var(--font-sans)', padding: '5px 8px',
-          minHeight: '30px', borderRadius: '999px',
-        }}
-      >
-        {coverLetter ? (
-          <>
-            <Check size={13} strokeWidth={3} style={{ flexShrink: 0 }} />
-            <span style={{ fontWeight: 800 }}>{lang === 'id' ? 'Surat lamaran siap' : 'Cover letter ready'}</span>
-          </>
-        ) : (
-          <>
-            <FileText size={13} />
-            <span style={{ fontWeight: 800 }}>{lang === 'id' ? 'Buat surat lamaran' : 'Create cover letter'}</span>
-          </>
-        )}
-        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-      </button>
-
-      {open && (
-        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Tombol "Buat dari CV (AI)" — generate template cover letter dari CV
-              pakai AI. Template akan pakai placeholder {perusahaan}/{posisi}
-              yang otomatis di-replace saat apply. Bahasa mengikuti CV. */}
-          <button
-            onClick={handleGenerateFromCV}
-            disabled={generating || !cvId}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-              background: generating ? 'var(--gray-200)' : '#2980b9',
-              color: 'white',
-              border: '2px solid var(--black)',
-              boxShadow: '2px 2px 0 var(--black)',
-              cursor: generating || !cvId ? 'not-allowed' : 'pointer',
-              opacity: (!cvId || generating) ? 0.6 : 1,
-              padding: '7px 10px',
-              fontSize: '12px',
-              fontFamily: 'var(--font-sans)',
-              fontWeight: 700,
-            }}
-            title={!cvId
-              ? t('cari_kerja.cv_not_selected_edit')
-              : t('cari_kerja.gen_template_desc')
-            }
-          >
-            {generating ? (
-              <>
-                <Loader size={11} className="animate-spin" />
-                MEMBUAT DARI CV...
-              </>
-            ) : (
-              <>
-                <Sparkles size={11} />
-                BUAT DARI CV (AI)
-              </>
-            )}
-          </button>
-          {genError && (
-            <div style={{
-              padding: '6px 8px',
-              background: '#fdecea',
-              border: '1px solid #e74c3c',
-              fontSize: '12px',
-              color: '#c0392b',
-              lineHeight: 1.4,
-            }}>
-              {genError}
-            </div>
-          )}
-
-          {/* Info placeholder */}
-          <div style={{
-            padding: '8px 10px',
-            background: '#fef9e7',
-            border: '1.5px solid #f39c12',
-            fontSize: '14px',
-            lineHeight: 1.7,
-            color: '#7d6608',
-          }}>
-            <p style={{ fontWeight: 700, marginBottom: '4px', fontFamily: 'var(--font-sans)' }}>PLACEHOLDER:</p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{
-                background: hasPlaceholderCompany ? '#27ae60' : 'var(--cream-2)',
-                color: hasPlaceholderCompany ? 'white' : 'var(--muted)',
-                padding: '2px 6px',
-                border: '1.5px solid var(--black)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '14px',
-              }}>{'{company}'}</span>
-              <span style={{
-                background: hasPlaceholderPosition ? '#27ae60' : 'var(--cream-2)',
-                color: hasPlaceholderPosition ? 'white' : 'var(--muted)',
-                padding: '2px 6px',
-                border: '1.5px solid var(--black)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '14px',
-              }}>{'{position}'}</span>
-            </div>
-            <p style={{ marginTop: '4px', fontSize: '13px' }}>
-              Cover letter {t('cari_kerja.cover_letter_scope')} <strong>{t('cari_kerja.cover_letter_scope_all')} "{position}"</strong> ({t('cari_kerja.semua')} platform & lokasi). {'{company}'} dan {'{position}'} {t('cari_kerja.cover_letter_placeholder_note')}
-            </p>
-          </div>
-
-          {/* Textarea */}
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder={`Contoh:
-
-Dear Hiring Manager at {company},
-
-Saya tertarik melamar posisi {position} di {company}. Dengan pengalaman saya di bidang...
-
-Hormat saya,
-[Nama Anda]`}
-            rows={10}
-            style={{
-              border: '2px solid var(--black)',
-              background: 'white',
-              padding: '10px',
-              fontSize: '14px',
-              fontFamily: 'var(--font-sans)',
-              lineHeight: 1.7,
-              width: '100%',
-              outline: 'none',
-              resize: 'vertical',
-            }}
-          />
-
-          {/* Char count */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', color: 'var(--muted)', fontFamily: 'var(--font-sans)' }}>
-              {charCount} karakter
-            </span>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                background: 'var(--orange)',
-                color: 'white',
-                border: `2px solid var(--black)`,
-                boxShadow: '2px 2px 0 var(--black)',
-                padding: '5px 10px',
-                fontSize: '13px',
-                fontFamily: 'var(--font-sans)',
-                cursor: 'pointer',
-              }}
-            >
-              <Save size={11} />
-              {saving ? t('cari_kerja.menyimpan') : t('cari_kerja.simpan')}
-            </button>
-          </div>
-
-          {/* Preview */}
-          {text && (
-            <div style={{ marginTop: '2px' }}>
-              <p style={{ fontSize: '14px', color: 'var(--muted)', fontFamily: 'var(--font-sans)', marginBottom: '4px' }}>
-                PREVIEW (contoh):
-              </p>
-              <pre style={{
-                whiteSpace: 'pre-wrap',
-                fontSize: '13px',
-                lineHeight: 1.7,
-                color: 'var(--black-3)',
-                background: 'var(--cream)',
-                border: '1.5px solid var(--border)',
-                padding: '10px',
-                maxHeight: '140px',
-                overflow: 'auto',
-                fontFamily: 'var(--font-sans)',
-              }}>
-                {preview}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Target Panel ──────────────────────────────────────────────────────────────
 function TargetPanel({ isRunning = false }) {
   const { t, tj, lang } = useI18n()
@@ -1083,11 +826,6 @@ function TargetPanel({ isRunning = false }) {
     const nextPrefs = { ...prefs, testing_email_mode: value }
     setPrefs(nextPrefs)
     savePrefs(nextPrefs)
-  }
-
-  // Cover letter berlaku untuk semua target dengan posisi yang sama.
-  const handleCoverLetterSaved = (position, newText) => {
-    setTargets(prev => prev.map(t => samePosition(t.position, position) ? { ...t, cover_letter: newText } : t))
   }
 
   const cvTargetGroups = buildCvTargetGroups(Array.isArray(targets) ? targets : [])
@@ -1641,35 +1379,27 @@ I am interested in applying for the {position} role at {company}...`}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {positionTargets.map(target => (
-                      <div
+                  {open && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {positionTargets.map(target => (
+                        <button
+                        type="button"
                         key={normalizeKeyPart(target.position)}
-                        onClick={open ? () => handleEdit(target) : undefined}
-                        title={open ? t('cari_kerja.klik_edit') : undefined}
+                        onClick={() => handleEdit(target)}
+                        title={t('cari_kerja.klik_edit')}
                         style={{
                           padding: '7px 8px', background: 'white', border: '1px solid var(--border)', borderRadius: '12px',
-                          cursor: open ? 'pointer' : 'default',
+                          cursor: 'pointer',
                           display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0,
                         }}
                       >
                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--black)', overflowWrap: 'anywhere' }}>
                           {target.position}
                         </span>
-                        {!open && (
-                          <div onClick={event => event.stopPropagation()} style={{ flexShrink: 0 }}>
-                            <CoverLetterEditor
-                              position={target.position}
-                              coverLetter={target.cover_letter}
-                              targetId={target.id}
-                              cvId={target.cv_id}
-                              onSaved={handleCoverLetterSaved}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}

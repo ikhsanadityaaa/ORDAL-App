@@ -94,6 +94,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Built, signed, installed, and launched the updated `/Applications/ORDAL.app`; one process listens on `127.0.0.1:60471`, the active bundle serves the new assets, and user data remains intact.
 - Changed Target Aktif cards so target positions are the primary orange highlights; CV filenames are secondary metadata, positions wrap inline, and cover-letter controls use clear themed status labels instead of `CV ✓`.
 - Simplified JobStreet platform cards to show only the circular JobStreet icon, matching the compact LinkedIn icon treatment; the platform name remains as card text.
+- Removed duplicate per-position cover-letter rows from the normal Target Aktif view; editing remains available through Edit, and the JobStreet icon now fills its logo box more clearly.
 
 ## Security Result
 

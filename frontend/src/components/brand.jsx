@@ -71,7 +71,7 @@ export function LinkedInLogo({ size = 28 }) {
 
 export function JobStreetLogo({ size = 28 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
+    <svg width={size} height={size} viewBox="25 25 206 206" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
       <circle cx="128" cy="128" r="103" fill="#123E87" />
       <g fill="#FFFFFF">
         <circle cx="47" cy="107" r="2" /><circle cx="58" cy="107" r="2.5" />
