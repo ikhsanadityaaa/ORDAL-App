@@ -1,4 +1,3 @@
-import subprocess
 import sys
 import webbrowser
 
@@ -14,7 +13,14 @@ router = APIRouter()
 def _return_to_app_after_google() -> None:
     if sys.platform != "darwin":
         return
-    subprocess.run(["open", "-a", "ORDAL"], capture_output=True, timeout=5, check=False)
+    try:
+        from AppKit import NSRunningApplication  # type: ignore
+
+        # Fokuskan proses saat ini. `open -a ORDAL` bisa menjalankan bundle lain
+        # jika build di dist/ dan /Applications sama-sama ada.
+        NSRunningApplication.currentApplication().activateWithOptions_(2)
+    except Exception:
+        pass
 
 
 def _sync(result: dict) -> dict:

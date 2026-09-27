@@ -61,7 +61,6 @@ export default function OnboardingWizard() {
   const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false })
   const [emailConnected, setEmailConnected] = useState(false)
   const [grabbingPlatform, setGrabbingPlatform] = useState(null)
-  const pollRef = useRef(null)
 
   const needsEmailStep = platforms.includes('linkedin_posts')
   const steps = [
@@ -99,7 +98,6 @@ export default function OnboardingWizard() {
 
   useEffect(() => {
     load()
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [load])
 
   // ── simpan progress ke database lokal ──
@@ -244,21 +242,17 @@ export default function OnboardingWizard() {
     setGrabbingPlatform(platform)
     setError('')
     try {
-      await api.post(`/credentials/grab/${platform}`)
-      // browser terbuka di device — poll status sampai logged_in
-      if (pollRef.current) clearInterval(pollRef.current)
-      pollRef.current = setInterval(async () => {
-        const logins = await refreshLogins()
-        if (logins[platform]) {
-          clearInterval(pollRef.current)
-          pollRef.current = null
-          setGrabbingPlatform(null)
-        }
-      }, 2500)
+      const res = await api.post(`/credentials/grab/${platform}`)
+      if (!res.data?.logged_in) {
+        setError(res.data?.message || t('onb.err_grab'))
+        return
+      }
+      await refreshLogins()
     } catch (e) {
-      setGrabbingPlatform(null)
       const msg = e.response?.data?.detail
       setError(typeof msg === 'string' ? msg : t('onb.err_grab'))
+    } finally {
+      setGrabbingPlatform(null)
     }
   }
 

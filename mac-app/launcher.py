@@ -105,15 +105,20 @@ def resolve_user_data_dir() -> Path:
 
 
 # ----------------------------------------------------------------------------
-# Find free port
+# Stable local origin
 # ----------------------------------------------------------------------------
-def find_free_port() -> int:
-    """Cari port TCP lokal yang bebas."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
+LOCAL_PORT = int(os.getenv("ORDAL_LOCAL_PORT", "60471"))
+
+
+def ensure_local_port_available(port: int) -> None:
+    """Origin harus tetap agar localStorage login bertahan antar peluncuran."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError as exc:
+            raise RuntimeError(
+                f"Port lokal ORDAL {port} sedang dipakai. Tutup instance ORDAL lain lalu coba lagi."
+            ) from exc
 
 
 # ----------------------------------------------------------------------------
@@ -228,7 +233,13 @@ def open_window(url: str) -> None:
         text_select=False,
     )
     # Untuk Mac pakai cocoa; di Linux gtk; di Windows edgechromium
-    webview.start(debug=False)
+    storage_dir = resolve_user_data_dir() / "webview-profile"
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    webview.start(
+        debug=False,
+        private_mode=False,
+        storage_path=str(storage_dir),
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -277,7 +288,8 @@ def main() -> int:
     ).start()
 
     # Start backend
-    port = find_free_port()
+    port = LOCAL_PORT
+    ensure_local_port_available(port)
     log.info(f"Starting backend on 127.0.0.1:{port}")
     start_backend(paths["backend_dir"], port)
 

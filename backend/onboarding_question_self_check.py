@@ -8,7 +8,7 @@ async def main() -> None:
     root = Path(__file__).resolve().parents[1]
     translations = (root / "frontend/src/stores/i18nStore.js").read_text(encoding="utf-8")
     styles = (root / "frontend/src/index.css").read_text(encoding="utf-8")
-    assert "Hai! Kamu biasa dipanggil apa?" in translations
+    assert "Hai! Nama panggilan kamu siapa?" in translations
     assert "Kami boleh memanggilmu siapa?" not in translations
     assert "Bricolage Grotesque" in styles
     assert "prefers-reduced-motion: reduce" in styles

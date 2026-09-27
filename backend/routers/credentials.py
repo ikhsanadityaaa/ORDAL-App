@@ -1,8 +1,10 @@
 import asyncio
 import hashlib
+import logging
 import os
 import sys
 import threading
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from playwright.async_api import TimeoutError as PlaywrightTimeout
@@ -12,6 +14,7 @@ from auth_utils import get_current_user
 from database import get_db, get_data_dir
 
 router = APIRouter()
+log = logging.getLogger("ordal-credentials")
 
 # v42: Pakai get_data_dir() single source of truth dari database.py.
 COOKIES_DIR = os.path.join(get_data_dir(), "cookies")
@@ -500,6 +503,8 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
 
     cfg = PLATFORM_CONFIG[platform_name]
 
+    request_started_at = time.time()
+
     # Jalankan di thread terpisah dengan ProactorEventLoop (Windows fix)
     loop   = asyncio.get_running_loop()
     result = await loop.run_in_executor(
@@ -508,6 +513,21 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
 
     if result["error"]:
         err_msg = result["error"]
+        state_path = cookies_path(user["id"], platform_name)
+        state_saved_during_login = (
+            os.path.exists(state_path)
+            and os.path.getmtime(state_path) >= request_started_at - 2
+        )
+        if state_saved_during_login:
+            log.warning("Browser cleanup gagal setelah session %s tersimpan: %s", platform_name, err_msg)
+            save_credential_marker(user["id"], platform_name, "playwright_session")
+            return {
+                "success": True,
+                "logged_in": True,
+                "message": f"Session {cfg['label']} berhasil disimpan.",
+            }
+
+        log.error("Login browser %s gagal: %s", platform_name, err_msg)
         # v15: deteksi error network dan return pesan user-friendly (bukan 500).
         # Sebelumnya, semua error return 500 "Gagal membuka browser login: ..."
         # yang teknis dan menakutkan user. Sekarang:
@@ -524,10 +544,7 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
                 "error_type": "internet_disconnected",
             }
         # Error lain (browser crash, dll) — return sebagai HTTPException
-        raise HTTPException(
-            status_code=500,
-            detail=f"Gagal membuka browser login: {err_msg}",
-        )
+        raise HTTPException(status_code=500, detail=f"Login {cfg['label']} gagal: {err_msg}")
 
     if not result["logged_in"]:
         return {
