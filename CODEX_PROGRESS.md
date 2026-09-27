@@ -1,9 +1,9 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-26
+Last updated: 2026-09-27
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `aa0ad1d`
+Implementation commit: `889889d`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -79,6 +79,11 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Google and job-platform sessions now survive browser restarts after the user signs in once; the main Chrome profile remains isolated to avoid profile locking or corruption.
 - Added user-facing guidance explaining why accounts from the main Chrome profile do not initially appear in the ORDAL browser.
 - Verified persistent cookies survive closing and reopening the managed Chrome profile.
+- Fixed desktop login persistence by disabling pywebview private mode, assigning a persistent webview storage directory, and using stable local origin `127.0.0.1:60471`.
+- Replaced `open -a ORDAL` after Google OAuth with current-process activation, preventing a second installed/dist ORDAL bundle from opening at a different onboarding position.
+- Fixed job-platform login completion handling so a session saved before browser cleanup is reported as success instead of `Gagal membuka browser login`.
+- Removed indefinite frontend polling after job-platform login; the blocking capture response is now handled directly and always clears loading state.
+- Installed and verified `/Applications/ORDAL.app` as one process, one LaunchServices identity, and one listener on port `60471`; persistent webview storage was created successfully.
 
 ## Security Result
 
