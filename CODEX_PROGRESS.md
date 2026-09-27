@@ -100,6 +100,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Fixed Target Aktif edit mode to load every saved position from the selected CV group instead of only the first target row.
 - Added clear CV-suggestion progress, a 45-second timeout, result feedback, and merge behavior that preserves existing positions while adding AI suggestions.
 - Converted onboarding, welcome, completion, and in-app authentication layouts from floating bordered panels into full-window app pages; external Google/job-platform browser redirects remain separate.
+- Redesigned onboarding as a new-game tutorial page with a centered HUD, stage counter, readable content safe area, balanced bottom controls, and an inline cover-letter example instead of an internal popup.
 
 ## Security Result
 

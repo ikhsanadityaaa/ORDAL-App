@@ -10,7 +10,7 @@ import useI18n from '../../stores/i18nStore'
 import api from '../../api'
 import { PlatformLogo, LinkedInLogo, JobStreetLogo } from '../brand'
 import ChipsInput from './ChipsInput'
-import CoverLetterExampleModal from './CoverLetterExampleModal'
+import { COVER_LETTER_EXAMPLE } from './CoverLetterExampleModal'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OnboardingWizard — wizard pop-up interaktif setelah login + verifikasi.
@@ -297,12 +297,11 @@ export default function OnboardingWizard() {
     }
     return (
       <main className="onboarding-shell">
-        <section className="onboarding-frame onboarding-complete" aria-labelledby="onboarding-complete-title">
-          <div className="sticker-modal-header" style={{ textAlign: 'center', paddingBottom: 30 }}>
-            <span className="deco-glyph animate-float" style={{ top: 20, left: 28, color: 'rgba(242,102,26,0.6)', fontSize: 26 }}>✦</span>
-            <span className="deco-glyph animate-wiggle" style={{ bottom: 20, right: 30, color: 'rgba(244,242,236,0.25)', fontSize: 30 }}>✳</span>
+        <section className="onboarding-page onboarding-complete" aria-labelledby="onboarding-complete-title">
+          <header className="onboarding-page-header">
+            <div className="onboarding-page-header-inner onboarding-complete-hero">
             <div style={{
-              width: 64, height: 64, margin: '4px auto 14px', background: '#F2661A',
+              width: 64, height: 64, margin: '0 auto 16px', background: '#F2661A',
               border: '2px solid rgba(244,242,236,0.35)', borderRadius: 16,
               display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
             }}>
@@ -310,8 +309,9 @@ export default function OnboardingWizard() {
             </div>
             <h2 id="onboarding-complete-title">{t('onb.done_title')}</h2>
             <p>{t('onb.done_sub')}</p>
-          </div>
-          <div className="sticker-modal-body" style={{ textAlign: 'center' }}>
+            </div>
+          </header>
+          <div className="onboarding-page-main onboarding-complete-main" style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', marginBottom: 6 }}>
               {[
                 { icon: FileText, text: t('onb.done_cv') },
@@ -333,20 +333,14 @@ export default function OnboardingWizard() {
                 {t('onb.ai_sub')}
               </span>
             </div>
-          </div>
-          <div className="sticker-modal-footer" style={{ justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => enterApp('/ai')}
-            >
-              <Sparkles size={17} /> {t('onb.ai_setup')}
-            </button>
-            <button
-              className="btn btn-secondary btn-lg"
-              onClick={() => enterApp('/kerja')}
-            >
-              {t('onb.ai_skip')} <ArrowRight size={17} />
-            </button>
+            <div className="onboarding-page-actions onboarding-complete-actions">
+              <button className="btn btn-primary btn-lg" onClick={() => enterApp('/ai')}>
+                <Sparkles size={17} /> {t('onb.ai_setup')}
+              </button>
+              <button className="btn btn-secondary btn-lg" onClick={() => enterApp('/kerja')}>
+                {t('onb.ai_skip')} <ArrowRight size={17} />
+              </button>
+            </div>
           </div>
         </section>
       </main>
@@ -354,16 +348,18 @@ export default function OnboardingWizard() {
   }
 
   const stepInfo = steps.find((s) => s.n === step)
-  const progressPct = Math.round(((step - 1) / 5) * 100)
+  const visibleStepIndex = step > 5 && !needsEmailStep ? 5 : steps.findIndex((item) => item.n === step) + 1
+  const visibleStepTotal = needsEmailStep ? 6 : 5
+  const progressPct = visibleStepTotal > 1 ? Math.round(((visibleStepIndex - 1) / (visibleStepTotal - 1)) * 100) : 100
 
   return (
     <main className="onboarding-shell">
-      <section className="onboarding-frame" aria-labelledby="onboarding-step-title">
+      <section className="onboarding-page" aria-labelledby="onboarding-step-title">
 
         {/* Header + progress */}
-        <div className="sticker-modal-header" style={{ paddingBottom: 20 }}>
-          <span className="deco-glyph" style={{ top: 14, right: 22, color: 'rgba(242,102,26,0.55)' }}>✦</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+        <header className="onboarding-page-header">
+          <div className="onboarding-page-header-inner">
+          <div className="onboarding-page-brand-row">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 34, height: 34, background: '#F2661A',
@@ -373,20 +369,27 @@ export default function OnboardingWizard() {
               }}>O</div>
               <div style={{ color: '#F4F2EC', fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>ORDAL</div>
             </div>
-            <div className="chip-sticker-dark" style={{ padding: '3px 12px', fontSize: 10.5 }}>
-              {t('onb.step_of', { n: step > 5 && !needsEmailStep ? 5 : steps.findIndex((s) => s.n === step) + 1, total: needsEmailStep ? 6 : 5 })}
+            <div className="onboarding-step-count">
+              <span>{lang === 'id' ? 'TAHAP' : 'STAGE'}</span>
+              <strong>{visibleStepIndex}</strong>
+              <small>/ {visibleStepTotal}</small>
             </div>
           </div>
-          <h2 id="onboarding-step-title" style={{ fontSize: 24 }}>{stepInfo ? t(stepInfo.key) : ''}</h2>
-          <div style={{ marginTop: 12 }}>
+          <div className="onboarding-page-title-row">
+            <div>
+              <p>{lang === 'id' ? 'SIAPKAN ORDAL' : 'SET UP ORDAL'}</p>
+              <h2 id="onboarding-step-title">{stepInfo ? t(stepInfo.key) : ''}</h2>
+            </div>
             <div className="progress-determinate" style={{ background: 'rgba(244,242,236,0.25)', border: 'none' }}>
               <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
-        </div>
+          </div>
+        </header>
 
         {/* Body */}
-        <div className="sticker-modal-body onboarding-body">
+        <div className="onboarding-page-main">
+          <div className="onboarding-page-body">
             <>
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
@@ -410,6 +413,27 @@ export default function OnboardingWizard() {
                       <Eye size={14} /> {t('onb.view_example')}
                     </button>
                   </div>
+                  {showExample && (
+                    <section className="onboarding-inline-example" aria-label={t('cover.title')}>
+                      <div className="onboarding-inline-example-header">
+                        <div>
+                          <strong>{t('cover.title')}</strong>
+                          <p>{t('cover.sub')}</p>
+                        </div>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowExample(false)}>
+                          {t('common.close')}
+                        </button>
+                      </div>
+                      <pre>{COVER_LETTER_EXAMPLE}</pre>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => { setCoverLetter(COVER_LETTER_EXAMPLE); setShowExample(false) }}
+                      >
+                        <CheckCircle2 size={15} /> {t('cover.use_example')}
+                      </button>
+                    </section>
+                  )}
                   <div className="notice notice-info" style={{ marginBottom: 14 }}>
                     <Sparkles size={15} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: 12.5 }}>
@@ -505,10 +529,10 @@ export default function OnboardingWizard() {
                 </div>
               )}
             </>
-        </div>
+          </div>
 
-        {/* Footer navigasi */}
-        <div className="sticker-modal-footer" style={{ justifyContent: 'space-between' }}>
+        {/* Navigasi menyatu dengan konten halaman */}
+        <div className="onboarding-page-actions">
           <button className="btn btn-secondary" onClick={back} disabled={step === 1 || loading}>
             <ArrowLeft size={15} /> {t('common.back')}
           </button>
@@ -524,13 +548,9 @@ export default function OnboardingWizard() {
             </button>
           )}
         </div>
+        </div>
       </section>
 
-      <CoverLetterExampleModal
-        open={showExample}
-        onClose={() => setShowExample(false)}
-        onUse={(text) => { setCoverLetter(text); setShowExample(false) }}
-      />
     </main>
   )
 }
