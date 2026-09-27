@@ -423,7 +423,7 @@ function samePosition(a, b) {
 
 // ── Cover Letter Editor (per position group) ──────────────────────────────────
 function CoverLetterEditor({ position, coverLetter, targetId, cvId, onSaved }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [open,   setOpen]   = useState(false)
   const [text,   setText]   = useState(coverLetter || '')
   const [saving, setSaving] = useState(false)
@@ -483,29 +483,29 @@ function CoverLetterEditor({ position, coverLetter, targetId, cvId, onSaved }) {
 
   return (
     <div style={{ marginTop: 0 }}>
-      {/* Toggle button - SMALL with CV check */}
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
-          background: coverLetter ? 'var(--orange)' : 'white',
+          background: coverLetter ? '#E8F7EE' : 'white',
           border: '2px solid var(--black)',
           boxShadow: '2px 2px 0 var(--black)',
           cursor: 'pointer',
-          fontSize: '12px', color: coverLetter ? 'white' : 'var(--black)',
+          fontSize: '12px', color: coverLetter ? '#176B3A' : 'var(--black)',
           fontFamily: 'var(--font-sans)', padding: '5px 8px',
-          height: '28px',
+          minHeight: '30px', borderRadius: '999px',
         }}
       >
         {coverLetter ? (
           <>
-            <span style={{ fontSize: '12px', fontWeight: 700 }}>CV</span>
-            <Check size={10} style={{ flexShrink: 0 }} />
+            <Check size={13} strokeWidth={3} style={{ flexShrink: 0 }} />
+            <span style={{ fontWeight: 800 }}>{lang === 'id' ? 'Surat lamaran siap' : 'Cover letter ready'}</span>
           </>
         ) : (
           <>
-            <FileText size={11} />
-            <span style={{ fontSize: '12px' }}>COVER LETTER</span>
+            <FileText size={13} />
+            <span style={{ fontWeight: 800 }}>{lang === 'id' ? 'Buat surat lamaran' : 'Create cover letter'}</span>
           </>
         )}
         {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
@@ -1579,23 +1579,34 @@ I am interested in applying for the {position} role at {company}...`}
               const positionTargets = [...group.positions.values()]
               const positionNames = positionTargets.flatMap(target => parsePositionsToList(target.position))
                 .filter((position, index, all) => all.findIndex(item => normalizeKeyPart(item) === normalizeKeyPart(position)) === index)
+              const readyCoverLetters = positionTargets.filter(target => Boolean(target.cover_letter?.trim())).length
+              const coverLetterStatus = positionTargets.length > 0 && readyCoverLetters === positionTargets.length
+                ? (lang === 'id' ? 'Semua surat lamaran siap' : 'All cover letters are ready')
+                : readyCoverLetters > 0
+                  ? (lang === 'id'
+                      ? `${readyCoverLetters} dari ${positionTargets.length} surat lamaran siap`
+                      : `${readyCoverLetters} of ${positionTargets.length} cover letters ready`)
+                  : (lang === 'id' ? 'Surat lamaran belum dibuat' : 'Cover letters not created yet')
 
               return (
                 <div key={group.cvId || group.cvName} className="card-pixel-sm" style={{ padding: '12px', background: 'var(--cream)' }}>
                   <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1.5px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: '14px', fontWeight: 800, color: 'var(--black)', overflowWrap: 'anywhere' }}>{group.cvName}</p>
-                        <p style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '3px' }}>
-                          {positionNames.length} {lang === 'id' ? 'posisi aktif' : 'active positions'}
+                        <p style={{ fontSize: '12px', fontWeight: 800, color: 'var(--muted)', marginBottom: '7px' }}>
+                          {lang === 'id' ? 'POSISI YANG DIINCAR' : 'TARGET POSITIONS'}
                         </p>
-                        {(group.salaries.size > 0 || group.availableJoin.size > 0) && (
-                          <p style={{ fontSize: '14px', color: 'var(--black-3)', marginTop: '4px', lineHeight: 1.6 }}>
-                            {group.salaries.size > 0 && <>{t('cari_kerja.gaji')}: {[...group.salaries].join(', ')}</>}
-                            {group.salaries.size > 0 && group.availableJoin.size > 0 && ' · '}
-                            {group.availableJoin.size > 0 && <>{t('cari_kerja.bergabung')}: {[...group.availableJoin].map(tj).join(', ')}</>}
-                          </p>
-                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                          {positionNames.map(position => (
+                            <span key={position} style={{
+                              padding: '6px 10px', background: 'var(--orange)', color: 'white',
+                              border: '2px solid var(--black)', borderRadius: '999px',
+                              boxShadow: '2px 2px 0 var(--black)', fontSize: '14px', fontWeight: 900,
+                            }}>
+                              {position}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
                         {[...group.platforms].map(platform => (
@@ -1606,29 +1617,45 @@ I am interested in applying for the {position} role at {company}...`}
                       </div>
                     </div>
 
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px',
+                      padding: '5px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 800,
+                      color: readyCoverLetters ? '#176B3A' : 'var(--muted)',
+                      background: readyCoverLetters ? '#E8F7EE' : '#EEEAE0',
+                    }}>
+                      {readyCoverLetters > 0 ? <Check size={13} strokeWidth={3} /> : <FileText size={13} />}
+                      {coverLetterStatus}
+                    </div>
+
                     <div style={{ display: 'grid', gap: '5px', marginTop: '9px', fontSize: '13px', color: 'var(--black-3)' }}>
+                      <div><strong>CV:</strong> <span style={{ color: 'var(--muted)', overflowWrap: 'anywhere' }}>{group.cvName}</span></div>
                       <div><strong>{lang === 'id' ? 'Lokasi' : 'Locations'}:</strong> {[...group.locations].join(', ')}</div>
                       <div><strong>{lang === 'id' ? 'Tipe kerja' : 'Employment'}:</strong> {[...group.employmentTypes].map(employmentLabel).join(', ')}</div>
+                      {(group.salaries.size > 0 || group.availableJoin.size > 0) && (
+                        <div>
+                          {group.salaries.size > 0 && <><strong>{t('cari_kerja.gaji')}:</strong> {[...group.salaries].join(', ')}</>}
+                          {group.salaries.size > 0 && group.availableJoin.size > 0 && ' · '}
+                          {group.availableJoin.size > 0 && <><strong>{t('cari_kerja.bergabung')}:</strong> {[...group.availableJoin].map(tj).join(', ')}</>}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {positionTargets.map(target => (
                       <div
                         key={normalizeKeyPart(target.position)}
                         onClick={open ? () => handleEdit(target) : undefined}
                         title={open ? t('cari_kerja.klik_edit') : undefined}
                         style={{
-                          padding: '8px 9px', background: 'white', border: '1px solid var(--border)',
+                          padding: '7px 8px', background: 'white', border: '1px solid var(--border)', borderRadius: '12px',
                           cursor: open ? 'pointer' : 'default',
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                          display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0,
                         }}
                       >
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', minWidth: 0 }}>
-                          {parsePositionsToList(target.position).map(position => (
-                            <span key={position} style={{ fontSize: '13px', fontWeight: 800, color: 'var(--black)' }}>{position}</span>
-                          ))}
-                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--black)', overflowWrap: 'anywhere' }}>
+                          {target.position}
+                        </span>
                         {!open && (
                           <div onClick={event => event.stopPropagation()} style={{ flexShrink: 0 }}>
                             <CoverLetterEditor
