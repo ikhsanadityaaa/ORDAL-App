@@ -451,11 +451,11 @@ export default function OnboardingWizard() {
                         }}
                       >
                         <div style={{
-                          width: p.id === 'jobstreet' ? 124 : 46, height: 46, borderRadius: 12, background: '#FFFFFF',
+                          width: 46, height: 46, borderRadius: 12, background: '#FFFFFF',
                           border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
                           flexShrink: 0,
                         }}>
-                          <PlatformLogo platformId={p.id} size={p.id === 'jobstreet' ? 28 : 26} jobStreetWordmark />
+                          <PlatformLogo platformId={p.id} size={26} />
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>
@@ -964,11 +964,11 @@ function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) 
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{
-          width: platform === 'jobstreet' ? 128 : 48, height: 48, borderRadius: 12, background: '#fff',
+          width: 48, height: 48, borderRadius: 12, background: '#fff',
           border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          {platform === 'jobstreet' ? <JobStreetLogo size={28} wordmark /> : <LinkedInLogo size={26} />}
+          {platform === 'jobstreet' ? <JobStreetLogo size={26} /> : <LinkedInLogo size={26} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

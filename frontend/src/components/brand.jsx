@@ -69,10 +69,9 @@ export function LinkedInLogo({ size = 28 }) {
   )
 }
 
-export function JobStreetLogo({ size = 28, wordmark = false }) {
-  const width = wordmark ? size * 4.2 : size
+export function JobStreetLogo({ size = 28 }) {
   return (
-    <svg width={width} height={size} viewBox={wordmark ? '0 0 1010 256' : '0 0 256 256'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
+    <svg width={size} height={size} viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
       <circle cx="128" cy="128" r="103" fill="#123E87" />
       <g fill="#FFFFFF">
         <circle cx="47" cy="107" r="2" /><circle cx="58" cy="107" r="2.5" />
@@ -97,20 +96,15 @@ export function JobStreetLogo({ size = 28, wordmark = false }) {
         <circle cx="158" cy="86" r="7" /><circle cx="137" cy="173" r="7" />
         <circle cx="158" cy="173" r="7" /><circle cx="137" cy="194" r="7" />
       </g>
-      {wordmark && (
-        <>
-          <text x="292" y="153" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="130" letterSpacing="-5">JobStreet</text>
-        </>
-      )}
     </svg>
   )
 }
 
-export function PlatformLogo({ platformId, size = 28, jobStreetWordmark = false }) {
+export function PlatformLogo({ platformId, size = 28 }) {
   if (platformId === 'linkedin' || platformId === 'linkedin_jobs' || platformId === 'linkedin_posts') {
     return <LinkedInLogo size={size} />
   }
-  if (platformId === 'jobstreet') return <JobStreetLogo size={size} wordmark={jobStreetWordmark} />
+  if (platformId === 'jobstreet') return <JobStreetLogo size={size} />
   return null
 }
 
