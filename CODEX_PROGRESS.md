@@ -3,7 +3,7 @@
 Last updated: 2026-09-27
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
-Implementation commit: `889889d`
+Implementation commit: `1f07e51`
 Remote branch: `origin/codex/secure-architecture-v2`
 
 ## Goal
@@ -84,6 +84,14 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Fixed job-platform login completion handling so a session saved before browser cleanup is reported as success instead of `Gagal membuka browser login`.
 - Removed indefinite frontend polling after job-platform login; the blocking capture response is now handled directly and always clears loading state.
 - Installed and verified `/Applications/ORDAL.app` as one process, one LaunchServices identity, and one listener on port `60471`; persistent webview storage was created successfully.
+- Reworked AI setup into a one-provider flow with clear free/paid labels, direct provider key-page buttons, automatic activation after saving, and a strong `Lanjut ke Cari Kerja` action.
+- Replaced the JobStreet mark with the supplied blue dotted-arrow logo and removed the duplicate platform-logo implementation from Cari Kerja.
+- Grouped active targets by CV, deduplicating positions, locations, salary, availability, employment type, and platform logos while preserving per-position cover-letter editing.
+- Added a warm preparation-complete guide that points users to the orange Cari Kerja button.
+- Added session-finish feedback: successful applications show congratulations and reduced-motion-safe confetti; zero-application sessions explain likely target availability and encourage another search.
+- Removed remaining em dashes from user-facing target, question, configuration, and verification copy touched by this release.
+- Added `frontend/target_groups_self_check.mjs`; target grouping, frontend build, Python compile, OAuth, onboarding/question, password, and security checks pass.
+- Built, signed, installed, and launched the updated `/Applications/ORDAL.app`; one process listens on `127.0.0.1:60471`, the active bundle serves the new assets, and user data remains intact.
 
 ## Security Result
 
