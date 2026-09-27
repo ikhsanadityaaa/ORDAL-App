@@ -425,6 +425,7 @@ function TargetPanel({ isRunning = false }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
   const [savingPrefs, setSavingPrefs] = useState(false)
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false)
   const [open, setOpen]       = useState(false)
   const [error, setError]     = useState('')
   const defaultPrefs = { expected_salary: '', available_join: '', headless_mode: false, testing_email_mode: false }
@@ -507,14 +508,6 @@ function TargetPanel({ isRunning = false }) {
     }
   }
 
-  const addField    = k => setForm(f => ({ ...f, [k]: [...(f[k] || []), ''] }))
-  const updateField = (k, i, v) => setForm(f => { const a = [...f[k]]; a[i] = v; return { ...f, [k]: a } })
-  const removeField = (k, i) => setForm(f => {
-    const a = [...f[k]]
-    if (a.length > 1) { a.splice(i, 1); return { ...f, [k]: a } }
-    a[i] = ''
-    return { ...f, [k]: a }
-  })
   const addTag = (k, value) => {
     if (!value.trim()) return
     setForm(f => {
@@ -828,16 +821,46 @@ function TargetPanel({ isRunning = false }) {
     savePrefs(nextPrefs)
   }
 
+  const generateCoverLetterFromCv = async () => {
+    const positions = form.positions.map(position => position.trim()).filter(Boolean)
+    if (!form.cv_id || positions.length === 0) {
+      setError(lang === 'id' ? 'Pilih CV dan isi posisi yang diincar terlebih dahulu.' : 'Choose a CV and add at least one target position first.')
+      return
+    }
+    setGeneratingCoverLetter(true)
+    setError('')
+    try {
+      const res = await api.post(`/cvs/${form.cv_id}/generate-cover-letter-template`, { positions })
+      if (!res.data?.ok || !res.data?.template) throw new Error(lang === 'id' ? 'AI tidak mengembalikan surat lamaran.' : 'AI did not return a cover letter.')
+      setForm(current => ({ ...current, cover_letter: res.data.template }))
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || t('cari_kerja.gagal_generate_cover_ai'))
+    } finally {
+      setGeneratingCoverLetter(false)
+    }
+  }
+
   const cvTargetGroups = buildCvTargetGroups(Array.isArray(targets) ? targets : [])
 
   const inputStyle = {
     border: '2px solid var(--black)',
     background: 'white',
-    padding: '8px 10px',
+    padding: '9px 12px',
     fontSize: '14px',
     width: '100%',
+    minHeight: '44px',
     outline: 'none',
     fontFamily: 'var(--font-sans)',
+    borderRadius: '14px',
+  }
+  const selectStyle = {
+    ...inputStyle,
+    appearance: 'none',
+    paddingRight: '42px',
+    backgroundImage: 'linear-gradient(45deg, transparent 50%, #33363F 50%), linear-gradient(135deg, #33363F 50%, transparent 50%)',
+    backgroundPosition: 'calc(100% - 18px) 18px, calc(100% - 12px) 18px',
+    backgroundSize: '6px 6px, 6px 6px',
+    backgroundRepeat: 'no-repeat',
   }
 
   return (
@@ -887,11 +910,11 @@ function TargetPanel({ isRunning = false }) {
         <span className="font-pixel" style={{ fontSize: '13px', letterSpacing: '0.02em', fontWeight: 900 }}>{t('cari_kerja.target_aktif')}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {/* v40: Pisah tombol TAMBAH dan EDIT */}
-          <button onClick={openAdd} className="btn-pixel-ghost btn-pixel-sm">
+          <button onClick={openAdd} className="btn-pixel-ghost btn-pixel-sm" style={{ width: '152px', minHeight: '40px', justifyContent: 'center' }}>
             <Plus size={12} /> TAMBAH
           </button>
           {targets.length > 0 && (
-            <button onClick={openEditAdd} className="btn-pixel-ghost btn-pixel-sm">
+            <button onClick={openEditAdd} className="btn-pixel-ghost btn-pixel-sm" style={{ width: '152px', minHeight: '40px', justifyContent: 'center' }}>
               <Pencil size={12} /> EDIT
             </button>
           )}
@@ -900,7 +923,7 @@ function TargetPanel({ isRunning = false }) {
               onClick={handleSubmit}
               disabled={saving}
               className="btn-pixel btn-pixel-sm"
-              style={{ minHeight: '34px' }}
+              style={{ width: '152px', minHeight: '40px', justifyContent: 'center' }}
             >
               <Save size={12} /> {saving ? t('cari_kerja.menyimpan') : t('cari_kerja.save_close')}
             </button>
@@ -920,7 +943,7 @@ function TargetPanel({ isRunning = false }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>CV</label>
-                <select value={form.cv_id} onChange={e => setCv(e.target.value)} style={inputStyle}>
+                <select value={form.cv_id} onChange={e => setCv(e.target.value)} style={selectStyle}>
                   {cvs.map(cv => <option key={cv.id} value={cv.id}>{cv.position_label}, {cv.file_name}</option>)}
                 </select>
               </div>
@@ -940,6 +963,7 @@ function TargetPanel({ isRunning = false }) {
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
                       fontFamily: 'var(--font-sans)', fontWeight: 600,
                       boxShadow: '1px 1px 0 var(--black)',
+                      borderRadius: '999px', minHeight: '38px',
                     }}
                     title="AI akan menganalisis CV dan menambahkan posisi relevan (mis. HR Staff, GA, Talent Acquisition, Training Staff)"
                   >
@@ -958,6 +982,7 @@ function TargetPanel({ isRunning = false }) {
                         background: 'white', border: '2px solid var(--black)', padding: '4px 8px',
                         fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
                         boxShadow: '2px 2px 0 var(--black)',
+                        borderRadius: '999px',
                       }}>
                         {p}
                         <button onClick={() => removeTag('positions', origIdx)} style={{
@@ -968,7 +993,7 @@ function TargetPanel({ isRunning = false }) {
                     )
                   })}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div>
                   <input
                     type="text"
                     placeholder="Tambah posisi (tekan Enter)"
@@ -981,12 +1006,9 @@ function TargetPanel({ isRunning = false }) {
                     }}
                     style={{
                       ...inputStyle,
-                      width: '250px',
+                      width: '100%',
                     }}
                   />
-                  <button onClick={() => addField('positions')} style={{ fontSize: '13px', color: 'var(--orange)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Plus size={11} /> mode edit
-                  </button>
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--gray-500)', lineHeight: 1.6, marginTop: '8px' }}>
                   Bot akan melamar lowongan untuk semua posisi di atas, plus posisi se-rumpun yang relevan.
@@ -1016,7 +1038,7 @@ function TargetPanel({ isRunning = false }) {
                       <button
                         type="button"
                         onClick={() => setForm(f => ({ ...f, available_join: '', available_join_custom: '' }))}
-                        style={{ padding: '0 8px', border: '2px solid var(--black)', background: 'var(--cream)', cursor: 'pointer', fontSize: 12 }}
+                        style={{ width: '44px', minHeight: '44px', padding: 0, border: '2px solid var(--black)', background: 'var(--cream)', cursor: 'pointer', fontSize: 12, borderRadius: '14px' }}
                         title="Kembali ke dropdown"
                       >×</button>
                     </div>
@@ -1031,7 +1053,7 @@ function TargetPanel({ isRunning = false }) {
                           setForm(f => ({ ...f, available_join: val, available_join_custom: '' }))
                         }
                       }}
-                      style={inputStyle}
+                      style={selectStyle}
                     >
                       <option value="">Pilih</option>
                       <option value="Secepatnya">Secepatnya</option>
@@ -1053,6 +1075,7 @@ function TargetPanel({ isRunning = false }) {
                         background: 'white', border: '2px solid var(--black)', padding: '4px 8px',
                         fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
                         boxShadow: '2px 2px 0 var(--black)',
+                        borderRadius: '999px',
                       }}>
                         {l}
                         <button onClick={() => removeTag('locations', origIdx)} style={{
@@ -1063,7 +1086,7 @@ function TargetPanel({ isRunning = false }) {
                     )
                   })}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div>
                   <input
                     type="text"
                     placeholder="Tambah lokasi (tekan Enter)"
@@ -1076,12 +1099,9 @@ function TargetPanel({ isRunning = false }) {
                     }}
                     style={{
                       ...inputStyle,
-                      width: '200px',
+                      width: '100%',
                     }}
                   />
-                  <button onClick={() => addField('locations')} style={{ fontSize: '13px', color: 'var(--orange)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Plus size={11} /> mode edit
-                  </button>
                 </div>
               </div>
               <div>
@@ -1096,6 +1116,7 @@ function TargetPanel({ isRunning = false }) {
                       color: selected ? 'white' : 'var(--black)',
                       border: '2px solid var(--black)', cursor: 'pointer',
                       fontFamily: 'var(--font-sans)', fontWeight: 600,
+                      borderRadius: '999px', width: '132px', minHeight: '42px',
                     }}>{label}</button>
                     )
                   })}
@@ -1112,8 +1133,9 @@ function TargetPanel({ isRunning = false }) {
                         fontSize: '13px', padding: '5px 10px',
                         background: selected ? 'var(--black)' : 'white',
                         color: selected ? 'white' : 'var(--black)',
-                        border: '2px solid var(--black)', cursor: 'pointer',
-                        fontFamily: 'var(--font-sans)', fontWeight: 600,
+                      border: '2px solid var(--black)', cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)', fontWeight: 600,
+                      borderRadius: '999px', width: '120px', minHeight: '42px',
                       }}>{label}</button>
                     )
                   })}
@@ -1132,6 +1154,7 @@ function TargetPanel({ isRunning = false }) {
                         background: '#fff5f5', border: '2px solid #e74c3c', padding: '4px 8px',
                         fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
                         boxShadow: '2px 2px 0 var(--black)',
+                        borderRadius: '999px',
                       }}>
                         {p}
                         <button onClick={() => removeTag('excluded_positions', origIdx)} style={{
@@ -1142,7 +1165,7 @@ function TargetPanel({ isRunning = false }) {
                     )
                   })}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div>
                   <input
                     type="text"
                     placeholder={t('cari_kerja.tambah_posisi_dihindari')}
@@ -1155,12 +1178,9 @@ function TargetPanel({ isRunning = false }) {
                     }}
                     style={{
                       ...inputStyle,
-                      width: '250px',
+                      width: '100%',
                     }}
                   />
-                  <button onClick={() => addField('excluded_positions')} style={{ fontSize: '13px', color: 'var(--orange)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Plus size={11} /> mode edit
-                  </button>
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--gray-500)', lineHeight: 1.6, marginTop: '8px' }}>
                   Bot akan melewatkan lowongan dengan posisi ini. Contoh: Admin, Sales, Internship.
@@ -1179,6 +1199,7 @@ function TargetPanel({ isRunning = false }) {
                         background: '#fff5f5', border: '2px solid #e74c3c', padding: '4px 8px',
                         fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
                         boxShadow: '2px 2px 0 var(--black)',
+                        borderRadius: '999px',
                       }}>
                         {p}
                         <button onClick={() => removeTag('excluded_companies', origIdx)} style={{
@@ -1189,7 +1210,7 @@ function TargetPanel({ isRunning = false }) {
                     )
                   })}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div>
                   <input
                     type="text"
                     placeholder={t('cari_kerja.tambah_perusahaan_dihindari')}
@@ -1202,12 +1223,9 @@ function TargetPanel({ isRunning = false }) {
                     }}
                     style={{
                       ...inputStyle,
-                      width: '250px',
+                      width: '100%',
                     }}
                   />
-                  <button onClick={() => addField('excluded_companies')} style={{ fontSize: '13px', color: 'var(--orange)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Plus size={11} /> mode edit
-                  </button>
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--gray-500)', lineHeight: 1.6, marginTop: '8px' }}>
                   Bot akan melewatkan lowongan dari perusahaan ini. Contoh: PT ABC, Corp X.
@@ -1226,6 +1244,7 @@ function TargetPanel({ isRunning = false }) {
                     color: form.cover_letter ? 'white' : 'var(--black)',
                     fontFamily: 'var(--font-sans)', fontWeight: 700, padding: '6px 10px',
                     boxShadow: form.cover_letter ? '1px 1px 0 var(--black)' : '2px 2px 0 var(--black)',
+                    borderRadius: '999px', minHeight: '42px',
                   }}
                 >
                   <FileText size={12} />
@@ -1236,30 +1255,25 @@ function TargetPanel({ isRunning = false }) {
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {/* v43: Tombol Buat Dengan AI di form tambah/edit target */}
                     <button
-                      onClick={async () => {
-                        if (!form.cv_id) return
-                        try {
-                          const res = await api.post(`/cvs/${form.cv_id}/generate-cover-letter-template`)
-                          if (res.data?.ok && res.data?.template) {
-                            setForm(f => ({ ...f, cover_letter: res.data.template }))
-                          }
-                        } catch (err) {
-                          setError(err.response?.data?.detail || t('cari_kerja.gagal_generate_cover_ai'))
-                        }
-                      }}
-                      disabled={!form.cv_id}
+                      type="button"
+                      onClick={generateCoverLetterFromCv}
+                      disabled={!form.cv_id || generatingCoverLetter}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        background: !form.cv_id ? 'var(--gray-200)' : '#2980b9',
+                        background: (!form.cv_id || generatingCoverLetter) ? 'var(--gray-200)' : '#2980b9',
                         color: 'white', border: '2px solid var(--black)',
                         boxShadow: '2px 2px 0 var(--black)',
-                        cursor: !form.cv_id ? 'not-allowed' : 'pointer',
-                        opacity: !form.cv_id ? 0.6 : 1,
+                        cursor: (!form.cv_id || generatingCoverLetter) ? 'not-allowed' : 'pointer',
+                        opacity: (!form.cv_id || generatingCoverLetter) ? 0.6 : 1,
                         padding: '7px 10px', fontSize: '12px',
                         fontFamily: 'var(--font-sans)', fontWeight: 700,
+                        borderRadius: '14px', minHeight: '44px',
                       }}
                     >
-                      <Sparkles size={11} /> {t('cari_kerja.buat_dari_cv')}
+                      {generatingCoverLetter ? <Loader size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                      {generatingCoverLetter
+                        ? (lang === 'id' ? 'MEMBUAT SURAT LAMARAN...' : 'CREATING COVER LETTER...')
+                        : (lang === 'id' ? 'BUAT SURAT LAMARAN DARI CV (AI)' : 'CREATE COVER LETTER FROM CV (AI)')}
                     </button>
                     <div style={{
                       padding: '8px 10px',
@@ -1268,6 +1282,7 @@ function TargetPanel({ isRunning = false }) {
                       fontSize: '14px',
                       lineHeight: 1.7,
                       color: '#7d6608',
+                      borderRadius: '14px',
                     }}>
                       {t('cari_kerja.info_cover')}
                     </div>

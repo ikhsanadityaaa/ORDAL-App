@@ -2,6 +2,7 @@ import os
 import re
 import logging
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from pydantic import BaseModel, Field
 from database import get_db, get_data_dir
 from auth_utils import get_current_user
 
@@ -212,15 +213,56 @@ def delete_cv(cv_id: int, user=Depends(get_current_user)):
     return {"message": "CV deleted"}
 
 
-# ── Generate Cover Letter Template dari CV via AI ──────────────────────────
-# Endpoint untuk generate template cover letter yang pakai placeholder
-# {perusahaan} dan {posisi}. Template ini disimpan di target.cover_letter
-# dan otomatis di-render saat apply ke lowongan spesifik.
-#
-# Bahasa mengikuti CV: kalau CV bahasa Indonesia, cover letter juga Indonesia.
-# Kalau CV bahasa Inggris, cover letter English. AI detect dari teks CV.
+class CoverLetterTemplateRequest(BaseModel):
+    positions: list[str] = Field(default_factory=list)
+
+
+def normalize_target_positions(values: list[str], fallback: str = "") -> list[str]:
+    positions = []
+    source_values = values if any((value or "").strip() for value in values) else [fallback]
+    for value in source_values:
+        for part in re.split(r"[,/;|]+|\sdan\s|\sand\s|\satau\s|\sor\s", value or "", flags=re.I):
+            clean = part.strip()[:100]
+            if clean and clean.casefold() not in {item.casefold() for item in positions}:
+                positions.append(clean)
+            if len(positions) == 10:
+                return positions
+    return positions
+
+
+def build_cover_letter_template_prompt(cv_text: str, positions: list[str], language: str) -> str:
+    target_positions = ", ".join(positions) or "Target role from the CV"
+    output_language = "Bahasa Indonesia" if language == "id" else "English"
+    return f"""Create one reusable cover-letter template from the candidate CV.
+
+OUTPUT LANGUAGE: {output_language}
+TARGET POSITIONS SELECTED BY USER: {target_positions}
+
+REQUIREMENTS:
+1. Tailor the content to the candidate's real experience and the selected target positions.
+2. Use only facts explicitly present in the CV. Never invent skills, experience, achievements, education, certifications, contact details, or personal data.
+3. Use the exact placeholders {{company}} and {{position}}. They must both appear naturally in the letter because ORDAL replaces them for each vacancy.
+4. Do not write a specific company name or replace {{position}} with one target-position name.
+5. Use no other placeholders. Include identity and contact details only when present in the CV; otherwise omit them.
+6. Write 4 to 5 short paragraphs, maximum 250 words, with a professional but natural tone.
+7. Return only the finished cover-letter body. No title, notes, markdown fences, or explanation.
+
+CANDIDATE CV:
+{cv_text[:6000]}
+"""
+
+
+def normalize_cover_letter_placeholders(template: str) -> str:
+    normalized = re.sub(r"\{\s*(perusahaan|nama perusahaan|company name)\s*\}", "{company}", template, flags=re.I)
+    return re.sub(r"\{\s*(posisi|nama posisi|job title|position name)\s*\}", "{position}", normalized, flags=re.I)
+
+
 @router.post("/{cv_id}/generate-cover-letter-template")
-async def generate_cover_letter_template_from_cv(cv_id: int, user=Depends(get_current_user)):
+async def generate_cover_letter_template_from_cv(
+    cv_id: int,
+    body: CoverLetterTemplateRequest | None = None,
+    user=Depends(get_current_user),
+):
     db = get_db()
     row = db.execute(
         "SELECT id, position_label, cv_text FROM cvs WHERE id = ? AND user_id = ?",
@@ -239,173 +281,50 @@ async def generate_cover_letter_template_from_cv(cv_id: int, user=Depends(get_cu
                    "Pastikan CV PDF punya lapisan teks (bukan hasil scan).",
         )
 
-    position_label = row["position_label"] or ""
-
-    # ── Detect bahasa CV (Indonesia vs English) ──
-    # Heuristic sederhana: kalau ada kata umum Indonesia, anggap Indonesia.
+    positions = normalize_target_positions(body.positions if body else [], row["position_label"] or "")
     cv_lower = cv_text.lower()
     indo_markers = ["pengalaman", "pendidikan", "keahlian", "lulusan", "sarjana",
                     "bekerja", "perusahaan", "posisi", "tanggung jawab",
                     "saya", "berpengalaman", "domisili", "umur"]
     indo_count = sum(1 for m in indo_markers if m in cv_lower)
-    is_indonesian = indo_count >= 2  # threshold rendah supaya robust
+    language = "id" if indo_count >= 2 else "en"
+    prompt = build_cover_letter_template_prompt(cv_text, positions, language)
 
-    # ── Build prompt untuk AI ──
-    # Penting:
-    # - Output HARUS pakai placeholder {perusahaan} dan {posisi} — BUKAN nama
-    #   perusahaan/posisi spesifik. Template ini dipakai untuk SEMUA lowongan
-    #   yang cocok dengan target posisi user.
-    # - Bahasa output mengikuti bahasa CV (Indonesia kalau CV Indonesia).
-    # - Maks 200 kata, 3 paragraf.
-    # - JANGAN pakai placeholder seperti [Nama Anda] — AI harus tulis langsung
-    #   body content. Nama user akan di-append dari CV (kalau terbaca) atau
-    #   dibiarkan kosong supaya user isi manual.
-
-    if is_indonesian:
-        prompt = f"""
-Anda adalah career coach profesional. Tulis TEMPLATE cover letter (surat lamaran) dalam BAHASA INDONESIA berdasarkan profil kandidat dari CV di bawah.
-
-PENTING:
-1. Gunakan placeholder {{company}} dan {{position}} — JANGAN tulis nama perusahaan/posisi spesifik. Template ini akan dipakai untuk banyak lowongan.
-2. Bahasa: INDONESIA (karena CV dalam Bahasa Indonesia).
-3. Struktur: 4-5 paragraf singkat (maks 250 kata total):
-   - Paragraf 1: Sapaan + perkenalan diri + minat pada posisi {position_label}
-   - Paragraf 2: Pengalaman & keahlian utama dari CV (sebutkan secara spesifik)
-   - Paragraf 3: Pengalaman tambahan/diverse yang relevan
-   - Paragraf 4: Penutup + ajakan interview
-   - Tanda tangan: nama, lokasi, phone, email, LinkedIn, portfolio (extract dari CV)
-4. JANGAN pakai placeholder seperti [Nama Anda] — extract nama dari CV.
-5. JANGAN pakai placeholder selain {{company}} dan {{position}}.
-6. Extract informasi kontak dari CV (nama, lokasi, phone, email, LinkedIn, portfolio) dan sertakan di akhir.
-7. Tone: profesional tapi natural, tidak kaku.
-
-Contoh format yang diinginkan:
-
-Dear Hiring Manager / HR Team at {{company}},
-
-Saya menulis untuk menyampaikan ketertarikan saya pada posisi {{position}} di {{company}}.
-
-Saya adalah profesional [sebutkan dari CV] dengan pengalaman [sebutkan dari CV]...
-
-[Paragraf 2 - pengalaman relevan dari CV]
-
-[Paragraf 3 - pengalaman tambahan]
-
-Saya telah melampirkan Resume untuk pertimbangan Anda. Saya menyambut kesempatan untuk mendiskusikan bagaimana keahlian saya dapat memberikan kontribusi bagi tim di {{company}}.
-
-Terima kasih atas waktu dan pertimbangan Anda.
-
-Hormat saya,
-
-[Nama dari CV]
-[Lokasi dari CV]
-Phone: [phone dari CV]
-Email: [email dari CV]
-LinkedIn: [LinkedIn dari CV]
-Portfolio: [portfolio dari CV jika ada]
-
-CV Kandidat:
-{cv_text[:3000]}
-
-Tulis template cover letter sekarang (hanya body, tanpa penjelasan tambaran):
-"""
-    else:
-        prompt = f"""
-You are a professional career coach. Write a cover letter TEMPLATE in ENGLISH based on the candidate's CV profile below.
-
-IMPORTANT:
-1. Use placeholders {{company}} and {{position}} — do NOT write specific company/position names. This template will be used for multiple job applications.
-2. Language: ENGLISH (since the CV is in English).
-3. Structure: 4-5 short paragraphs (max 250 words total):
-   - Paragraph 1: Greeting + self-introduction + interest in the {position_label} position
-   - Paragraph 2: Main experience & skills from CV (be specific)
-   - Paragraph 3: Additional/diverse experience that's relevant
-   - Paragraph 4: Closing + call to interview
-   - Signature: name, location, phone, email, LinkedIn, portfolio (extract from CV)
-4. Do NOT use placeholders like [Your Name] — extract the name from the CV.
-5. Do NOT use any placeholders other than {{company}} and {{position}}.
-6. Extract contact information from the CV (name, location, phone, email, LinkedIn, portfolio) and include at the end.
-7. Tone: professional but natural, not stiff.
-
-Example format:
-
-Dear Hiring Manager / HR Team at {{company}},
-
-My name is [Name from CV], and I am writing to express my enthusiastic interest in the {{position}} position at {{company}}.
-
-I am a [qualifications from CV] with hands-on experience in [experience from CV]...
-
-[Paragraph 2 - relevant experience from CV]
-
-[Paragraph 3 - additional experience]
-
-I have attached my Resume for your consideration. I would welcome the opportunity to discuss how my skills and background can add value to the team at {{company}}.
-
-Thank you for your time and consideration. I look forward to hearing from you.
-
-Best regards,
-
-[Name from CV]
-[Location from CV]
-Phone: [phone from CV]
-Email: [email from CV]
-LinkedIn: [LinkedIn URL from CV]
-Portfolio: [portfolio URL from CV if any]
-
-Candidate CV:
-{cv_text[:3000]}
-
-Write the cover letter template now (body only, no additional explanation):
-"""
-
-    # ── Call AI service ──
     try:
-        from workers.gemini_service import answer_question
-        template = await answer_question(
-            user_id=user["id"],
-            question=prompt,
-            field_type="textarea",
-            cv_text=cv_text,
-            job_title=position_label,
+        from workers.ai_service import chat_raw
+        template = await chat_raw(
+            user["id"],
+            prompt,
+            system_prompt=(
+                "You write accurate cover letters grounded only in supplied CV facts. "
+                "Follow placeholder and output-format requirements exactly."
+            ),
+            max_tokens=1000,
+            temperature=0.4,
         )
     except Exception as e:
         logging.error(f"[generate_cover_letter_template] AI call failed: {e}")
         raise HTTPException(
-            status_code=500,
+            status_code=502,
             detail=f"Gagal generate cover letter via AI: {str(e)[:200]}",
         )
 
-    template = (template or "").strip()
+    template = normalize_cover_letter_placeholders((template or "").strip())
     if not template:
         raise HTTPException(
-            status_code=500,
+            status_code=502,
             detail="AI tidak mengembalikan template. Coba lagi atau set API key AI di halaman AI.",
         )
-
-    # ── Validasi: pastikan kedua placeholder ada ──
-    # v18: support {company}/{position} (English) DAN {perusahaan}/{posisi} (Indonesia).
-    # AI kadang hanya mengembalikan salah satu placeholder; template tetap terlihat
-    # berhasil, tetapi posisi/perusahaan tidak pernah terisi saat apply.
-    has_company = any(token in template for token in ("{company}", "{perusahaan}"))
-    has_position = any(token in template for token in ("{position}", "{posisi}"))
-    if not has_company:
-        template = template.replace("di perusahaan", "di {company}")
-        template = template.replace("at the company", "at {company}")
-        has_company = any(token in template for token in ("{company}", "{perusahaan}"))
-    if not has_position:
-        if has_company:
-            template = template.replace("posisi ini", "posisi {position}")
-            template = template.replace("this position", "the {position} position")
-        if not any(token in template for token in ("{position}", "{posisi}")):
-            template += "\n\nSaya tertarik melamar posisi {position} di {company}."
-    if not has_company:
-        template += "\n\nSaya tertarik bergabung dengan {company}."
-
+    if "{company}" not in template or "{position}" not in template:
+        raise HTTPException(
+            status_code=502,
+            detail="AI belum mengikuti format placeholder {company} dan {position}. Coba buat ulang.",
+        )
 
     return {
         "ok": True,
         "template": template,
-        "language": "id" if is_indonesian else "en",
+        "language": language,
         "cv_id": cv_id,
-        "position_label": position_label,
+        "positions": positions,
     }

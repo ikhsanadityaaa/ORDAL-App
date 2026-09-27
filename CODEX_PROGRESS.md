@@ -95,6 +95,8 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Changed Target Aktif cards so target positions are the primary orange highlights; CV filenames are secondary metadata, positions wrap inline, and cover-letter controls use clear themed status labels instead of `CV ✓`.
 - Simplified JobStreet platform cards to show only the circular JobStreet icon, matching the compact LinkedIn icon treatment; the platform name remains as card text.
 - Removed duplicate per-position cover-letter rows from the normal Target Aktif view; editing remains available through Edit, and the JobStreet icon now fills its logo box more clearly.
+- Reworked AI cover-letter generation so every active provider receives the same grounded prompt containing CV text, current target positions, and mandatory `{company}` / `{position}` placeholders.
+- Rounded Target Aktif form controls, restyled native dropdowns, removed redundant `mode edit` controls, and equalized adjacent button sizes.
 
 ## Security Result
 

@@ -1088,7 +1088,8 @@ mark.hl {
 a { color: var(--orange-600); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-button { font-family: inherit; cursor: pointer; }
+button, input, select, textarea { font-family: inherit; border-radius: var(--radius-lg); }
+button { cursor: pointer; }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
