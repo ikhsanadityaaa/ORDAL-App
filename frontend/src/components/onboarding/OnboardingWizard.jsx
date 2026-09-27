@@ -618,52 +618,82 @@ export default function OnboardingWizard() {
 function StageAnimation({ step }) {
   if (step === 1) {
     return (
-      <div className="onboarding-topic-scene topic-cv" aria-hidden="true">
-        <div className="topic-file"><FileText size={31} /></div>
-        <div className="topic-upload"><Upload size={20} /></div>
-        <span className="topic-spark topic-spark-one">✦</span>
-        <span className="topic-spark topic-spark-two">✦</span>
+      <div className="onboarding-topic-scene topic-cv-story" aria-hidden="true">
+        <div className="ats-upload-tray"><Upload size={20} /></div>
+        <div className="ats-document">
+          <div className="ats-document-head"><FileText size={17} /><strong>CV</strong><b>ATS 92</b></div>
+          <span className="ats-copy-line ats-copy-long" />
+          <span className="ats-copy-line ats-copy-medium" />
+          <span className="ats-copy-line ats-copy-short" />
+          <div className="ats-check-row"><i>✓</i><span /></div>
+          <div className="ats-check-row"><i>✓</i><span /></div>
+          <div className="ats-scan-line" />
+        </div>
+        <div className="ats-ready-badge"><CheckCircle2 size={16} /> ATS READY</div>
+        <span className="story-spark story-spark-one">✦</span>
+        <span className="story-spark story-spark-two">✦</span>
       </div>
     )
   }
   if (step === 2) {
     return (
-      <div className="onboarding-topic-scene topic-preferences" aria-hidden="true">
-        <div className="topic-briefcase"><Briefcase size={31} /></div>
-        <div className="topic-pin topic-pin-one"><MapPin size={17} /></div>
-        <div className="topic-pin topic-pin-two"><Wallet size={17} /></div>
-        <div className="topic-pin topic-pin-three"><CalendarClock size={17} /></div>
+      <div className="onboarding-topic-scene topic-commute-story" aria-hidden="true">
+        <div className="commute-sun" />
+        <div className="commute-cloud"><i /><i /><i /></div>
+        <div className="office-building">
+          <strong>WORK</strong>
+          {Array.from({ length: 6 }, (_, index) => <i key={index} />)}
+          <span className="office-door" />
+        </div>
+        <div className="commute-pin"><MapPin size={18} /></div>
+        <div className="walking-person">
+          <span className="person-head" />
+          <span className="person-body" />
+          <span className="person-arm" />
+          <span className="person-leg person-leg-one" />
+          <span className="person-leg person-leg-two" />
+          <span className="person-bag"><Briefcase size={15} /></span>
+        </div>
+        <div className="commute-road"><span /><span /><span /><span /></div>
       </div>
     )
   }
   if (step === 4) {
     return (
-      <div className="onboarding-topic-scene topic-platforms" aria-hidden="true">
-        <div className="topic-globe"><Globe size={35} /></div>
-        <div className="topic-platform topic-platform-one"><LinkedInLogo size={22} /></div>
-        <div className="topic-platform topic-platform-two"><JobStreetLogo size={22} /></div>
-        <span className="topic-orbit" />
+      <div className="onboarding-topic-scene topic-platform-story" aria-hidden="true">
+        <div className="platform-browser">
+          <div className="platform-browser-bar"><i /><i /><i /></div>
+          <div className="platform-job-card"><Briefcase size={14} /><span /><b>✓</b></div>
+          <div className="platform-job-card"><Briefcase size={14} /><span /><b>✓</b></div>
+        </div>
+        <div className="platform-flying-logo platform-linkedin"><LinkedInLogo size={25} /></div>
+        <div className="platform-flying-logo platform-jobstreet"><JobStreetLogo size={25} /></div>
+        <div className="platform-search-ring"><Globe size={22} /></div>
       </div>
     )
   }
   if (step === 5) {
     return (
-      <div className="onboarding-topic-scene topic-email" aria-hidden="true">
-        <div className="topic-envelope"><Mail size={34} /></div>
-        <div className="topic-shield"><ShieldCheck size={20} /></div>
-        <span className="topic-mail-line topic-mail-line-one" />
-        <span className="topic-mail-line topic-mail-line-two" />
+      <div className="onboarding-topic-scene topic-email-story" aria-hidden="true">
+        <span className="email-speed email-speed-one" />
+        <span className="email-speed email-speed-two" />
+        <div className="flying-envelope"><Mail size={36} /></div>
+        <div className="security-gate"><ShieldCheck size={30} /><span /></div>
+        <div className="email-safe-dot"><CheckCircle2 size={17} /></div>
       </div>
     )
   }
   return (
-    <div className="onboarding-topic-scene topic-login" aria-hidden="true">
-      <div className="topic-login-window">
-        <span /><span /><span />
-        <ExternalLink size={27} />
+    <div className="onboarding-topic-scene topic-login-story" aria-hidden="true">
+      <div className="login-browser">
+        <div className="login-browser-bar"><i /><i /><i /></div>
+        <div className="login-avatar"><UserRound size={24} /></div>
+        <span className="login-field" />
+        <span className="login-field login-field-short" />
+        <span className="login-button"><ExternalLink size={13} /></span>
       </div>
-      <div className="topic-login-badge"><CheckCircle2 size={22} /></div>
-      <span className="topic-login-pulse" />
+      <div className="login-success"><CheckCircle2 size={24} /></div>
+      <span className="login-success-ring" />
     </div>
   )
 }
