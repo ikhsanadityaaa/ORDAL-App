@@ -2,6 +2,11 @@ export function normalizeTargetText(value) {
   return (value || '').toString().trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+export function selectCvTargetGroup(targets = [], primary = {}) {
+  const key = String(primary.cv_id || primary.file_name || '')
+  return targets.filter(target => String(target.cv_id || target.file_name || '') === key)
+}
+
 export function buildCvTargetGroups(targets = []) {
   return Object.values(targets.reduce((groups, target) => {
     const key = String(target.cv_id || target.file_name || 'cv')

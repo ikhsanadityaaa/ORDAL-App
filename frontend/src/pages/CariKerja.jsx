@@ -6,7 +6,7 @@ import useI18n from '../stores/i18nStore'
 import useLicenseStore from '../stores/licenseStore'
 import TrialBadge from '../components/license/TrialBadge'
 import { PlatformLogo } from '../components/brand'
-import { buildCvTargetGroups } from '../targetGroups'
+import { buildCvTargetGroups, selectCvTargetGroup } from '../targetGroups'
 
 // ── Platform options ─────────────────────────────────────────────────────────
 const PLATFORM_OPTIONS = [
@@ -474,6 +474,8 @@ function TargetPanel({ isRunning = false }) {
   // ── AI: suggest posisi relevan dari CV ─────────────────────────────────────
   const [suggesting, setSuggesting] = useState(false)
   const [suggestError, setSuggestError] = useState('')
+  const [suggestStatus, setSuggestStatus] = useState('')
+  const [suggestFeedback, setSuggestFeedback] = useState('')
   const suggestPositions = async () => {
     const cvTextContent = cvText(form.cv_id)
     if (!cvTextContent) {
@@ -482,11 +484,16 @@ function TargetPanel({ isRunning = false }) {
     }
     setSuggesting(true)
     setSuggestError('')
+    setSuggestFeedback('')
+    setSuggestStatus(lang === 'id' ? 'Membaca CV...' : 'Reading CV...')
+    const stageTimer = window.setTimeout(() => {
+      setSuggestStatus(lang === 'id' ? 'Menyusun beberapa posisi...' : 'Preparing several positions...')
+    }, 1200)
     try {
       const res = await api.post('/ai_config/suggest_positions', {
         cv_text: cvTextContent,
         max_positions: 8,
-      })
+      }, { timeout: 45000 })
       if (res.data.ok && Array.isArray(res.data.positions) && res.data.positions.length) {
         // Merge dengan positions yang sudah ada (hindari duplikat)
         const existing = form.positions.filter(p => p.trim())
@@ -498,13 +505,25 @@ function TargetPanel({ isRunning = false }) {
           }
         }
         setForm(f => ({ ...f, positions: merged.length ? merged : [''] }))
+        const addedCount = merged.length - existing.length
+        setSuggestFeedback(addedCount > 0
+          ? (lang === 'id'
+              ? `${addedCount} posisi baru ditambahkan. Posisi yang sudah kamu isi tetap disimpan.`
+              : `${addedCount} new positions added. Your existing positions were kept.`)
+          : (lang === 'id'
+              ? 'Tidak ada posisi baru. Posisi yang sudah kamu isi tetap disimpan.'
+              : 'No new positions found. Your existing positions were kept.'))
       } else {
         setSuggestError(res.data.error || 'AI tidak bisa menyarankan posisi. Cek API key AI.')
       }
     } catch (e) {
-      setSuggestError(e.response?.data?.detail || e.message || 'Gagal memanggil AI')
+      setSuggestError(e.code === 'ECONNABORTED'
+        ? (lang === 'id' ? 'AI terlalu lama merespons. Coba lagi atau pilih provider AI lain.' : 'AI took too long to respond. Try again or choose another AI provider.')
+        : (e.response?.data?.detail || e.message || 'Gagal memanggil AI'))
     } finally {
+      window.clearTimeout(stageTimer)
       setSuggesting(false)
+      setSuggestStatus('')
     }
   }
 
@@ -556,8 +575,39 @@ function TargetPanel({ isRunning = false }) {
     setOpen(true)
   }
 
+  const loadTargetGroup = primary => {
+    const targetsArray = Array.isArray(targets) ? targets : []
+    const sameGroup = selectCvTargetGroup(targetsArray, primary)
+    const positions = sameGroup
+      .flatMap(target => parsePositionsToList(target.position || ''))
+      .filter((position, index, all) => all.findIndex(item => normalizeKeyPart(item) === normalizeKeyPart(position)) === index)
+    const platforms = [...new Set(sameGroup.map(target => target.platform || 'all'))]
+    const locations = [...new Set(sameGroup.flatMap(target => target.locations || [target.location]).filter(Boolean))]
+    const excludedPositions = [...new Set(sameGroup.flatMap(target => String(target.excluded_positions || '').split(',')).map(value => value.trim()).filter(Boolean))]
+    const excludedCompanies = [...new Set(sameGroup.flatMap(target => String(target.excluded_companies || '').split(',')).map(value => value.trim()).filter(Boolean))]
+    const coverLetterTarget = sameGroup.find(target => target.cover_letter?.trim()) || primary
+
+    setEditingTarget(primary)
+    setEditingGroupIds(sameGroup.flatMap(target => target.ids || [target.id]).filter(Boolean))
+    setError('')
+    setForm({
+      cv_id: primary.cv_id || cvs[0]?.id || '',
+      positions: positions.length ? positions : [''],
+      locations: locations.length ? locations : [primary.location || ''],
+      platforms: platforms.includes('all') ? ['all'] : platforms.slice(0, 2),
+      employment_type: primary.employment_type || 'full_time',
+      expected_salary: primary.expected_salary || prefs.expected_salary || '',
+      available_join: primary.available_join || prefs.available_join || '',
+      available_join_custom: '',
+      excluded_positions: excludedPositions.length ? excludedPositions : [''],
+      excluded_companies: excludedCompanies.length ? excludedCompanies : [''],
+      cover_letter: coverLetterTarget.cover_letter || '',
+      showCoverLetter: Boolean(coverLetterTarget.cover_letter),
+    })
+    setOpen(true)
+  }
+
   const openEditAdd = () => {
-    // v40: EDIT — prefill form dengan target pertama yang ada.
     if (open) {
       setOpen(false)
       setError('')
@@ -570,42 +620,7 @@ function TargetPanel({ isRunning = false }) {
       setOpen(true)
       return
     }
-    const sameGroup = targetsArray.filter(t =>
-      normalizeKeyPart(t.position) === normalizeKeyPart(primary.position) &&
-      String(t.cv_id || '') === String(primary.cv_id || '') &&
-      (t.employment_type || 'full_time') === (primary.employment_type || 'full_time') &&
-      (t.expected_salary || '') === (primary.expected_salary || '') &&
-      (t.available_join || '') === (primary.available_join || '')
-    )
-    const platforms = [...new Set(sameGroup.map(t => t.platform || 'all'))]
-    const locations = [...new Set(sameGroup.flatMap(t => t.locations || [t.location]).filter(Boolean))]
-    setEditingTarget(primary)
-    setEditingGroupIds(sameGroup.flatMap(t => t.ids || [t.id]).filter(Boolean))
-    setError('')
-    setForm({
-      cv_id: primary.cv_id || cvs[0]?.id || '',
-      positions: parsePositionsToList(primary.position || ''),
-      locations: locations.length ? locations : [primary.location || ''],
-      platforms: platforms.includes('all') ? ['all'] : platforms.slice(0, 2),
-      employment_type: primary.employment_type || 'full_time',
-      expected_salary: primary.expected_salary || prefs.expected_salary || '',
-      available_join: primary.available_join || prefs.available_join || '',
-      excluded_positions: (() => {
-        const parsed = primary.excluded_positions
-          ? String(primary.excluded_positions).split(',').map(s => s.trim()).filter(Boolean)
-          : []
-        return parsed.length ? parsed : ['']
-      })(),
-      excluded_companies: (() => {
-        const parsed = primary.excluded_companies
-          ? String(primary.excluded_companies).split(',').map(s => s.trim()).filter(Boolean)
-          : []
-        return parsed.length ? parsed : ['']
-      })(),
-      cover_letter: primary.cover_letter || '',
-      showCoverLetter: Boolean(primary.cover_letter),
-    })
-    setOpen(true)
+    loadTargetGroup(primary)
   }
   const togglePlatform = value => {
     setError('')
@@ -740,47 +755,7 @@ function TargetPanel({ isRunning = false }) {
 
   const handleEdit = target => {
     if (!target) return
-    // v43 FIX: set editingGroupIds ke semua target dengan posisi+cv+config yang sama,
-    // supaya handleSubmit bisa diff & update group yang benar (bukan group sebelumnya).
-    const targetsArray = Array.isArray(targets) ? targets : []
-    const sameGroup = targetsArray.filter(t =>
-      normalizeKeyPart(t.position) === normalizeKeyPart(target.position) &&
-      String(t.cv_id || '') === String(target.cv_id || '') &&
-      (t.employment_type || 'full_time') === (target.employment_type || 'full_time') &&
-      (t.expected_salary || '') === (target.expected_salary || '') &&
-      (t.available_join || '') === (target.available_join || '')
-    )
-    const platforms = [...new Set(sameGroup.map(t => t.platform || 'all'))]
-    const locations = [...new Set(sameGroup.flatMap(t => t.locations || [t.location]).filter(Boolean))]
-    setEditingTarget(target)
-    setEditingGroupIds(sameGroup.flatMap(t => t.ids || [t.id]).filter(Boolean))
-    setError('')
-    setForm({
-      cv_id: target.cv_id || cvs[0]?.id || '',
-      // Parse target.position (yang mungkin "HR Staff, General Affair") jadi array
-      positions: parsePositionsToList(target.position || ''),
-      locations: locations.length ? locations : [target.location || ''],
-      platforms: platforms.includes('all') ? ['all'] : platforms.slice(0, 2),
-      employment_type: target.employment_type || 'full_time',
-      expected_salary: target.expected_salary || prefs.expected_salary || '',
-      available_join: target.available_join || prefs.available_join || '',
-      available_join_custom: '',
-      excluded_positions: (() => {
-        const parsed = target.excluded_positions
-          ? String(target.excluded_positions).split(',').map(s => s.trim()).filter(Boolean)
-          : []
-        return parsed.length ? parsed : ['']
-      })(),
-      excluded_companies: (() => {
-        const parsed = target.excluded_companies
-          ? String(target.excluded_companies).split(',').map(s => s.trim()).filter(Boolean)
-          : []
-        return parsed.length ? parsed : ['']
-      })(),
-      cover_letter: target.cover_letter || '',
-      showCoverLetter: Boolean(target.cover_letter),
-    })
-    setOpen(true)
+    loadTargetGroup(target)
   }
 
   // Helper: parse string posisi (mis. "HR Staff, General Affair") jadi array.
@@ -967,11 +942,15 @@ function TargetPanel({ isRunning = false }) {
                     }}
                     title="AI akan menganalisis CV dan menambahkan posisi relevan (mis. HR Staff, GA, Talent Acquisition, Training Staff)"
                   >
-                    {suggesting ? '...' : '✦'} {t('cari_kerja.sarankan_cv')}
+                    {suggesting ? <Loader size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    {suggesting ? suggestStatus : t('cari_kerja.sarankan_cv')}
                   </button>
                 </div>
                 {suggestError && (
                   <p style={{ fontSize: '13px', color: '#e74c3c', marginBottom: '6px' }}>{suggestError}</p>
+                )}
+                {suggestFeedback && (
+                  <p style={{ fontSize: '13px', color: '#176B3A', marginBottom: '6px', fontWeight: 700 }}>{suggestFeedback}</p>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
                   {form.positions.filter(p => p.trim()).map((p, i) => {

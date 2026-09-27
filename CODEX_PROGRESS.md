@@ -97,6 +97,9 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Removed duplicate per-position cover-letter rows from the normal Target Aktif view; editing remains available through Edit, and the JobStreet icon now fills its logo box more clearly.
 - Reworked AI cover-letter generation so every active provider receives the same grounded prompt containing CV text, current target positions, and mandatory `{company}` / `{position}` placeholders.
 - Rounded Target Aktif form controls, restyled native dropdowns, removed redundant `mode edit` controls, and equalized adjacent button sizes.
+- Fixed Target Aktif edit mode to load every saved position from the selected CV group instead of only the first target row.
+- Added clear CV-suggestion progress, a 45-second timeout, result feedback, and merge behavior that preserves existing positions while adding AI suggestions.
+- Converted onboarding, welcome, completion, and in-app authentication layouts from floating bordered panels into full-window app pages; external Google/job-platform browser redirects remain separate.
 
 ## Security Result
 
