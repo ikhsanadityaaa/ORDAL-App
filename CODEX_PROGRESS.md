@@ -101,6 +101,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Added clear CV-suggestion progress, a 45-second timeout, result feedback, and merge behavior that preserves existing positions while adding AI suggestions.
 - Converted onboarding, welcome, completion, and in-app authentication layouts from floating bordered panels into full-window app pages; external Google/job-platform browser redirects remain separate.
 - Redesigned onboarding as a new-game tutorial page with a centered HUD, stage counter, readable content safe area, balanced bottom controls, and an inline cover-letter example instead of an internal popup.
+- Rebuilt the Cover Letter stage as an animated writing mission with a full-height editor, typewriter/mail scene, inline example, and active-provider AI generation grounded in the selected CV and target positions.
 
 ## Security Result
 

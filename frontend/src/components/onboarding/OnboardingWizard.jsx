@@ -41,6 +41,7 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [error, setError] = useState('')
   const [showExample, setShowExample] = useState(false)
@@ -237,6 +238,32 @@ export default function OnboardingWizard() {
     }
   }
 
+  const generateCoverLetterFromCv = async () => {
+    if (!cvId) {
+      setError(t('onb.err_cv'))
+      return
+    }
+    const positions = prefs.positions.map(position => position.trim()).filter(Boolean)
+    if (positions.length === 0) {
+      setError(t('onb.err_positions'))
+      return
+    }
+    setGeneratingCoverLetter(true)
+    setError('')
+    try {
+      const res = await api.post(`/cvs/${cvId}/generate-cover-letter-template`, { positions }, { timeout: 45000 })
+      if (!res.data?.ok || !res.data?.template) throw new Error(t('cari_kerja.gagal_generate_cover_ai'))
+      setCoverLetter(res.data.template)
+    } catch (e) {
+      const detail = e.code === 'ECONNABORTED'
+        ? (lang === 'id' ? 'AI terlalu lama merespons. Coba lagi atau pilih provider AI lain.' : 'AI took too long to respond. Try again or choose another AI provider.')
+        : (e.response?.data?.detail || e.message)
+      setError(detail || t('cari_kerja.gagal_generate_cover_ai'))
+    } finally {
+      setGeneratingCoverLetter(false)
+    }
+  }
+
   // ── login job platform (capture session browser) ──
   const grabPlatform = async (platform) => {
     setGrabbingPlatform(platform)
@@ -407,11 +434,52 @@ export default function OnboardingWizard() {
 
               {/* ── LANGKAH 3: Cover letter ── */}
               {step === 3 && (
-                <div>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowExample(true)}>
-                      <Eye size={14} /> {t('onb.view_example')}
-                    </button>
+                <section className="cover-letter-stage">
+                  <div className="cover-letter-quest">
+                    <div className="cover-letter-quest-copy">
+                      <span className="cover-letter-mission-tag">{lang === 'id' ? 'MISI MENULIS' : 'WRITING MISSION'}</span>
+                      <h3>{lang === 'id' ? 'Rakit surat lamaranmu' : 'Build your cover letter'}</h3>
+                      <p>
+                        {lang === 'id'
+                          ? 'Gunakan pengalaman nyata dari CV. ORDAL akan mengganti dua token ini untuk setiap lowongan.'
+                          : 'Use real experience from your CV. ORDAL replaces these two tokens for every vacancy.'}
+                      </p>
+                      <div className="cover-letter-token-row">
+                        <span>{'{company}'}</span>
+                        <span>{'{position}'}</span>
+                      </div>
+                      <div className="cover-letter-quest-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={generateCoverLetterFromCv}
+                          disabled={generatingCoverLetter || !cvId}
+                        >
+                          {generatingCoverLetter ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                          {generatingCoverLetter
+                            ? (lang === 'id' ? 'AI sedang menulis...' : 'AI is writing...')
+                            : (lang === 'id' ? 'Buat dari CV dengan AI' : 'Create from CV with AI')}
+                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowExample(value => !value)}>
+                          <Eye size={15} /> {showExample ? t('common.close') : t('onb.view_example')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="typewriter-scene" aria-hidden="true">
+                      <div className="mail-float"><Mail size={27} /></div>
+                      <div className="typewriter-paper">
+                        <span className="typed-line line-one" />
+                        <span className="typed-line line-two" />
+                        <span className="typed-line line-three" />
+                        <span className="type-cursor" />
+                      </div>
+                      <div className="typewriter-body">
+                        <div className="typewriter-slot" />
+                        <div className="typewriter-keys">
+                          {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   {showExample && (
                     <section className="onboarding-inline-example" aria-label={t('cover.title')}>
@@ -434,24 +502,22 @@ export default function OnboardingWizard() {
                       </button>
                     </section>
                   )}
-                  <div className="notice notice-info" style={{ marginBottom: 14 }}>
-                    <Sparkles size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ fontSize: 12.5 }}>
-                      {t('onb.cover_hint')} <b>{'{company}'}</b> & <b>{'{position}'}</b> {t('onb.cover_hint2')}
-                    </span>
+                  <div className="cover-letter-workbench">
+                    <div className="cover-letter-workbench-bar">
+                      <div>
+                        <FileText size={16} />
+                        <strong>{lang === 'id' ? 'DRAF SURAT' : 'LETTER DRAFT'}</strong>
+                      </div>
+                      <span>{coverLetter.trim().length} {t('onb.chars')}</span>
+                    </div>
+                    <textarea
+                      className="textarea cover-letter-editor"
+                      placeholder={t('onb.cover_ph')}
+                      value={coverLetter}
+                      onChange={(e) => setCoverLetter(e.target.value)}
+                    />
                   </div>
-                  <textarea
-                    className="textarea"
-                    rows={9}
-                    style={{ fontSize: 13.5, lineHeight: 1.7 }}
-                    placeholder={t('onb.cover_ph')}
-                    value={coverLetter}
-                    onChange={(e) => setCoverLetter(e.target.value)}
-                  />
-                  <div style={{ fontSize: 11.5, color: '#6B6E76', marginTop: 6, textAlign: 'right' }}>
-                    {coverLetter.trim().length} {t('onb.chars')}
-                  </div>
-                </div>
+                </section>
               )}
 
               {/* ── LANGKAH 4: Pilih platform ── */}
