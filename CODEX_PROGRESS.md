@@ -104,6 +104,8 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Rebuilt the Cover Letter stage as an animated writing mission with a full-height editor, typewriter/mail scene, inline example, and active-provider AI generation grounded in the selected CV and target positions.
 - Compressed the shared onboarding HUD into one row, gave every setup stage a scroll-safe mission canvas, and pinned rounded Back/Next controls so long forms never hide navigation.
 - Applied the game-tutorial visual language across CV, preferences, platforms, email, and login stages with staged reveals, mission-number scenery, stronger rounded cards, and consistent interaction feedback.
+- Removed the dark onboarding header and orange divider, leaving a compact logo-only HUD directly on the page canvas.
+- Added topic-specific motion to every setup stage: CV upload, job preferences, platform selection, secure email, platform login, cover-letter typewriter, and welcome/completion feedback.
 
 ## Security Result
 

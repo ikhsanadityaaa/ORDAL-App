@@ -327,7 +327,7 @@ export default function OnboardingWizard() {
         <section className="onboarding-page onboarding-complete" aria-labelledby="onboarding-complete-title">
           <header className="onboarding-page-header">
             <div className="onboarding-page-header-inner onboarding-complete-hero">
-            <div style={{
+            <div className="onboarding-complete-icon" style={{
               width: 64, height: 64, margin: '0 auto 16px', background: '#F2661A',
               border: '2px solid rgba(244,242,236,0.35)', borderRadius: 16,
               display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
@@ -386,9 +386,8 @@ export default function OnboardingWizard() {
         {/* Header + progress */}
         <header className="onboarding-page-header">
           <div className="onboarding-page-header-inner">
-            <div className="onboarding-page-brand">
+            <div className="onboarding-page-brand" aria-label="ORDAL">
               <div className="onboarding-page-logo">O</div>
-              <strong>ORDAL</strong>
             </div>
             <div className="onboarding-page-title-row">
               <p>{lang === 'id' ? 'MISI PERSIAPAN' : 'SETUP MISSION'}</p>
@@ -411,6 +410,8 @@ export default function OnboardingWizard() {
         <div className="onboarding-page-main">
           <div key={step} className="onboarding-page-body" data-step={step}>
             <>
+              {step !== 3 && <StageAnimation step={step} />}
+
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
                 <StepCv
@@ -431,7 +432,7 @@ export default function OnboardingWizard() {
                   <div className="cover-letter-quest">
                     <div className="cover-letter-quest-copy">
                       <span className="cover-letter-mission-tag">{lang === 'id' ? 'MISI MENULIS' : 'WRITING MISSION'}</span>
-                      <h3>{lang === 'id' ? 'Rakit surat lamaranmu' : 'Build your cover letter'}</h3>
+                      <h3>{lang === 'id' ? 'Buat surat lamaranmu' : 'Create your cover letter'}</h3>
                       <p>
                         {lang === 'id'
                           ? 'Gunakan pengalaman nyata dari CV. ORDAL akan mengganti dua token ini untuk setiap lowongan.'
@@ -611,6 +612,59 @@ export default function OnboardingWizard() {
       </section>
 
     </main>
+  )
+}
+
+function StageAnimation({ step }) {
+  if (step === 1) {
+    return (
+      <div className="onboarding-topic-scene topic-cv" aria-hidden="true">
+        <div className="topic-file"><FileText size={31} /></div>
+        <div className="topic-upload"><Upload size={20} /></div>
+        <span className="topic-spark topic-spark-one">✦</span>
+        <span className="topic-spark topic-spark-two">✦</span>
+      </div>
+    )
+  }
+  if (step === 2) {
+    return (
+      <div className="onboarding-topic-scene topic-preferences" aria-hidden="true">
+        <div className="topic-briefcase"><Briefcase size={31} /></div>
+        <div className="topic-pin topic-pin-one"><MapPin size={17} /></div>
+        <div className="topic-pin topic-pin-two"><Wallet size={17} /></div>
+        <div className="topic-pin topic-pin-three"><CalendarClock size={17} /></div>
+      </div>
+    )
+  }
+  if (step === 4) {
+    return (
+      <div className="onboarding-topic-scene topic-platforms" aria-hidden="true">
+        <div className="topic-globe"><Globe size={35} /></div>
+        <div className="topic-platform topic-platform-one"><LinkedInLogo size={22} /></div>
+        <div className="topic-platform topic-platform-two"><JobStreetLogo size={22} /></div>
+        <span className="topic-orbit" />
+      </div>
+    )
+  }
+  if (step === 5) {
+    return (
+      <div className="onboarding-topic-scene topic-email" aria-hidden="true">
+        <div className="topic-envelope"><Mail size={34} /></div>
+        <div className="topic-shield"><ShieldCheck size={20} /></div>
+        <span className="topic-mail-line topic-mail-line-one" />
+        <span className="topic-mail-line topic-mail-line-two" />
+      </div>
+    )
+  }
+  return (
+    <div className="onboarding-topic-scene topic-login" aria-hidden="true">
+      <div className="topic-login-window">
+        <span /><span /><span />
+        <ExternalLink size={27} />
+      </div>
+      <div className="topic-login-badge"><CheckCircle2 size={22} /></div>
+      <span className="topic-login-pulse" />
+    </div>
   )
 }
 
