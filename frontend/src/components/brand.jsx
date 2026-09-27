@@ -72,22 +72,34 @@ export function LinkedInLogo({ size = 28 }) {
 export function JobStreetLogo({ size = 28, wordmark = false }) {
   const width = wordmark ? size * 4.2 : size
   return (
-    <svg width={width} height={size} viewBox={wordmark ? '0 0 202 48' : '0 0 48 48'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Jobstreet by SEEK">
-      <circle cx="24" cy="24" r="22" fill="#0D3880" />
+    <svg width={width} height={size} viewBox={wordmark ? '0 0 1010 256' : '0 0 256 256'} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
+      <circle cx="128" cy="128" r="103" fill="#123E87" />
       <g fill="#FFFFFF">
-        {[10, 15, 20, 25, 30].flatMap((x, column) =>
-          [14, 19, 24, 29, 34].map((y, row) => {
-            const distance = Math.abs(row - 2)
-            const radius = Math.max(0.9, 1.25 + column * 0.38 - distance * 0.16)
-            return <circle key={`${x}-${y}`} cx={x} cy={y} r={radius} />
-          })
-        )}
-        <circle cx="36" cy="24" r="3.2" />
+        <circle cx="47" cy="107" r="2" /><circle cx="58" cy="107" r="2.5" />
+        <circle cx="71" cy="107" r="4" /><circle cx="85" cy="107" r="5" />
+        <circle cx="101" cy="107" r="5.5" /><circle cx="119" cy="107" r="6.5" />
+        <circle cx="138" cy="107" r="7" /><circle cx="158" cy="107" r="8" />
+        <circle cx="180" cy="107" r="8.5" />
+
+        <circle cx="47" cy="129" r="2" /><circle cx="58" cy="129" r="2.5" />
+        <circle cx="71" cy="129" r="4" /><circle cx="85" cy="129" r="5" />
+        <circle cx="101" cy="129" r="5.5" /><circle cx="119" cy="129" r="6.5" />
+        <circle cx="138" cy="129" r="7" /><circle cx="158" cy="129" r="8" />
+        <circle cx="180" cy="129" r="8.5" /><circle cx="202" cy="129" r="9" />
+
+        <circle cx="47" cy="151" r="2" /><circle cx="58" cy="151" r="2.5" />
+        <circle cx="71" cy="151" r="4" /><circle cx="85" cy="151" r="5" />
+        <circle cx="101" cy="151" r="5.5" /><circle cx="119" cy="151" r="6.5" />
+        <circle cx="138" cy="151" r="7" /><circle cx="158" cy="151" r="8" />
+        <circle cx="180" cy="151" r="8.5" />
+
+        <circle cx="137" cy="64" r="7" /><circle cx="137" cy="86" r="7" />
+        <circle cx="158" cy="86" r="7" /><circle cx="137" cy="173" r="7" />
+        <circle cx="158" cy="173" r="7" /><circle cx="137" cy="194" r="7" />
       </g>
       {wordmark && (
         <>
-          <text x="54" y="30" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="25" letterSpacing="-1.1">jobstreet</text>
-          <text x="147" y="40" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="8">by seek</text>
+          <text x="292" y="153" fill="#111111" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="130" letterSpacing="-5">JobStreet</text>
         </>
       )}
     </svg>

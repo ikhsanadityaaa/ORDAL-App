@@ -220,7 +220,7 @@ function QuestionRow({ row, setRows, update, remove, saving }) {
       const opts = parsed.options
       // Kalau question text kosong/generik, tampilkan label fallback yang jelas
       if (!q || q.toLowerCase() === 'dropdown question') {
-        q = '(Pertanyaan dropdown — label tidak terbaca dari halaman JobStreet)'
+        q = '(Pertanyaan dropdown, label tidak terbaca dari halaman JobStreet)'
       }
       return { questionText: q, optionsList: opts }
     }
@@ -229,7 +229,7 @@ function QuestionRow({ row, setRows, update, remove, saving }) {
     // tapi question text generik
     if (raw.toLowerCase() === 'dropdown question') {
       return {
-        questionText: '(Pertanyaan dropdown — label tidak terbaca dari halaman JobStreet)',
+        questionText: '(Pertanyaan dropdown, label tidak terbaca dari halaman JobStreet)',
         optionsList: [],
       }
     }

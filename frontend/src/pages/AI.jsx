@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Loader, CheckCircle, AlertCircle, Sparkles, Save, Trash2,
-  Eye, EyeOff, Send, Bot, ExternalLink, Zap, Key,
+  Eye, EyeOff, Send, Bot, ExternalLink, Zap, Key, ArrowRight,
 } from 'lucide-react'
 import api from '../api'
 import useI18n from '../stores/i18nStore'
@@ -65,6 +66,7 @@ const PROVIDER_GUIDES = {
   gemini: {
     description: { id: 'Cepat dan praktis untuk analisis lowongan serta jawaban formulir.', en: 'Fast and practical for job analysis and application answers.' },
     cost: { id: 'Free tier tersedia', en: 'Free tier available' },
+    tier: 'free',
     oauth: { id: 'API developer memakai key, bukan login OAuth.', en: 'Developer API access uses a key, not OAuth sign-in.' },
     steps: {
       id: ['Buka Google AI Studio.', 'Login dengan akun Google.', 'Klik Create API key, lalu salin key ke ORDAL.'],
@@ -74,6 +76,7 @@ const PROVIDER_GUIDES = {
   openai: {
     description: { id: 'Model ringan berkualitas untuk penulisan dan klasifikasi.', en: 'A capable lightweight model for writing and classification.' },
     cost: { id: 'Berbayar · pay-as-you-go', en: 'Paid · pay as you go' },
+    tier: 'paid',
     oauth: { id: 'Langganan ChatGPT tidak termasuk kredit API.', en: 'A ChatGPT subscription does not include API credits.' },
     steps: {
       id: ['Buka OpenAI Platform dan tambahkan billing.', 'Buat secret key di API Keys.', 'Salin key sekali; OpenAI tidak menampilkannya lagi.'],
@@ -83,6 +86,7 @@ const PROVIDER_GUIDES = {
   anthropic: {
     description: { id: 'Kuat untuk penulisan natural dan instruksi panjang.', en: 'Strong at natural writing and long instructions.' },
     cost: { id: 'Berbayar · kredit API', en: 'Paid · API credits' },
+    tier: 'paid',
     oauth: { id: 'Claude web dan Claude API memiliki billing terpisah.', en: 'Claude web and Claude API use separate billing.' },
     steps: {
       id: ['Buka Anthropic Console.', 'Tambahkan kredit/billing.', 'Buat API key lalu salin ke ORDAL.'],
@@ -92,6 +96,7 @@ const PROVIDER_GUIDES = {
   groq: {
     description: { id: 'Inferensi sangat cepat dengan batas free tier.', en: 'Very fast inference with free-tier limits.' },
     cost: { id: 'Free tier terbatas + paket berbayar', en: 'Limited free tier + paid plans' },
+    tier: 'mixed',
     oauth: { id: 'Akses model memakai API key Groq.', en: 'Model access uses a Groq API key.' },
     steps: {
       id: ['Buka GroqCloud Console.', 'Pilih API Keys lalu Create API Key.', 'Salin key ke ORDAL; batas free tier mengikuti rate limit Groq.'],
@@ -101,6 +106,7 @@ const PROVIDER_GUIDES = {
   openrouter: {
     description: { id: 'Satu API untuk banyak model gratis maupun berbayar.', en: 'One API for many free and paid models.' },
     cost: { id: 'Model gratis dan berbayar', en: 'Free and paid models' },
+    tier: 'mixed',
     oauth: { id: 'OpenRouter mendukung OAuth PKCE, tetapi ORDAL memakai API key manual agar alur semua provider konsisten.', en: 'OpenRouter supports OAuth PKCE, but ORDAL uses a manual API key for a consistent provider flow.' },
     steps: {
       id: ['Buka OpenRouter Keys.', 'Buat key baru dan atur limit kredit bila perlu.', 'Pilih model berlabel :free untuk penggunaan gratis.'],
@@ -123,7 +129,7 @@ function ProviderLogo({ providerKey, size = 24 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ProviderCard — pilih provider + set API key + test
 // ─────────────────────────────────────────────────────────────────────────────
-function ProviderCard({ provider, isActive, onSelect, onSaved }) {
+function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
   const [apiKey, setApiKey] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -145,9 +151,9 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
     setLoading(true); setToast(null)
     try {
       await api.put(`/ai_config/${provider.key}/key`, { value: apiKey.trim() })
+      await onSaved?.(provider.key)
       setToast({ type: 'success', msg: `${t('ai.toast.key_saved')} ${provider.label} ${t('ai.toast.saved_suffix')}` })
       setApiKey('')
-      onSaved && onSaved()
     } catch (e) {
       setToast({ type: 'error', msg: `${t('ai.toast.save_failed')} ${e.response?.data?.detail || e.message}` })
     } finally {
@@ -161,7 +167,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
     try {
       await api.delete(`/ai_config/${provider.key}/key`)
       setToast({ type: 'success', msg: `${t('ai.toast.key_deleted')} ${provider.label} ${t('ai.toast.deleted_suffix')}` })
-      onSaved && onSaved()
+      await onSaved?.()
     } catch (e) {
       setToast({ type: 'error', msg: `${t('ai.toast.delete_failed')} ${e.message}` })
     } finally {
@@ -221,7 +227,11 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
             ) : (
               <span className="badge badge-muted">{t('ai.badge.key_missing')}</span>
             )}
-            {guide && <span className="badge badge-warning">{guide.cost[lang]}</span>}
+            {guide && (
+              <span className={`badge ${guide.tier === 'paid' ? 'badge-warning' : 'badge-success'}`}>
+                {guide.cost[lang]}
+              </span>
+            )}
           </div>
           <div className="card-subtitle">{guide?.description[lang] || provider.description}</div>
           <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
@@ -242,14 +252,22 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
       {/* Body */}
       <div className="card-pad" style={{ paddingTop: 16, paddingBottom: 20 }}>
         {guide && (
-          <div className="notice notice-muted" style={{ marginBottom: 14 }}>
-            <Key size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div>
+          <div style={{ marginBottom: 16 }}>
+            {provider.api_key_link && (
+              <a href={provider.api_key_link} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginBottom: 12 }}>
+                <ExternalLink size={13} />
+                {lang === 'id' ? `Buat API key di ${provider.label}` : `Create an API key on ${provider.label}`}
+              </a>
+            )}
+            <div className="notice notice-muted">
+              <Key size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
               <strong>{lang === 'id' ? 'Cara mendapatkan API key' : 'How to get an API key'}</strong>
               <ol style={{ margin: '6px 0 6px 18px', padding: 0 }}>
                 {guide.steps[lang].map((step) => <li key={step} style={{ marginBottom: 3 }}>{step}</li>)}
               </ol>
               <span style={{ fontSize: 12 }}>{guide.oauth[lang]}</span>
+              </div>
             </div>
           </div>
         )}
@@ -302,7 +320,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
             style={{ flex: 1, minWidth: 100 }}
           >
             {loading ? <Loader size={13} className="animate-spin" /> : <Save size={13} />}
-            {t('ai.btn.save_key')}
+            {lang === 'id' ? 'Simpan dan gunakan' : 'Save and use'}
           </button>
           {provider.configured && (
             <button
@@ -326,16 +344,22 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
           )}
         </div>
 
-        {provider.api_key_link && (
-          <a href={provider.api_key_link} target="_blank" rel="noreferrer" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            marginTop: 12, fontSize: 12,
-          }}>
-            <ExternalLink size={11} /> {t('ai.link.get_key')} {provider.api_key_label}
-          </a>
-        )}
-
         <Toast {...(toast || {})} />
+
+        {provider.configured && isActive && (
+          <div className="notice notice-success" style={{ marginTop: 14, alignItems: 'center' }}>
+            <CheckCircle size={16} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <strong>{lang === 'id' ? `${provider.label} siap dipakai` : `${provider.label} is ready`}</strong>
+              <div style={{ fontSize: 12, marginTop: 2 }}>
+                {lang === 'id' ? 'Kamu tidak perlu mengisi API key provider lain.' : 'You do not need to configure another provider.'}
+              </div>
+            </div>
+            <button type="button" onClick={onContinue} className="btn btn-primary" style={{ flexShrink: 0 }}>
+              {lang === 'id' ? 'Lanjut ke Cari Kerja' : 'Continue to Find Jobs'} <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -476,6 +500,7 @@ function ChatPlayground({ activeProvider, providers }) {
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AI() {
+  const navigate = useNavigate()
   const [providers, setProviders] = useState([])
   const [active, setActive] = useState('')
   const [selected, setSelected] = useState('')
@@ -510,6 +535,14 @@ export default function AI() {
     } catch (e) {
       setActionError(e.response?.data?.detail || e.message)
     }
+  }
+
+  const handleProviderSaved = async (providerKey) => {
+    if (providerKey) await api.put('/ai_config/active', { provider: providerKey })
+    const res = await api.get('/ai_config')
+    setProviders(res.data.providers || [])
+    setActive(res.data.active)
+    if (providerKey) setSelected(providerKey)
   }
 
   if (loading) {
@@ -553,7 +586,10 @@ export default function AI() {
 
       <div className="notice notice-muted" style={{ marginBottom: 16 }}>
         <Key size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-        <span>{t('page.ai.oauth_note')}</span>
+        <div>
+          <strong>{lang === 'id' ? 'Cukup pilih satu layanan AI.' : 'Choose only one AI service.'}</strong>
+          <div style={{ marginTop: 3 }}>{t('page.ai.oauth_note')}</div>
+        </div>
       </div>
 
       {!anyConfigured && (
@@ -591,7 +627,11 @@ export default function AI() {
                   <ProviderLogo providerKey={provider.key} size={22} />
                   <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <strong>{provider.label}</strong>
-                    <small>{provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}</small>
+                    <small>
+                      {PROVIDER_GUIDES[provider.key]?.cost[lang]}
+                      {' · '}
+                      {provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                    </small>
                   </span>
                   {provider.key === active && <span className="ai-active-dot" title={lang === 'id' ? 'Sedang dipakai' : 'Currently active'} />}
                 </button>
@@ -615,7 +655,8 @@ export default function AI() {
               provider={selectedProvider}
               isActive={selectedProvider.key === active}
               onSelect={handleSelectActive}
-              onSaved={refresh}
+              onSaved={handleProviderSaved}
+              onContinue={() => navigate('/kerja')}
             />
           ) : (
             <div className="notice notice-error">{lang === 'id' ? 'Provider AI tidak tersedia.' : 'No AI provider is available.'}</div>

@@ -114,17 +114,17 @@ const TRANSLATIONS = {
   // ── Page: AI ─────────────────────────────────────────────────────────
   'page.ai.title': { id: 'AI', en: 'AI' },
   'page.ai.desc': {
-    id: 'Pilih provider AI yang dipakai bot untuk menjawab pertanyaan form lamaran & menulis email ke recruiter. Set API key untuk provider yang ingin dipakai, lalu klik "Pakai" untuk mengaktifkan.',
-    en: 'Choose the AI provider the bot uses to answer application form questions & write recruiter emails. Set the API key for the provider you want, then click "Use" to activate.',
+    id: 'Pilih satu layanan AI untuk membantu menjawab formulir, membuat surat lamaran, dan menganalisis lowongan.',
+    en: 'Choose one AI service to help answer forms, write cover letters, and analyze jobs.',
   },
   'page.ai.no_key_title': { id: 'Belum ada API key yang di-set', en: 'No API key set yet' },
   'page.ai.no_key_desc': {
-    id: 'Pilih salah satu provider di bawah, dapatkan API key dari link yang tersedia, lalu simpan. Setelah itu, klik "Pakai" untuk mengaktifkan provider tersebut.',
-    en: 'Pick a provider below, get an API key from the link provided, then save. After that, click "Use" to activate that provider.',
+    id: 'Pilih satu layanan saja. Klik tombol pembuatan API key, salin key ke ORDAL, lalu pilih Simpan dan gunakan.',
+    en: 'Choose one service only. Open its API key page, paste the key into ORDAL, then choose Save and use.',
   },
   'page.ai.oauth_note': {
-    id: 'Koneksi API AI tidak sama dengan login akun biasa. Gemini, OpenAI, Claude, dan Groq memakai API key developer. OpenRouter mendukung OAuth PKCE, tetapi ORDAL tetap memakai key manual agar penyimpanan lokal dan pergantian provider konsisten.',
-    en: 'AI API access is separate from normal account sign-in. Gemini, OpenAI, Claude, and Groq use developer API keys. OpenRouter supports OAuth PKCE, but ORDAL keeps manual keys for consistent local storage and provider switching.',
+    id: 'Kamu tidak perlu mengisi semuanya. Gemini punya free tier. Groq dan OpenRouter punya pilihan gratis terbatas. OpenAI dan Anthropic berbayar. Akses API berbeda dari login akun biasa.',
+    en: 'You do not need to configure every service. Gemini has a free tier. Groq and OpenRouter offer limited free options. OpenAI and Anthropic are paid. API access is separate from normal account sign-in.',
   },
   'page.ai.section_provider': { id: 'Provider AI', en: 'AI Provider' },
   'page.ai.section_provider_desc': {

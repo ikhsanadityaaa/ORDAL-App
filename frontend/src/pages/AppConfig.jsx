@@ -344,7 +344,7 @@ export function TelegramLinkCard({ telegramConfigured, onSaved }) {
             <div className="notice notice-info" style={{ marginBottom: 14 }}>
               <Bot size={14} style={{ flexShrink: 0, marginTop: 2 }} />
               <div>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>Cara link (RECOMMENDED — auto):</div>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Cara link otomatis (direkomendasikan):</div>
                 <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
                   <li>
                     Buka Telegram, cari bot <strong>@siordal_bot</strong>
@@ -733,7 +733,7 @@ export function PreferencesCard({ prefs, onSaved }) {
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--gray-900)' }}>Testing Email Mode</div>
               <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>
-                Email recruiter dikirim ke email sendiri (max 3 per session) — untuk verifikasi.
+                Email recruiter dikirim ke email sendiri (maksimal 3 per sesi) untuk verifikasi.
               </div>
             </div>
           </label>
@@ -835,7 +835,7 @@ export default function AppConfig() {
       {/* Section 1: API Keys + Link Telegram (one unified grid) */}
       <div className="section-header">
         <h2><Sparkles size={15} color="var(--orange)" /> API Keys &amp; Bot Telegram</h2>
-        <p>Disimpan terenkripsi (Fernet AES-128) di lokal app — tidak pernah dikirim keluar.</p>
+        <p>Disimpan terenkripsi (Fernet AES-128) di aplikasi lokal dan tidak pernah dikirim keluar.</p>
       </div>
 
       <div className="grid-cards" style={{ marginBottom: 32 }}>

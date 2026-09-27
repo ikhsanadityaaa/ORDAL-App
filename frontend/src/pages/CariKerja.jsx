@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Target, Zap, Square, FileText, ChevronDown, ChevronUp, Save, HelpCircle, Pencil, Loader, Check, Sparkles } from 'lucide-react'
+import { Plus, Target, Zap, Square, FileText, ChevronDown, ChevronUp, Save, HelpCircle, Pencil, Loader, Check, Sparkles, ArrowUpRight, PartyPopper } from 'lucide-react'
 import api from '../api'
 import useI18n from '../stores/i18nStore'
 import useLicenseStore from '../stores/licenseStore'
 import TrialBadge from '../components/license/TrialBadge'
+import { PlatformLogo } from '../components/brand'
+import { buildCvTargetGroups } from '../targetGroups'
 
 // ── Platform options ─────────────────────────────────────────────────────────
 const PLATFORM_OPTIONS = [
@@ -21,43 +23,6 @@ const PLATFORM_LABELS = {
   both: 'LinkedIn Jobs + JobStreet',
 }
 function platformLabel(val) { return PLATFORM_LABELS[val] ?? val }
-
-function PlatformLogo({ platform }) {
-  // v41: Pakai SVG logo asli untuk LinkedIn dan JobStreet.
-  // Sebelumnya: badge teks generik ("in" / "JS" dengan warna orange app).
-  const key = platform || 'all'
-  if (key === 'linkedin' || key === 'linkedin_posts') {
-    return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" fill="#0A66C2"/>
-      </svg>
-    )
-  }
-  if (key === 'jobstreet') {
-    return (
-      <svg width="22" height="22" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-        <circle cx="128" cy="128" r="128" fill="#0D3880"/>
-        <g fill="white">
-          <circle cx="70" cy="100" r="5"/><circle cx="100" cy="100" r="7"/><circle cx="135" cy="100" r="9"/><circle cx="175" cy="100" r="11"/><circle cx="215" cy="100" r="13"/>
-          <circle cx="70" cy="125" r="6"/><circle cx="103" cy="125" r="8"/><circle cx="140" cy="125" r="10"/><circle cx="180" cy="125" r="12"/><circle cx="220" cy="125" r="14"/>
-          <circle cx="70" cy="150" r="6"/><circle cx="103" cy="150" r="8"/><circle cx="140" cy="150" r="10"/><circle cx="180" cy="150" r="12"/><circle cx="220" cy="150" r="14"/>
-          <circle cx="75" cy="175" r="5"/><circle cx="105" cy="175" r="7"/><circle cx="140" cy="175" r="9"/><circle cx="178" cy="175" r="11"/><circle cx="218" cy="175" r="13"/>
-          <circle cx="80" cy="200" r="4"/><circle cx="108" cy="200" r="6"/><circle cx="142" cy="200" r="8"/><circle cx="180" cy="200" r="10"/><circle cx="215" cy="200" r="12"/>
-        </g>
-      </svg>
-    )
-  }
-  // Fallback for 'all' or unknown
-  return (
-    <span style={{
-      width: '22px', height: '22px', flexShrink: 0,
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--black)', color: 'white',
-      border: '2px solid var(--black)', boxShadow: '2px 2px 0 var(--black)',
-      fontFamily: 'var(--font-sans)', fontSize: '5px', lineHeight: 1,
-    }}>ALL</span>
-  )
-}
 
 const EMPLOYMENT_OPTIONS = [
   { value: 'full_time', label: 'Full Time' },
@@ -347,7 +312,14 @@ function JobCard({ job }) {
   )
 }
 
-function FinishModal({ jobs, sessionId, onClose, onHistory }) {
+const CONFETTI = Array.from({ length: 36 }, (_, index) => ({
+  left: `${(index * 29) % 100}%`,
+  animationDelay: `${(index % 9) * 0.12}s`,
+  animationDuration: `${2.4 + (index % 5) * 0.22}s`,
+  backgroundColor: ['#F2661A', '#FFD166', '#27ae60', '#2980b9', '#ef476f'][index % 5],
+}))
+
+function FinishModal({ jobs, sessionId, status, lang, onClose, onHistory }) {
   const searched = jobs.length
   const matched = jobs.filter(j => j.steps?.kesesuaian === 'ok' || j.steps?.duplikat === 'ok' || j.steps?.apply === 'ok').length
   const applied = jobs.filter(j => j.steps?.apply === 'ok' && j.resultType !== 'found')
@@ -359,6 +331,7 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
   }, {})
   const platformOrder = ['linkedin', 'linkedin_posts', 'jobstreet']
   const platformName = key => ({ linkedin: 'LinkedIn Jobs', linkedin_posts: 'LinkedIn Posts', jobstreet: 'JobStreet' }[key] || key)
+  const hasApplied = applied.length > 0
 
   return (
     <div style={{
@@ -366,15 +339,38 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
       background: 'rgba(0,0,0,0.62)', display: 'flex',
       alignItems: 'center', justifyContent: 'center', padding: '20px',
     }}>
-      <div className="card-pixel" style={{ width: 'min(680px, 100%)', background: '#F4F2EC', overflow: 'hidden' }}>
+      {hasApplied && (
+        <div className="finish-confetti" aria-hidden="true">
+          {CONFETTI.map((piece, index) => <i key={index} style={piece} />)}
+        </div>
+      )}
+      <div className="card-pixel" style={{ width: 'min(680px, 100%)', background: '#F4F2EC', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         <div style={{ background: 'var(--black)', color: 'white', padding: '14px 18px', borderBottom: '4px solid var(--orange)' }}>
-          <p className="font-title" style={{ fontSize: '32px', lineHeight: 1 }}>STAGE CLEAR</p>
+          <p className="font-title" style={{ fontSize: '32px', lineHeight: 1 }}>
+            {hasApplied ? (lang === 'id' ? 'SELAMAT!' : 'CONGRATULATIONS!') : (lang === 'id' ? 'PENCARIAN SELESAI' : 'SEARCH COMPLETE')}
+          </p>
           <p className="font-pixel" style={{ fontSize: '14px', color: 'var(--orange-3)', marginTop: '3px' }}>
-            SESI {sessionId ? `#${sessionId}` : ''} SELESAI
+            {lang === 'id' ? 'SESI' : 'SESSION'} {sessionId ? `#${sessionId}` : ''} {status === 'stopped' ? (lang === 'id' ? 'DIHENTIKAN' : 'STOPPED') : (lang === 'id' ? 'SELESAI' : 'COMPLETE')}
           </p>
         </div>
 
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className={hasApplied ? 'notice notice-success' : 'notice notice-info'}>
+            {hasApplied ? <PartyPopper size={18} style={{ flexShrink: 0 }} /> : <Sparkles size={18} style={{ flexShrink: 0 }} />}
+            <div>
+              <strong>
+                {hasApplied
+                  ? (lang === 'id' ? `ORDAL berhasil mengirim ${applied.length} lamaran.` : `ORDAL submitted ${applied.length} application${applied.length === 1 ? '' : 's'}.`)
+                  : (lang === 'id' ? 'Belum ada lamaran yang berhasil dikirim kali ini.' : 'No applications were submitted this time.')}
+              </strong>
+              <div style={{ marginTop: 4 }}>
+                {hasApplied
+                  ? (lang === 'id' ? 'Sekarang kamu bisa santai. ORDAL sudah mengerjakan bagiannya, kamu tinggal bersiap menerima kabar baik.' : 'Now you can relax. ORDAL has done its part, so you can get ready for good news.')
+                  : (lang === 'id' ? 'Lowongan yang cocok dengan posisi, lokasi, dan platform pilihanmu mungkin sedang belum tersedia. Jangan menyerah. Coba lagi nanti atau perluas target pencarianmu.' : 'Matching jobs for your chosen role, location, and platforms may not be available right now. Keep going. Try again later or broaden your search targets.')}
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
             {[
               ['JOB DICEK', searched, 'var(--black)'],
@@ -391,7 +387,9 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
           <div style={{ background: 'white', border: '3px solid var(--black)', padding: '12px', maxHeight: '280px', overflow: 'auto' }}>
             <p className="font-pixel" style={{ fontSize: '13px', color: 'var(--black)', marginBottom: '10px' }}>LAMARAN TERKIRIM</p>
             {applied.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Belum ada job yang berhasil di-apply pada sesi ini.</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                {lang === 'id' ? 'Belum ada lamaran terkirim pada sesi ini.' : 'No applications were submitted in this session.'}
+              </p>
             ) : (
               platformOrder.filter(key => perPlatform[key]?.length).map(key => (
                 <div key={key} style={{ marginBottom: '12px' }}>
@@ -410,8 +408,8 @@ function FinishModal({ jobs, sessionId, onClose, onHistory }) {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={onClose} className="btn-pixel-ghost">CLOSE</button>
-            <button onClick={onHistory} className="btn-pixel">CEK RIWAYAT LAMARAN</button>
+            <button onClick={onClose} className="btn-pixel-ghost">{lang === 'id' ? 'TUTUP' : 'CLOSE'}</button>
+            <button onClick={onHistory} className="btn-pixel">{lang === 'id' ? 'CEK RIWAYAT LAMARAN' : 'VIEW APPLICATION HISTORY'}</button>
           </div>
         </div>
       </div>
@@ -1092,23 +1090,7 @@ function TargetPanel({ isRunning = false }) {
     setTargets(prev => prev.map(t => samePosition(t.position, position) ? { ...t, cover_letter: newText } : t))
   }
 
-  const groupedTargets = Object.entries(
-    (Array.isArray(targets) ? targets : []).reduce((groups, t) => {
-      const key = [
-        normalizeKeyPart(t.position),
-        t.cv_id || '',
-        t.platform || 'all',
-        t.employment_type || 'full_time',
-        t.expected_salary || '',
-        t.available_join || '',
-        t.cover_letter || '',
-      ].join('|')
-      if (!groups[key]) groups[key] = { ...t, ids: [], locations: [] }
-      groups[key].ids.push(t.id)
-      if (t.location && !groups[key].locations.includes(t.location)) groups[key].locations.push(t.location)
-      return groups
-    }, {})
-  ).map(([, group]) => group)
+  const cvTargetGroups = buildCvTargetGroups(Array.isArray(targets) ? targets : [])
 
   const inputStyle = {
     border: '2px solid var(--black)',
@@ -1201,12 +1183,12 @@ function TargetPanel({ isRunning = false }) {
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '4px' }}>CV</label>
                 <select value={form.cv_id} onChange={e => setCv(e.target.value)} style={inputStyle}>
-                  {cvs.map(cv => <option key={cv.id} value={cv.id}>{cv.position_label} — {cv.file_name}</option>)}
+                  {cvs.map(cv => <option key={cv.id} value={cv.id}>{cv.position_label}, {cv.file_name}</option>)}
                 </select>
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 700, display: 'block' }}>POSISI (bisa multiple — posisi sejenis)</label>
+                  <label style={{ fontSize: '13px', fontWeight: 700, display: 'block' }}>POSISI (bisa lebih dari satu untuk posisi sejenis)</label>
                   <button
                     type="button"
                     onClick={suggestPositions}
@@ -1313,7 +1295,7 @@ function TargetPanel({ isRunning = false }) {
                       }}
                       style={inputStyle}
                     >
-                      <option value="">— Pilih —</option>
+                      <option value="">Pilih</option>
                       <option value="Secepatnya">Secepatnya</option>
                       <option value="1 minggu">1 minggu</option>
                       <option value="1 month notice">1 month notice</option>
@@ -1593,72 +1575,71 @@ I am interested in applying for the {position} role at {company}...`}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* Group targets by position */}
-            {Object.entries(
-              groupedTargets.reduce((groups, t) => {
-                const key = t.position.trim().toLowerCase()
-                if (!groups[key]) groups[key] = []
-                groups[key].push(t)
-                return groups
-              }, {})
-            ).map(([_, positionTargets]) => {
-              const position = positionTargets[0].position
-              const coverLetter = positionTargets[0].cover_letter
-              const firstTargetId = positionTargets[0].id
-              
+            {cvTargetGroups.map(group => {
+              const positionTargets = [...group.positions.values()]
+              const positionNames = positionTargets.flatMap(target => parsePositionsToList(target.position))
+                .filter((position, index, all) => all.findIndex(item => normalizeKeyPart(item) === normalizeKeyPart(position)) === index)
+
               return (
-                <div key={position} className="card-pixel-sm" style={{ padding: '10px 12px', background: 'var(--cream)' }}>
-                  {/* Position header */}
-                  <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1.5px solid var(--border)' }}>
+                <div key={group.cvId || group.cvName} className="card-pixel-sm" style={{ padding: '12px', background: 'var(--cream)' }}>
+                  <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1.5px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--black)', overflowWrap: 'anywhere' }}>{position}</p>
-                        <p style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '2px' }}>
-                          {positionTargets.reduce((sum, tgt) => sum + (tgt.locations?.length || 1), 0)} {t('cari_kerja.target_count')} · {t('cari_kerja.cv')}: {positionTargets[0].position_label}
+                        <p style={{ fontSize: '14px', fontWeight: 800, color: 'var(--black)', overflowWrap: 'anywhere' }}>{group.cvName}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '3px' }}>
+                          {positionNames.length} {lang === 'id' ? 'posisi aktif' : 'active positions'}
                         </p>
-                        {(positionTargets[0].expected_salary || positionTargets[0].available_join) && (
+                        {(group.salaries.size > 0 || group.availableJoin.size > 0) && (
                           <p style={{ fontSize: '14px', color: 'var(--black-3)', marginTop: '4px', lineHeight: 1.6 }}>
-                            {positionTargets[0].expected_salary && <>{t('cari_kerja.gaji')}: {positionTargets[0].expected_salary}</>}
-                            {positionTargets[0].expected_salary && positionTargets[0].available_join && ' · '}
-                            {positionTargets[0].available_join && <>{t('cari_kerja.bergabung')}: {tj(positionTargets[0].available_join)}</>}
+                            {group.salaries.size > 0 && <>{t('cari_kerja.gaji')}: {[...group.salaries].join(', ')}</>}
+                            {group.salaries.size > 0 && group.availableJoin.size > 0 && ' · '}
+                            {group.availableJoin.size > 0 && <>{t('cari_kerja.bergabung')}: {[...group.availableJoin].map(tj).join(', ')}</>}
                           </p>
                         )}
                       </div>
-                      {!open && (
-                        <CoverLetterEditor
-                          position={position}
-                          coverLetter={coverLetter}
-                          targetId={firstTargetId}
-                          cvId={positionTargets[0].cv_id}
-                          onSaved={handleCoverLetterSaved}
-                        />
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
+                        {[...group.platforms].map(platform => (
+                          <span key={platform} title={platformLabel(platform)} aria-label={platformLabel(platform)}>
+                            <PlatformLogo platformId={platform} size={28} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '5px', marginTop: '9px', fontSize: '13px', color: 'var(--black-3)' }}>
+                      <div><strong>{lang === 'id' ? 'Lokasi' : 'Locations'}:</strong> {[...group.locations].join(', ')}</div>
+                      <div><strong>{lang === 'id' ? 'Tipe kerja' : 'Employment'}:</strong> {[...group.employmentTypes].map(employmentLabel).join(', ')}</div>
                     </div>
                   </div>
 
-                  {/* Target list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '6px' }}>
-                    {positionTargets.map(tgt => (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {positionTargets.map(target => (
                       <div
-                        key={tgt.id}
-                        onClick={open ? () => handleEdit(tgt) : undefined}
+                        key={normalizeKeyPart(target.position)}
+                        onClick={open ? () => handleEdit(target) : undefined}
                         title={open ? t('cari_kerja.klik_edit') : undefined}
                         style={{
-                        padding: '7px 8px',
-                        background: 'white',
-                        border: '1px solid var(--border)',
-                        cursor: open ? 'pointer' : 'default',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0, whiteSpace: 'nowrap', paddingTop: '2px' }}>
-                            <PlatformLogo platform={tgt.platform} />
-                            <span style={{ fontSize: '14px', color: 'var(--black)', fontWeight: 800, flexShrink: 0 }}>{platformLabel(tgt.platform)}</span>
-                            <span style={{ fontSize: '14px', color: 'var(--muted)' }}>·</span>
-                            <span title={(tgt.locations || [tgt.location]).join(', ')} style={{ fontSize: '14px', color: 'var(--black-3)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(tgt.locations || [tgt.location]).join(', ')}</span>
-                            <span style={{ fontSize: '14px', color: 'var(--muted)' }}>·</span>
-                            <span style={{ fontSize: '14px', color: 'var(--muted)', flexShrink: 0 }}>{employmentLabel(tgt.employment_type)}</span>
-                          </div>
+                          padding: '8px 9px', background: 'white', border: '1px solid var(--border)',
+                          cursor: open ? 'pointer' : 'default',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', minWidth: 0 }}>
+                          {parsePositionsToList(target.position).map(position => (
+                            <span key={position} style={{ fontSize: '13px', fontWeight: 800, color: 'var(--black)' }}>{position}</span>
+                          ))}
                         </div>
+                        {!open && (
+                          <div onClick={event => event.stopPropagation()} style={{ flexShrink: 0 }}>
+                            <CoverLetterEditor
+                              position={target.position}
+                              coverLetter={target.cover_letter}
+                              targetId={target.id}
+                              cvId={target.cv_id}
+                              onSaved={handleCoverLetterSaved}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2075,9 +2056,10 @@ export default function CariKerja() {
           <TrialBadge variant="inline" />
           {/* Tombol Cari Kerja / Jalankan */}
           <button
+            id="start-job-search-button"
             onClick={handleStart}
             disabled={isRunning}
-            className="btn btn-primary"
+            className={`btn btn-primary${status === 'idle' ? ' start-button-ready' : ''}`}
             style={{
               padding: '10px 18px', fontSize: 14,
               opacity: isRunning ? 0.5 : 1,
@@ -2103,6 +2085,24 @@ export default function CariKerja() {
           </button>
         </div>
       </div>
+
+      {status === 'idle' && (
+        <div className="ready-to-search-card" role="status" aria-describedby="start-job-search-button">
+          <div className="ready-to-search-icon"><Sparkles size={20} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong>{lang === 'id' ? 'Selamat, persiapanmu sudah selesai!' : 'Congratulations, your setup is complete!'}</strong>
+            <p>
+              {lang === 'id'
+                ? 'Klik tombol Cari Kerja berwarna oranye di kanan atas untuk memulai. Setelah itu, kamu tinggal santai dan biarkan ORDAL bekerja.'
+                : 'Click the orange Find Jobs button at the top right to begin. Then relax and let ORDAL do the work.'}
+            </p>
+          </div>
+          <div className="ready-to-search-pointer">
+            <ArrowUpRight size={18} />
+            <span>{lang === 'id' ? 'Mulai di sini' : 'Start here'}</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="notice notice-error" style={{ marginBottom: 16 }}>
@@ -2198,6 +2198,8 @@ export default function CariKerja() {
         <FinishModal
           jobs={jobs}
           sessionId={sessionId}
+          status={status}
+          lang={lang}
           onClose={() => setShowFinishModal(false)}
           onHistory={() => navigate('/riwayat-lamaran')}
         />
