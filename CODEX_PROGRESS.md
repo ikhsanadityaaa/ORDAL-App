@@ -102,6 +102,8 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Converted onboarding, welcome, completion, and in-app authentication layouts from floating bordered panels into full-window app pages; external Google/job-platform browser redirects remain separate.
 - Redesigned onboarding as a new-game tutorial page with a centered HUD, stage counter, readable content safe area, balanced bottom controls, and an inline cover-letter example instead of an internal popup.
 - Rebuilt the Cover Letter stage as an animated writing mission with a full-height editor, typewriter/mail scene, inline example, and active-provider AI generation grounded in the selected CV and target positions.
+- Compressed the shared onboarding HUD into one row, gave every setup stage a scroll-safe mission canvas, and pinned rounded Back/Next controls so long forms never hide navigation.
+- Applied the game-tutorial visual language across CV, preferences, platforms, email, and login stages with staged reveals, mission-number scenery, stronger rounded cards, and consistent interaction feedback.
 
 ## Security Result
 

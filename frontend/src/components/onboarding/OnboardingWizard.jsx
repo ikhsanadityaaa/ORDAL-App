@@ -386,37 +386,30 @@ export default function OnboardingWizard() {
         {/* Header + progress */}
         <header className="onboarding-page-header">
           <div className="onboarding-page-header-inner">
-          <div className="onboarding-page-brand-row">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 34, height: 34, background: '#F2661A',
-                border: '2px solid rgba(244,242,236,0.35)', borderRadius: 9,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.04em',
-              }}>O</div>
-              <div style={{ color: '#F4F2EC', fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>ORDAL</div>
+            <div className="onboarding-page-brand">
+              <div className="onboarding-page-logo">O</div>
+              <strong>ORDAL</strong>
             </div>
-            <div className="onboarding-step-count">
-              <span>{lang === 'id' ? 'TAHAP' : 'STAGE'}</span>
-              <strong>{visibleStepIndex}</strong>
-              <small>/ {visibleStepTotal}</small>
-            </div>
-          </div>
-          <div className="onboarding-page-title-row">
-            <div>
-              <p>{lang === 'id' ? 'SIAPKAN ORDAL' : 'SET UP ORDAL'}</p>
+            <div className="onboarding-page-title-row">
+              <p>{lang === 'id' ? 'MISI PERSIAPAN' : 'SETUP MISSION'}</p>
               <h2 id="onboarding-step-title">{stepInfo ? t(stepInfo.key) : ''}</h2>
             </div>
-            <div className="progress-determinate" style={{ background: 'rgba(244,242,236,0.25)', border: 'none' }}>
-              <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
+            <div className="onboarding-page-progress">
+              <div className="onboarding-step-count">
+                <span>{lang === 'id' ? 'TAHAP' : 'STAGE'}</span>
+                <strong>{visibleStepIndex}</strong>
+                <small>/ {visibleStepTotal}</small>
+              </div>
+              <div className="progress-determinate" aria-label={`${progressPct}%`}>
+                <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
+              </div>
             </div>
-          </div>
           </div>
         </header>
 
         {/* Body */}
         <div className="onboarding-page-main">
-          <div className="onboarding-page-body">
+          <div key={step} className="onboarding-page-body" data-step={step}>
             <>
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
@@ -522,7 +515,7 @@ export default function OnboardingWizard() {
 
               {/* ── LANGKAH 4: Pilih platform ── */}
               {step === 4 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="onboarding-mission-content onboarding-choice-list">
                   {PLATFORM_CARDS.map((p) => {
                     const active = platforms.includes(p.id)
                     return (
@@ -734,7 +727,7 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
   }
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-cv-mission">
       <div className="ats-guide" style={{ marginBottom: 18 }}>
         <div className="ats-guide-icon"><ShieldCheck size={21} /></div>
         <div>
@@ -851,7 +844,7 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
   const up = (k, v) => setPrefs((p) => ({ ...p, [k]: v }))
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-preferences-mission">
       <Field icon={Briefcase} label={t('onb.f_positions')}>
         <ChipsInput
           value={prefs.positions}
@@ -985,7 +978,7 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
 
   if (emailConnected) {
     return (
-      <div style={{ textAlign: 'center', padding: '14px 0' }}>
+      <div className="onboarding-mission-content" style={{ textAlign: 'center', padding: '14px 0' }}>
         <CheckCircle2 size={44} color="#1E9E3E" style={{ margin: '0 auto 12px' }} strokeWidth={2} />
         <div style={{ fontWeight: 800, fontSize: 15, color: '#33363F', marginBottom: 4 }}>{t('onb.email_ok')}</div>
         <p style={{ fontSize: 13, color: '#6B6E76', margin: 0 }}>{t('onb.email_ok_sub')}</p>
@@ -994,7 +987,7 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
   }
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-email-mission">
       <div className="notice notice-info" style={{ marginBottom: 16 }}>
         <Mail size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>{t('onb.email_note')}</span>
@@ -1086,7 +1079,7 @@ function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) 
 
 function StepPlatformLogin({ t, lang, platformLogins, grabbingPlatform, onGrab }) {
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-login-mission">
       <div className="notice notice-info" style={{ marginBottom: 14 }}>
         <Globe size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ fontSize: 12.5 }}>{t('onb.login_required_note')}</span>
