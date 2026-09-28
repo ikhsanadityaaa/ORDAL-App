@@ -73,9 +73,8 @@ export default function OnboardingWizard() {
     { n: 3, key: 'onb.step_cover' },
     { n: 4, key: 'onb.step_platforms' },
     ...(needsEmailStep ? [{ n: 5, key: 'onb.step_email' }] : []),
-    { n: 6, key: 'onb.step_login' },
   ]
-  const maxStep = needsEmailStep ? 6 : 6 // langkah 5 dilewati kalau tak perlu email
+  const finalStep = needsEmailStep ? 5 : 4
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -92,7 +91,8 @@ export default function OnboardingWizard() {
       setPlatforms(d.platforms || [])
       setPlatformLogins(d.platform_logins || {})
       setEmailConnected(d.email_connected)
-      setStep(Math.min(d.current_step || 1, 6))
+      const savedStep = Number(d.current_step || 1)
+      setStep(savedStep >= 6 ? (d.platforms?.includes('linkedin_posts') ? 5 : 4) : Math.min(savedStep, 5))
     } catch (e) {
       setError(t('onb.err_load'))
     } finally {
@@ -181,31 +181,25 @@ export default function OnboardingWizard() {
     if (err) { setError(err); return }
     setError('')
     await save(step)
-    let target = step + 1
-    if (target === 5 && !needsEmailStep) target = 6
-    if (target === 6) {
-      await refreshLogins()
-    }
-    setStep(Math.min(target, 6))
+    setStep(Math.min(step + 1, finalStep))
   }
 
   const back = () => {
     setError('')
-    let target = step - 1
-    if (step === 6 && !needsEmailStep) target = 4
-    setStep(Math.max(target, 1))
+    setStep(Math.max(step - 1, 1))
   }
 
   const finish = async () => {
     const logins = await refreshLogins()
-    if (!logins.linkedin && !logins.jobstreet && !logins.glints && !logins.indeed) {
+    const selectedLoginKeys = [...new Set(platforms.map(id => id.startsWith('linkedin_') ? 'linkedin' : id))]
+    if (!selectedLoginKeys.length || selectedLoginKeys.some(key => !logins[key])) {
       setError(t('onb.err_login_required'))
       return
     }
     setFinishing(true)
     setError('')
     try {
-      await save(6)
+      await save(finalStep)
       const res = await api.post('/onboarding/complete')
       if (res.data?.ok) {
         // Tampilkan layar sukses dulu — store baru di-set saat user klik
@@ -296,6 +290,17 @@ export default function OnboardingWizard() {
     setPlatforms((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
+  const connectPlatform = async (id) => {
+    const loginKey = id.startsWith('linkedin_') ? 'linkedin' : id
+    if (platforms.includes(id)) {
+      if (platformLogins[loginKey]) togglePlatform(id)
+      else await grabPlatform(loginKey)
+      return
+    }
+    setPlatforms(current => [...current, id])
+    if (!platformLogins[loginKey]) await grabPlatform(loginKey)
+  }
+
   if (onboarding.completed && step !== 7) return null
 
   if (loading) {
@@ -384,8 +389,8 @@ export default function OnboardingWizard() {
   }
 
   const stepInfo = steps.find((s) => s.n === step)
-  const visibleStepIndex = step > 5 && !needsEmailStep ? 5 : steps.findIndex((item) => item.n === step) + 1
-  const visibleStepTotal = needsEmailStep ? 6 : 5
+  const visibleStepIndex = steps.findIndex((item) => item.n === step) + 1
+  const visibleStepTotal = steps.length
   const progressPct = visibleStepTotal > 1 ? Math.round(((visibleStepIndex - 1) / (visibleStepTotal - 1)) * 100) : 100
 
   return (
@@ -523,52 +528,16 @@ export default function OnboardingWizard() {
                 </section>
               )}
 
-              {/* ── LANGKAH 4: Pilih platform ── */}
+              {/* ── LANGKAH 4: Pilih sekaligus login platform ── */}
               {step === 4 && (
-                <div className="onboarding-mission-content onboarding-choice-list">
-                  {PLATFORM_CARDS.map((p) => {
-                    const active = platforms.includes(p.id)
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => togglePlatform(p.id)}
-                        className="card-flat"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                          textAlign: 'left', cursor: 'pointer',
-                          background: active ? '#FEF0E7' : '#FFFFFF',
-                          borderColor: active ? '#F2661A' : 'rgba(51,54,63,0.14)',
-                          boxShadow: active ? '3px 3px 0 rgba(242,102,26,0.55)' : 'none',
-                          transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                        }}
-                      >
-                        <div style={{
-                          width: 46, height: 46, borderRadius: 12, background: '#FFFFFF',
-                          border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          <PlatformLogo platformId={p.id} size={26} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>
-                            {t(`onb.platform_${p.id}`)}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#6B6E76', marginTop: 2, lineHeight: 1.45 }}>
-                            {t(`onb.platform_${p.id}_desc`)}
-                          </div>
-                        </div>
-                        <div style={{
-                          width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                          border: '2px solid ' + (active ? '#F2661A' : 'rgba(51,54,63,0.25)'),
-                          background: active ? '#F2661A' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {active && <CheckCircle2 size={15} color="#fff" strokeWidth={3} />}
-                        </div>
-                      </button>
-                    )
-                  })}
+                <div className="onboarding-mission-content">
+                  <StepPlatformConnections
+                    t={t}
+                    platforms={platforms}
+                    platformLogins={platformLogins}
+                    grabbingPlatform={grabbingPlatform}
+                    onConnect={connectPlatform}
+                  />
                   {platforms.includes('linkedin_posts') && (
                     <div className="notice notice-info" style={{ marginTop: 2 }}>
                       <Mail size={15} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -581,14 +550,6 @@ export default function OnboardingWizard() {
               {/* ── LANGKAH 5: Hubungkan email (LinkedIn Posts) ── */}
               {step === 5 && (
                 <StepEmail t={t} emailConnected={emailConnected} setEmailConnected={setEmailConnected} setError={setError} />
-              )}
-
-              {/* ── LANGKAH 6: Login job platform ── */}
-              {step === 6 && (
-                <StepPlatformLogin
-                  t={t} lang={lang} platformLogins={platformLogins}
-                  grabbingPlatform={grabbingPlatform} onGrab={grabPlatform}
-                />
               )}
 
               {error && (
@@ -605,7 +566,7 @@ export default function OnboardingWizard() {
           <button className="btn btn-secondary" onClick={back} disabled={step === 1 || loading}>
             <ArrowLeft size={15} /> {t('common.back')}
           </button>
-          {step < 6 ? (
+          {step < finalStep ? (
             <button className="btn btn-primary" onClick={next} disabled={loading || saving}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : null}
               {t('common.next')} <ArrowRight size={15} />
@@ -1123,89 +1084,39 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
   )
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Langkah 6 — Login job platform (wajib minimal satu, lainnya bisa di-skip)
-// ═════════════════════════════════════════════════════════════════════════════
-
-function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) {
+function StepPlatformConnections({ t, platforms, platformLogins, grabbingPlatform, onConnect }) {
   return (
-    <div className="card-flat" style={{
-      padding: '16px 18px',
-      background: loggedIn ? '#E9F7EC' : '#FFFFFF',
-      borderColor: loggedIn ? 'rgba(30,158,62,0.6)' : 'rgba(51,54,63,0.14)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 12, background: '#fff',
-          border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <PlatformLogo platformId={platform} size={26} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>{name}</span>
-            {loggedIn
-              ? <span className="badge badge-success">{t('onb.logged_in')}</span>
-              : <span className="badge badge-muted">{t('onb.not_logged_in')}</span>}
-          </div>
-          <div style={{ fontSize: 12, color: '#6B6E76', marginTop: 3, lineHeight: 1.45 }}>
-            {children}
-          </div>
-        </div>
-        {!loggedIn && (
-          <button className="btn btn-primary btn-sm" onClick={() => onGrab(platform)} disabled={!!grabbing}>
-            {grabbing === platform ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
-            {grabbing === platform ? t('onb.waiting_login') : t('onb.login_btn')}
-          </button>
-        )}
-      </div>
-      {grabbing === platform && (
-        <div className="notice notice-info" style={{ marginTop: 12, marginBottom: 0 }}>
-          <Loader2 size={14} className="animate-spin" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 12.5 }}>{t('onb.grab_hint')}</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StepPlatformLogin({ t, lang, platformLogins, grabbingPlatform, onGrab }) {
-  return (
-    <div className="onboarding-mission-content onboarding-login-mission">
+    <div className="onboarding-platform-connections">
       <div className="notice notice-info" style={{ marginBottom: 14 }}>
         <Globe size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ fontSize: 12.5 }}>{t('onb.login_required_note')}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <LoginCard
-          t={t} platform="jobstreet" name="JobStreet"
-          loggedIn={platformLogins.jobstreet}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_jobstreet_desc')}
-        </LoginCard>
-        <LoginCard
-          t={t} platform="linkedin" name="LinkedIn"
-          loggedIn={platformLogins.linkedin}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_linkedin_desc')}
-        </LoginCard>
-        <LoginCard
-          t={t} platform="glints" name="Glints"
-          loggedIn={platformLogins.glints}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_glints_desc')}
-        </LoginCard>
-        <LoginCard
-          t={t} platform="indeed" name="Indeed"
-          loggedIn={platformLogins.indeed}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_indeed_desc')}
-        </LoginCard>
+      <div className="onboarding-provider-grid">
+        {PLATFORM_CARDS.map(platform => {
+          const loginKey = platform.id.startsWith('linkedin_') ? 'linkedin' : platform.id
+          const selected = platforms.includes(platform.id)
+          const connected = Boolean(platformLogins[loginKey])
+          const connecting = grabbingPlatform === loginKey
+          return (
+            <button
+              key={platform.id}
+              type="button"
+              className="onboarding-provider-card"
+              data-selected={selected ? 'true' : 'false'}
+              data-connected={connected ? 'true' : 'false'}
+              onClick={() => onConnect(platform.id)}
+              disabled={Boolean(grabbingPlatform) && !connecting}
+            >
+              <span className="onboarding-provider-logo"><PlatformLogo platformId={platform.id} size={30} /></span>
+              <span className="onboarding-provider-copy">
+                <strong>{t(`onb.platform_${platform.id}`)}</strong>
+                <small>{connecting ? t('onb.waiting_login') : connected ? t('onb.logged_in') : t('onb.not_logged_in')}</small>
+              </span>
+              <span className={`connection-light ${connected ? 'is-online' : ''}`} aria-label={connected ? t('onb.logged_in') : t('onb.not_logged_in')} />
+              {connecting && <Loader2 size={16} className="animate-spin" />}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

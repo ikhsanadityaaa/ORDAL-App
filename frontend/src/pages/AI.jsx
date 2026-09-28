@@ -612,7 +612,7 @@ export default function AI() {
               {lang === 'id' ? 'Satu provider aktif dipakai seluruh proses lamaran.' : 'One active provider handles all application tasks.'}
             </div>
           </div>
-          <div style={{ padding: 10, display: 'grid', gap: 6 }}>
+          <div className="ai-provider-grid">
             {providers.map(provider => {
               const isSelected = provider.key === selectedProvider?.key
               return (
@@ -633,7 +633,10 @@ export default function AI() {
                       {provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
                     </small>
                   </span>
-                  {provider.key === active && <span className="ai-active-dot" title={lang === 'id' ? 'Sedang dipakai' : 'Currently active'} />}
+                  <span
+                    className={`connection-light ${provider.configured ? 'is-online' : ''} ${provider.key === active ? 'is-active' : ''}`}
+                    title={provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                  />
                 </button>
               )
             })}
