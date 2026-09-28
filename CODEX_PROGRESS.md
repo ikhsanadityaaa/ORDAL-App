@@ -115,6 +115,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Replaced generated Glints and Indeed marks with the supplied official logo images and removed the Indeed checkerboard background into real transparency.
 - Merged job-platform selection and login into one provider-style onboarding stage: clicking a platform selects it and opens login automatically, while a green status light confirms a saved session.
 - Reworked AI selection into a responsive provider-card grid with connection lights, keeping the existing ORDAL theme and detailed key setup panel.
+- Fixed clipped job-platform animation logos, removed orange selected-card emphasis, made successful login status green and softly blinking, renamed LinkedIn Post to clarify Auto Email, and added a coming-soon note for future platforms.
 
 ## Security Result
 

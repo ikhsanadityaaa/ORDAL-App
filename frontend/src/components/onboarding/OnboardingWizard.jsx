@@ -1110,14 +1110,19 @@ function StepPlatformConnections({ t, platforms, platformLogins, grabbingPlatfor
               <span className="onboarding-provider-logo"><PlatformLogo platformId={platform.id} size={30} /></span>
               <span className="onboarding-provider-copy">
                 <strong>{t(`onb.platform_${platform.id}`)}</strong>
-                <small>{connecting ? t('onb.waiting_login') : connected ? t('onb.logged_in') : t('onb.not_logged_in')}</small>
+                {connected && (
+                  <small className="provider-connected-status">
+                    <span className="connection-light is-online" /> {t('onb.logged_in')}
+                  </small>
+                )}
+                {connecting && <small>{t('onb.waiting_login')}</small>}
               </span>
-              <span className={`connection-light ${connected ? 'is-online' : ''}`} aria-label={connected ? t('onb.logged_in') : t('onb.not_logged_in')} />
               {connecting && <Loader2 size={16} className="animate-spin" />}
             </button>
           )
         })}
       </div>
+      <p className="onboarding-coming-soon">{t('onb.platforms_coming_soon')}</p>
     </div>
   )
 }
