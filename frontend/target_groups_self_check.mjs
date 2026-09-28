@@ -12,7 +12,7 @@ assert.equal(groups.length, 2)
 assert.equal(groups[0].positions.size, 2)
 assert.deepEqual([...groups[0].locations], ['Jakarta', 'Bekasi'])
 assert.deepEqual([...groups[0].platforms], ['linkedin', 'jobstreet'])
-assert.deepEqual([...groups[1].platforms], ['linkedin', 'jobstreet'])
+assert.deepEqual([...groups[1].platforms], ['linkedin', 'jobstreet', 'glints', 'indeed'])
 assert.deepEqual(selectCvTargetGroup([
   { id: 1, cv_id: 10, position: 'HRD' },
   { id: 2, cv_id: 10, position: 'HR Staff' },

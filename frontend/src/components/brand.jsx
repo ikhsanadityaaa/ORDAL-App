@@ -105,7 +105,25 @@ export function PlatformLogo({ platformId, size = 28 }) {
     return <LinkedInLogo size={size} />
   }
   if (platformId === 'jobstreet') return <JobStreetLogo size={size} />
+  if (platformId === 'glints') return <GlintsLogo size={size} />
+  if (platformId === 'indeed') return <IndeedLogo size={size} />
   return null
+}
+
+export function GlintsLogo({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label="Glints">
+      <path fill="#FF6B35" d="M16 2a14 14 0 1 0 10.7 23l-4.5-4.1A8 8 0 1 1 24 16h-8v6h14V16A14 14 0 0 0 16 2Z" />
+    </svg>
+  )
+}
+
+export function IndeedLogo({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label="Indeed">
+      <path fill="#2164F3" d="M17.5 5.2c4.7.3 8 2.5 9.5 5.1-2.4-1.4-5.5-2.2-9.2-2.2-4.1 0-7.8 1-10.6 2.8 1.8-3.5 5.5-6 10.3-5.7Zm-2.9 7.3h5.8v13.8h-5.8V12.5Zm2.9-7.7a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2Z" />
+    </svg>
+  )
 }
 
 // Logo Google RESMI — huruf "G" 4 warna sesuai brand guideline Google

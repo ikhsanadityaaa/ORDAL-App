@@ -146,6 +146,34 @@ PLATFORM_CONFIG = {
         "logged_in_selectors": [],
         "login_form_selectors": [],
     },
+    "glints": {
+        "label": "Glints",
+        "login_url": "https://glints.com/id/login",
+        "check_url": "https://glints.com/id/opportunities/jobs/explore",
+        "protected_url": "https://glints.com/id/profile",
+        "cookie_urls": ["https://glints.com", "https://www.glints.com"],
+        "key_cookies": [],
+        "invalid_url_parts": ["/login", "/signup", "/register"],
+        "logged_in_selectors": [
+            "a[href*='/profile']", "button[aria-label*='profile' i]",
+            "img[alt*='profile' i]", "[data-testid*='profile' i]",
+        ],
+        "login_form_selectors": ["input[type='email']", "input[type='password']"],
+    },
+    "indeed": {
+        "label": "Indeed",
+        "login_url": "https://secure.indeed.com/auth",
+        "check_url": "https://id.indeed.com/",
+        "protected_url": "https://profile.indeed.com/",
+        "cookie_urls": ["https://indeed.com", "https://id.indeed.com", "https://secure.indeed.com"],
+        "key_cookies": [],
+        "invalid_url_parts": ["/auth", "/account/login"],
+        "logged_in_selectors": [
+            "a[href*='profile.indeed.com']", "a[href*='/account']",
+            "button[aria-label*='account' i]", "[data-testid*='account' i]",
+        ],
+        "login_form_selectors": ["input[type='email']", "input[type='password']"],
+    },
 }
 
 
@@ -341,6 +369,7 @@ async def _run_grab(platform_name: str, user_id: str):
 
                 is_linkedin = (platform_name == "linkedin")
                 is_jobstreet = (platform_name == "jobstreet")
+                is_ui_detected_platform = platform_name in ("glints", "indeed")
 
                 if is_linkedin:
                     # LinkedIn: cek protected URL kalau ada signal login
@@ -436,6 +465,10 @@ async def _run_grab(platform_name: str, user_id: str):
                                 break
                         except Exception:
                             pass
+
+                elif is_ui_detected_platform and has_ui and not is_invalid:
+                    logged_in = True
+                    break
 
             if logged_in:
                 # v34 Patch 4: perlindungan terakhir — jangan save storage_state

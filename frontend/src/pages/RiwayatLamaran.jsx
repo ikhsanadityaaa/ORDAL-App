@@ -15,6 +15,8 @@ function platformLabel(value) {
     linkedin: 'LinkedIn Jobs',
     linkedin_posts: 'LinkedIn Posts',
     jobstreet: 'JobStreet',
+    glints: 'Glints',
+    indeed: 'Indeed',
   }[value] || value || '-'
 }
 

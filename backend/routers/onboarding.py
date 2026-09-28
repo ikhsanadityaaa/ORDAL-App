@@ -19,7 +19,7 @@ from auth_utils import get_current_user
 
 router = APIRouter()
 
-VALID_PLATFORMS = {"jobstreet", "linkedin_jobs", "linkedin_posts"}
+VALID_PLATFORMS = {"jobstreet", "linkedin_jobs", "linkedin_posts", "glints", "indeed"}
 
 
 def _get_or_create_row(db, user_id: str) -> dict:
@@ -42,7 +42,9 @@ def _platform_login_status(user_id: str) -> dict:
     )
     linkedin = any(r["platform"] == "linkedin" for r in rows)
     jobstreet = any(r["platform"] == "jobstreet" for r in rows)
-    return {"linkedin": linkedin, "jobstreet": jobstreet}
+    glints = any(r["platform"] == "glints" for r in rows)
+    indeed = any(r["platform"] == "indeed" for r in rows)
+    return {"linkedin": linkedin, "jobstreet": jobstreet, "glints": glints, "indeed": indeed}
 
 
 def _email_connected(user_id: str) -> bool:
@@ -187,14 +189,14 @@ def complete_onboarding(user=Depends(get_current_user)):
         if not cover_letter.strip():
             raise HTTPException(status_code=400, detail="Cover letter belum diisi")
         logins = _platform_login_status(user["id"])
-        if not (logins["linkedin"] or logins["jobstreet"]):
+        if not any(logins.values()):
             raise HTTPException(
                 status_code=400,
-                detail="Login minimal satu job platform (JobStreet atau LinkedIn) dulu",
+                detail="Login minimal satu job platform dulu",
             )
 
         # ── Buat job targets (posisi × lokasi × platform) ──
-        platform_token_map = {"jobstreet": "jobstreet", "linkedin_jobs": "linkedin", "linkedin_posts": "linkedin_posts"}
+        platform_token_map = {"jobstreet": "jobstreet", "linkedin_jobs": "linkedin", "linkedin_posts": "linkedin_posts", "glints": "glints", "indeed": "indeed"}
         excluded_positions = ",".join(prefs.get("excluded_positions") or [])
         excluded_companies = ",".join(prefs.get("excluded_companies") or [])
         existing_targets = query_all("SELECT position, location, platform FROM job_targets WHERE user_id = ?", (user["id"],))

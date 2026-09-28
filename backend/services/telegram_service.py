@@ -650,7 +650,7 @@ async def _cmd_target_add(chat_id: str, user: dict, args: str):
 
 
 async def _create_target_from_telegram(chat_id: str, user_id: str, cv_id: int, position: str, location: str, platform: str):
-    valid = ("linkedin", "linkedin_posts", "jobstreet", "both", "all")
+    valid = ("linkedin", "linkedin_posts", "jobstreet", "glints", "indeed", "both", "all")
     if platform not in valid:
         await send_telegram_message(chat_id, f"Platform tidak valid. Pilih: {', '.join(valid)}")
         return
@@ -765,7 +765,7 @@ async def _cmd_credentials(chat_id: str, user: dict):
         db.close()
 
     lines = ["<b>Status Credentials</b>\n"]
-    for platform_name in ("linkedin", "jobstreet"):
+    for platform_name in ("linkedin", "jobstreet", "glints", "indeed"):
         path = cookies_path(user["id"], platform_name)
         has_file = os.path.exists(path)
         row = next((r for r in rows if r["platform"] == platform_name), None)
@@ -779,10 +779,10 @@ async def _cmd_credentials(chat_id: str, user: dict):
 
 async def _cmd_cookie(chat_id: str, user: dict, args: str):
     platform = args.strip().lower()
-    if platform not in ("linkedin", "jobstreet"):
+    if platform not in ("linkedin", "jobstreet", "glints", "indeed"):
         await send_telegram_message(
             chat_id,
-            "Format: /cookie <i>linkedin</i> atau /cookie <i>jobstreet</i>\n\n"
+            "Format: /cookie <i>linkedin</i>, <i>jobstreet</i>, <i>glints</i>, atau <i>indeed</i>\n\n"
             "Setelah perintah ini, kirim file JSON cookie Anda.\n\n"
             "<b>Cara export cookie:</b>\n"
             "1. Install extension 'Cookie Editor' di browser\n"
@@ -1115,8 +1115,8 @@ async def _handle_document(message: dict):
                 return
             parts = caption.split()
             platform = parts[1].lower() if len(parts) > 1 else ""
-            if platform not in ("linkedin", "jobstreet"):
-                await send_telegram_message(chat_id, "Sebutkan platform: kirim /cookie linkedin atau /cookie jobstreet lalu file JSON.")
+            if platform not in ("linkedin", "jobstreet", "glints", "indeed"):
+                await send_telegram_message(chat_id, "Sebutkan platform: linkedin, jobstreet, glints, atau indeed, lalu kirim file JSON.")
                 return
             await _save_cookie_file(chat_id, user["id"], platform, file_id, file_name)
             return

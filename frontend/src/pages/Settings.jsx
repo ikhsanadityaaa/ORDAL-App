@@ -10,6 +10,8 @@ import { PlatformLogo } from '../components/brand'
 const PLATFORMS = [
   { id: 'linkedin',  label: 'LinkedIn',  desc: 'Dipakai untuk LinkedIn Jobs dan LinkedIn Posts', loginUrl: 'https://www.linkedin.com/login' },
   { id: 'jobstreet', label: 'JobStreet', desc: 'Dipakai untuk JobStreet Indonesia', loginUrl: 'https://id.jobstreet.com/id' },
+  { id: 'glints', label: 'Glints', desc: 'Dipakai untuk lowongan Glints', loginUrl: 'https://glints.com/id/login' },
+  { id: 'indeed', label: 'Indeed', desc: 'Dipakai untuk lowongan Indeed', loginUrl: 'https://secure.indeed.com/auth' },
 ]
 
 function isPlaywrightError(text) {

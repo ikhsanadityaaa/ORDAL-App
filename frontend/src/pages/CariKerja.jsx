@@ -14,12 +14,16 @@ const PLATFORM_OPTIONS = [
   { value: 'linkedin', label: 'LinkedIn Jobs' },
   { value: 'linkedin_posts', label: 'LinkedIn Posts' },
   { value: 'jobstreet', label: 'JobStreet' },
+  { value: 'glints', label: 'Glints' },
+  { value: 'indeed', label: 'Indeed' },
 ]
 const PLATFORM_LABELS = {
   all: 'Semua',
   linkedin: 'LinkedIn Jobs',
   linkedin_posts: 'LinkedIn Posts',
   jobstreet: 'JobStreet',
+  glints: 'Glints',
+  indeed: 'Indeed',
   both: 'LinkedIn Jobs + JobStreet',
 }
 function platformLabel(val) { return PLATFORM_LABELS[val] ?? val }
@@ -205,11 +209,15 @@ function JobCard({ job }) {
     linkedin: { bg: '#0077b5', border: '#005582' },
     linkedin_posts: { bg: '#0077b5', border: '#005582' },
     jobstreet: { bg: 'var(--orange)', border: 'var(--orange-2)' },
+    glints: { bg: '#ff6b35', border: '#d94b20' },
+    indeed: { bg: '#2164f3', border: '#164bbd' },
   }
   const platformLabels = {
     linkedin: 'LI',
     linkedin_posts: 'LI',
     jobstreet: 'JS',
+    glints: 'GL',
+    indeed: 'IN',
   }
 
   return (
@@ -329,8 +337,8 @@ function FinishModal({ jobs, sessionId, status, lang, onClose, onHistory }) {
     acc[key].push(job)
     return acc
   }, {})
-  const platformOrder = ['linkedin', 'linkedin_posts', 'jobstreet']
-  const platformName = key => ({ linkedin: 'LinkedIn Jobs', linkedin_posts: 'LinkedIn Posts', jobstreet: 'JobStreet' }[key] || key)
+  const platformOrder = ['linkedin', 'linkedin_posts', 'jobstreet', 'glints', 'indeed']
+  const platformName = key => ({ linkedin: 'LinkedIn Jobs', linkedin_posts: 'LinkedIn Posts', jobstreet: 'JobStreet', glints: 'Glints', indeed: 'Indeed' }[key] || key)
   const hasApplied = applied.length > 0
 
   return (
@@ -594,7 +602,7 @@ function TargetPanel({ isRunning = false }) {
       cv_id: primary.cv_id || cvs[0]?.id || '',
       positions: positions.length ? positions : [''],
       locations: locations.length ? locations : [primary.location || ''],
-      platforms: platforms.includes('all') ? ['all'] : platforms.slice(0, 2),
+      platforms: platforms.includes('all') ? ['all'] : platforms.slice(0, 4),
       employment_type: primary.employment_type || 'full_time',
       expected_salary: primary.expected_salary || prefs.expected_salary || '',
       available_join: primary.available_join || prefs.available_join || '',
@@ -633,8 +641,7 @@ function TargetPanel({ isRunning = false }) {
       } else {
         arr = [...arr, value]
       }
-      // Batasi maksimal 2 platform
-      if (arr.length > 2) {
+      if (arr.length > 4) {
         setError(t('cari_kerja.max_2_platform'))
         return f
       }
@@ -1425,7 +1432,7 @@ export default function CariKerja() {
   const { t, lang } = useI18n()
 
   const [status,   setStatus]   = useState(saved?.status   ?? 'idle')
-  const [counts,   setCounts]   = useState(saved?.counts   ?? { linkedin: 0, linkedin_posts: 0, jobstreet: 0 })
+  const [counts,   setCounts]   = useState(saved?.counts   ?? { linkedin: 0, linkedin_posts: 0, jobstreet: 0, glints: 0, indeed: 0 })
   const [jobMap,   setJobMap]   = useState(saved?.jobMap   ?? {})
   const [messages, setMessages] = useState(saved?.messages ?? [])
   const [sessionId, setSessionId] = useState(saved?.sessionId ?? null)
@@ -1444,7 +1451,7 @@ export default function CariKerja() {
     saveSessionState({ status, counts, jobMap, messages, sessionId })
   }, [status, counts, jobMap, messages, sessionId])
 
-  const total    = counts.linkedin + counts.linkedin_posts + counts.jobstreet
+  const total    = counts.linkedin + counts.linkedin_posts + counts.jobstreet + counts.glints + counts.indeed
   const isRunning = status === 'running'
 
   // Sebelumnya ada auto-scroll ke bawah tiap jobMap berubah (tiap ada lowongan
@@ -1698,7 +1705,7 @@ export default function CariKerja() {
     setError('')
     setJobMap({})
     setMessages([])
-    setCounts({ linkedin: 0, linkedin_posts: 0, jobstreet: 0 })
+    setCounts({ linkedin: 0, linkedin_posts: 0, jobstreet: 0, glints: 0, indeed: 0 })
     setSessionId(null)
     setShowFinishModal(false)
     setStatus('running')
@@ -1977,6 +1984,8 @@ export default function CariKerja() {
                   {[
                     { label: 'LI', val: counts.linkedin + counts.linkedin_posts, color: '#2980b9' },
                     { label: 'JS', val: counts.jobstreet, color: 'var(--orange)' },
+                    { label: 'GL', val: counts.glints, color: '#ff6b35' },
+                    { label: 'IN', val: counts.indeed, color: '#2164f3' },
                   ].map(({ label, val, color }) => (
                     <div key={label} style={{ textAlign: 'center' }}>
                       <p className="font-pixel" style={{ fontSize: '14px', color }}>{val}</p>

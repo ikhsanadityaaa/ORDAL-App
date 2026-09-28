@@ -108,6 +108,10 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Added topic-specific motion to every setup stage: CV upload, job preferences, platform selection, secure email, platform login, cover-letter typewriter, and welcome/completion feedback.
 - Upgraded onboarding motion from moving icons to animated mini-scenes: ATS CV scanning and validation, a commuter walking toward an office, job cards arriving from platform logos, email passing through a security gate, and an interactive login browser with success feedback.
 - Enlarged the focused stage animation, removed distracting side decorations after visual review, raised Back/Next controls from the window edge, and reset each stage scroll position so the full scene starts visible.
+- Added Glints and Indeed as first-class auto-apply platforms across onboarding, Settings, active targets, history, question bank, session counters, Telegram validation, and bot dispatch.
+- Added headed Chrome workers for Glints and Indeed with saved ORDAL sessions, target matching, duplicate prevention, CV upload, user-question fallback, submit confirmation, and no CAPTCHA bypass.
+- Built, signed, installed, restarted, and smoke-tested `/Applications/ORDAL.app`; frontend, Python compile, platform bot checks, target grouping, and desktop security checks pass.
+- Live submission remains pending one manual Glints and Indeed login inside the ORDAL browser profile; main Chrome sessions cannot be reused safely while its profile is locked.
 
 ## Security Result
 
@@ -129,6 +133,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 
 - Run end-to-end desktop login/device/trial/payment tests against Vercel preview.
 - Confirm Google OAuth completion with one real user login; the browser result tab remains user-controlled to avoid macOS browser-control permission prompts.
+- Complete one real Glints and one real Indeed submission after the user logs in once through Persiapan; stop for CAPTCHA, phone verification, or unknown sensitive questions.
 - Add local SQLite migration/import path if preservation of old device data is required.
 - Add OS keychain storage for app session token; current frontend stores token in local storage.
 - Build Windows package and inspect final bundle for secrets.

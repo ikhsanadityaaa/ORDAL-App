@@ -219,7 +219,9 @@ async def _try_auto_apply_for_user(user_id: str):
                 "Tidak ada cookie platform yang valid. "
                 "Silakan upload cookie baru:\n"
                 "  • /cookie linkedin\n"
-                "  • /cookie jobstreet"
+                "  • /cookie jobstreet\n"
+                "  • /cookie glints\n"
+                "  • /cookie indeed"
             )
             await send_telegram_message(chat_id, msg)
         _mark_auto_applied(user_id)  # Tandai supaya tidak retry hari ini

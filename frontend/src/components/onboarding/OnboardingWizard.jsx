@@ -24,6 +24,8 @@ const PLATFORM_CARDS = [
   { id: 'jobstreet', name: 'JobStreet' },
   { id: 'linkedin_jobs', name: 'LinkedIn Jobs' },
   { id: 'linkedin_posts', name: 'LinkedIn Posts' },
+  { id: 'glints', name: 'Glints' },
+  { id: 'indeed', name: 'Indeed' },
 ]
 
 const EMPLOYMENT_TYPES = [
@@ -59,7 +61,7 @@ export default function OnboardingWizard() {
   })
   const [coverLetter, setCoverLetter] = useState('')
   const [platforms, setPlatforms] = useState([])
-  const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false })
+  const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false, glints: false, indeed: false })
   const [emailConnected, setEmailConnected] = useState(false)
   const [grabbingPlatform, setGrabbingPlatform] = useState(null)
   const onboardingBodyRef = useRef(null)
@@ -153,8 +155,10 @@ export default function OnboardingWizard() {
       // format lama: { linkedin: { logged_in }, jobstreet: { logged_in } } — cek dua-duanya
       const li = d.linkedin?.logged_in ?? d.linkedin ?? false
       const js = d.jobstreet?.logged_in ?? d.jobstreet ?? false
-      setPlatformLogins({ linkedin: !!li, jobstreet: !!js })
-      return { linkedin: !!li, jobstreet: !!js }
+      const gl = d.glints?.logged_in ?? d.glints ?? false
+      const ind = d.indeed?.logged_in ?? d.indeed ?? false
+      setPlatformLogins({ linkedin: !!li, jobstreet: !!js, glints: !!gl, indeed: !!ind })
+      return { linkedin: !!li, jobstreet: !!js, glints: !!gl, indeed: !!ind }
     } catch (e) {
       return platformLogins
     }
@@ -194,7 +198,7 @@ export default function OnboardingWizard() {
 
   const finish = async () => {
     const logins = await refreshLogins()
-    if (!logins.linkedin && !logins.jobstreet) {
+    if (!logins.linkedin && !logins.jobstreet && !logins.glints && !logins.indeed) {
       setError(t('onb.err_login_required'))
       return
     }
@@ -1136,7 +1140,7 @@ function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) 
           border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          {platform === 'jobstreet' ? <JobStreetLogo size={26} /> : <LinkedInLogo size={26} />}
+          <PlatformLogo platformId={platform} size={26} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1187,6 +1191,20 @@ function StepPlatformLogin({ t, lang, platformLogins, grabbingPlatform, onGrab }
           grabbing={grabbingPlatform} onGrab={onGrab}
         >
           {t('onb.login_linkedin_desc')}
+        </LoginCard>
+        <LoginCard
+          t={t} platform="glints" name="Glints"
+          loggedIn={platformLogins.glints}
+          grabbing={grabbingPlatform} onGrab={onGrab}
+        >
+          {t('onb.login_glints_desc')}
+        </LoginCard>
+        <LoginCard
+          t={t} platform="indeed" name="Indeed"
+          loggedIn={platformLogins.indeed}
+          grabbing={grabbingPlatform} onGrab={onGrab}
+        >
+          {t('onb.login_indeed_desc')}
         </LoginCard>
       </div>
     </div>

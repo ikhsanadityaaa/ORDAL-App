@@ -7,6 +7,8 @@ const PLATFORM_LABELS = {
   '': 'Semua',
   linkedin: 'LinkedIn Jobs',
   jobstreet: 'JobStreet',
+  glints: 'Glints',
+  indeed: 'Indeed',
   linkedin_posts: 'LinkedIn Posts',
 }
 

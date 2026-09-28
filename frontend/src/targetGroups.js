@@ -31,7 +31,7 @@ export function buildCvTargetGroups(targets = []) {
     if (target.available_join) group.availableJoin.add(target.available_join)
 
     const platforms = ['all', 'both'].includes(target.platform)
-      ? ['linkedin', 'jobstreet']
+      ? ['linkedin', 'jobstreet', 'glints', 'indeed']
       : [target.platform]
     platforms.forEach(platform => {
       if (platform) group.platforms.add(platform === 'linkedin_posts' ? 'linkedin' : platform)
