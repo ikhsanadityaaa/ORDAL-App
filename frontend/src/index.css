@@ -701,6 +701,7 @@ mark.hl {
 
 /* Full-page new-game flow: HUD, stage content, and controls share one canvas. */
 .onboarding-page {
+  position: relative;
   width: 100%;
   height: 100vh;
   min-height: 0;
@@ -716,6 +717,8 @@ mark.hl {
   background-size: 32px 32px, 32px 32px, auto, auto;
   animation: onboarding-page-in 0.4s ease-out;
 }
+.onboarding-page-header,
+.onboarding-page-main { position: relative; z-index: 3; }
 .onboarding-page-header {
   color: var(--black);
   background: transparent;
@@ -808,7 +811,7 @@ mark.hl {
   width: min(1040px, calc(100% - 64px));
   min-height: 0;
   margin: 0 auto;
-  padding: 24px 0 0;
+  padding: 24px 0 32px;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
@@ -844,7 +847,7 @@ mark.hl {
   z-index: 8;
   width: 100%;
   margin: 0 auto;
-  padding: 16px 2px 20px;
+  padding: 16px 2px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -863,9 +866,9 @@ mark.hl {
 .onboarding-choice-list { display: flex; flex-direction: column; gap: 12px; }
 .onboarding-topic-scene {
   position: relative;
-  width: min(340px, 100%);
-  height: 150px;
-  margin: 0 auto 22px;
+  width: min(430px, calc(100% - 24px));
+  height: 180px;
+  margin: 4px auto 26px;
   overflow: hidden;
   color: var(--black);
 }
@@ -965,14 +968,14 @@ mark.hl {
 @keyframes commute-cloud { 0%, 100% { transform: translateX(-8px); } 50% { transform: translateX(16px); } }
 @keyframes office-light { 0%, 49% { background: #FFD19F; } 50%, 100% { background: #FFF7E7; } }
 @keyframes commute-pin-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-@keyframes commute-walk-forward { 0% { transform: translateX(-24px); opacity: 0; } 12% { opacity: 1; } 78% { transform: translateX(105px); opacity: 1; } 92%, 100% { transform: translateX(123px); opacity: 0; } }
+@keyframes commute-walk-forward { 0% { transform: translateX(-24px); opacity: 0; } 12% { opacity: 1; } 78% { transform: translateX(205px); opacity: 1; } 92%, 100% { transform: translateX(226px); opacity: 0; } }
 @keyframes commute-arm { from { transform: rotate(-24deg); } to { transform: rotate(20deg); } }
 @keyframes commute-leg { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
 @keyframes commute-bag { from { transform: rotate(-7deg); } to { transform: rotate(8deg); } }
 @keyframes platform-card-enter { 0%, 100% { transform: translateX(0); opacity: 1; } 45% { transform: translateX(8px); opacity: 0.65; } }
 @keyframes platform-logo-deliver { 0%, 100% { transform: translate(0, 0) rotate(-5deg); } 50% { transform: translate(22px, 12px) rotate(5deg); } }
 @keyframes platform-search-spin { to { transform: rotate(360deg); } }
-@keyframes email-fly-safe { 0%, 8% { transform: translateX(-24px) rotate(-7deg); opacity: 0; } 28% { opacity: 1; } 72% { transform: translateX(150px) rotate(4deg) scale(0.72); opacity: 1; } 88%, 100% { transform: translateX(170px) scale(0.55); opacity: 0; } }
+@keyframes email-fly-safe { 0%, 8% { transform: translateX(-24px) rotate(-7deg); opacity: 0; } 28% { opacity: 1; } 72% { transform: translateX(235px) rotate(4deg) scale(0.72); opacity: 1; } 88%, 100% { transform: translateX(255px) scale(0.55); opacity: 0; } }
 @keyframes email-gate-scan { 0%, 100% { transform: translateY(-38px); } 50% { transform: translateY(18px); } }
 @keyframes email-speed { 0%, 100% { transform: scaleX(0.4); opacity: 0.3; } 50% { transform: scaleX(1); opacity: 1; } }
 @keyframes login-browser-arrive { 0%, 100% { transform: translateX(-50%) translateY(4px); } 50% { transform: translateX(-50%) translateY(-3px); } }
@@ -1364,14 +1367,15 @@ mark.hl {
   .onboarding-page-progress { grid-column: 3; grid-row: 1; display: block; }
   .onboarding-page-progress .progress-determinate { display: none; }
   .onboarding-step-count { min-width: 96px; min-height: 36px; padding: 6px 10px; }
-  .onboarding-page-main { padding: 16px 0 0; }
+  .onboarding-page-main { padding: 16px 0 18px; }
   .onboarding-page-body { padding-right: 4px; padding-bottom: 20px; }
-  .onboarding-page-actions { padding: 13px 0 16px; }
+  .onboarding-page-actions { padding: 13px 0 0; }
   .onboarding-page-actions .btn { width: auto; min-width: 132px; }
   .cover-letter-quest { grid-template-columns: 1fr; gap: 28px; padding: 26px 22px; }
   .cover-letter-quest h3 { font-size: clamp(30px, 10vw, 42px); }
   .cover-letter-quest-actions { flex-direction: column; }
   .cover-letter-quest-actions .btn { width: 100%; }
+  .onboarding-topic-scene { width: min(340px, 100%); height: 150px; margin-bottom: 16px; }
   .typewriter-scene { height: 205px; transform: scale(0.9); transform-origin: center bottom; }
   .cover-letter-editor { min-height: 300px; padding: 21px; }
   .onboarding-complete-main { width: calc(100% - 40px); }

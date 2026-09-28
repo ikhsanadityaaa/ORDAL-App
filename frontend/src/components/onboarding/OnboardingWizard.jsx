@@ -62,6 +62,7 @@ export default function OnboardingWizard() {
   const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false })
   const [emailConnected, setEmailConnected] = useState(false)
   const [grabbingPlatform, setGrabbingPlatform] = useState(null)
+  const onboardingBodyRef = useRef(null)
 
   const needsEmailStep = platforms.includes('linkedin_posts')
   const steps = [
@@ -100,6 +101,10 @@ export default function OnboardingWizard() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    onboardingBodyRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+  }, [step, loading, welcomePhase])
 
   // ── simpan progress ke database lokal ──
   const save = async (stepNum, extra = {}) => {
@@ -408,7 +413,7 @@ export default function OnboardingWizard() {
 
         {/* Body */}
         <div className="onboarding-page-main">
-          <div key={step} className="onboarding-page-body" data-step={step}>
+          <div ref={onboardingBodyRef} key={step} className="onboarding-page-body" data-step={step}>
             <>
               {step !== 3 && <StageAnimation step={step} />}
 

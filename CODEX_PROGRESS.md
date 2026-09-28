@@ -107,6 +107,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Removed the dark onboarding header and orange divider, leaving a compact logo-only HUD directly on the page canvas.
 - Added topic-specific motion to every setup stage: CV upload, job preferences, platform selection, secure email, platform login, cover-letter typewriter, and welcome/completion feedback.
 - Upgraded onboarding motion from moving icons to animated mini-scenes: ATS CV scanning and validation, a commuter walking toward an office, job cards arriving from platform logos, email passing through a security gate, and an interactive login browser with success feedback.
+- Enlarged the focused stage animation, removed distracting side decorations after visual review, raised Back/Next controls from the window edge, and reset each stage scroll position so the full scene starts visible.
 
 ## Security Result
 
