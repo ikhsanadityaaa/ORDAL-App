@@ -112,6 +112,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Added headed Chrome workers for Glints and Indeed with saved ORDAL sessions, target matching, duplicate prevention, CV upload, user-question fallback, submit confirmation, and no CAPTCHA bypass.
 - Built, signed, installed, restarted, and smoke-tested `/Applications/ORDAL.app`; frontend, Python compile, platform bot checks, target grouping, and desktop security checks pass.
 - Live submission remains pending one manual Glints and Indeed login inside the ORDAL browser profile; main Chrome sessions cannot be reused safely while its profile is locked.
+- Replaced generated Glints and Indeed marks with the supplied official logo images and removed the Indeed checkerboard background into real transparency.
 
 ## Security Result
 
