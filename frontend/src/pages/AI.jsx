@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Loader, CheckCircle, AlertCircle, Sparkles, Save, Trash2,
-  Eye, EyeOff, Send, Bot, Cpu, ExternalLink, Zap, User, Key,
+  Eye, EyeOff, Send, Bot, ExternalLink, Zap, Key, ArrowRight,
 } from 'lucide-react'
 import api from '../api'
 import useI18n from '../stores/i18nStore'
@@ -26,46 +27,95 @@ function Toast({ msg, type = 'success' }) {
 // Logo pakai warna brand asli supaya recognizable.
 function GeminiLogo({ size = 24 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12z" fill="#4285F4"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Google Gemini">
+      <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" fill="#8E75B2"/>
     </svg>
   )
 }
 function OpenAILogo({ size = 24 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073z" fill="#000"/>
-      <path d="M13.26 22.244a4.494 4.494 0 0 1-2.882-1.04l.144-.08 4.778-2.758a.795.795 0 0 0 .393-.681v-6.737l2.02 1.168a.071.071 0 0 1 .04.055v5.583a4.504 4.504 0 0 1-4.493 4.49z" fill="#fff" opacity="0.6"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="OpenAI">
+      <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686.04.055v5.583a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324l-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685h-.071l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2h.071l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974l.0284-.0615 4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654 2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" fill="#111827"/>
     </svg>
   )
 }
 function AnthropicLogo({ size = 24 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7.307 6.404h3.461l3.46 11.192h-3.275l-.547-2.056H7.786l-.547 2.056H4.054L7.307 6.404zm2.487 2.487L8.293 13.7h2.66l-1.16-4.81zM17.693 6.404h3.275v11.192h-3.275V6.404z" fill="#D97757"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="Anthropic">
+      <path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z" fill="#191919"/>
     </svg>
   )
 }
 function GroqLogo({ size = 24 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M13.1 13.1L24 13.1L13.1 24L13.1 13.1z" fill="#F55036"/>
-      <path d="M10.9 13.1L0 13.1L10.9 0L10.9 13.1z" fill="#F55036"/>
-      <path d="M13.1 10.9L24 10.9L13.1 0L13.1 10.9z" fill="#F55036" opacity="0.7"/>
-      <path d="M10.9 13.1L0 13.1L10.9 24L10.9 13.1z" fill="#F55036" opacity="0.7"/>
+    <svg width={size} height={size} viewBox="0 0 33 33" xmlns="http://www.w3.org/2000/svg" aria-label="Groq">
+      <rect x=".5" y=".5" width="32" height="32" rx="5" fill="#F43E01"/>
+      <path d="m18.445 4.406-9.468 13.74 7.341.665-1.69 9.578 9.469-13.74-7.342-.664 1.69-9.579Z" fill="#fff"/>
     </svg>
   )
 }
 function OpenRouterLogo({ size = 24 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="11" fill="#000"/>
-      <path d="M6 8h12M6 12h12M6 16h8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="OpenRouter">
+      <path d="M16.778 1.844v1.919q-.569-.026-1.138-.032-.708-.008-1.415.037c-1.93.126-4.023.728-6.149 2.237-2.911 2.066-2.731 1.95-4.14 2.75-.396.223-1.342.574-2.185.798-.841.225-1.753.333-1.751.333v4.229s.768.108 1.61.333c.842.224 1.789.575 2.185.799 1.41.798 1.228.683 4.14 2.75 2.126 1.509 4.22 2.11 6.148 2.236.88.058 1.716.041 2.555.005v1.918l7.222-4.168-7.222-4.17v2.176c-.86.038-1.611.065-2.278.021-1.364-.09-2.417-.357-3.979-1.465-2.244-1.593-2.866-2.027-3.68-2.508.889-.518 1.449-.906 3.822-2.59 1.56-1.109 2.614-1.377 3.978-1.466.667-.044 1.418-.017 2.278.02v2.176L24 6.014Z" fill="#6D28D9"/>
     </svg>
   )
 }
 
-function ProviderLogo({ providerKey, size = 24 }) {
+export const PROVIDER_GUIDES = {
+  gemini: {
+    description: { id: 'Cepat dan praktis untuk analisis lowongan serta jawaban formulir.', en: 'Fast and practical for job analysis and application answers.' },
+    cost: { id: 'Free tier tersedia', en: 'Free tier available' },
+    tier: 'free',
+    oauth: { id: 'API developer memakai key, bukan login OAuth.', en: 'Developer API access uses a key, not OAuth sign-in.' },
+    steps: {
+      id: ['Buka Google AI Studio.', 'Login dengan akun Google.', 'Klik Create API key, lalu salin key ke ORDAL.'],
+      en: ['Open Google AI Studio.', 'Sign in with Google.', 'Click Create API key, then paste the key into ORDAL.'],
+    },
+  },
+  openai: {
+    description: { id: 'Model ringan berkualitas untuk penulisan dan klasifikasi.', en: 'A capable lightweight model for writing and classification.' },
+    cost: { id: 'Berbayar · pay-as-you-go', en: 'Paid · pay as you go' },
+    tier: 'paid',
+    oauth: { id: 'Langganan ChatGPT tidak termasuk kredit API.', en: 'A ChatGPT subscription does not include API credits.' },
+    steps: {
+      id: ['Buka OpenAI Platform dan tambahkan billing.', 'Buat secret key di API Keys.', 'Salin key sekali; OpenAI tidak menampilkannya lagi.'],
+      en: ['Open the OpenAI Platform and add billing.', 'Create a secret key under API Keys.', 'Copy it once; OpenAI will not show it again.'],
+    },
+  },
+  anthropic: {
+    description: { id: 'Kuat untuk penulisan natural dan instruksi panjang.', en: 'Strong at natural writing and long instructions.' },
+    cost: { id: 'Berbayar · kredit API', en: 'Paid · API credits' },
+    tier: 'paid',
+    oauth: { id: 'Claude web dan Claude API memiliki billing terpisah.', en: 'Claude web and Claude API use separate billing.' },
+    steps: {
+      id: ['Buka Anthropic Console.', 'Tambahkan kredit/billing.', 'Buat API key lalu salin ke ORDAL.'],
+      en: ['Open the Anthropic Console.', 'Add credits or billing.', 'Create an API key and paste it into ORDAL.'],
+    },
+  },
+  groq: {
+    description: { id: 'Inferensi sangat cepat dengan batas free tier.', en: 'Very fast inference with free-tier limits.' },
+    cost: { id: 'Free tier terbatas + paket berbayar', en: 'Limited free tier + paid plans' },
+    tier: 'mixed',
+    oauth: { id: 'Akses model memakai API key Groq.', en: 'Model access uses a Groq API key.' },
+    steps: {
+      id: ['Buka GroqCloud Console.', 'Pilih API Keys lalu Create API Key.', 'Salin key ke ORDAL; batas free tier mengikuti rate limit Groq.'],
+      en: ['Open the GroqCloud Console.', 'Choose API Keys, then Create API Key.', 'Paste it into ORDAL; free usage follows Groq rate limits.'],
+    },
+  },
+  openrouter: {
+    description: { id: 'Satu API untuk banyak model gratis maupun berbayar.', en: 'One API for many free and paid models.' },
+    cost: { id: 'Model gratis dan berbayar', en: 'Free and paid models' },
+    tier: 'mixed',
+    oauth: { id: 'OpenRouter mendukung OAuth PKCE, tetapi ORDAL memakai API key manual agar alur semua provider konsisten.', en: 'OpenRouter supports OAuth PKCE, but ORDAL uses a manual API key for a consistent provider flow.' },
+    steps: {
+      id: ['Buka OpenRouter Keys.', 'Buat key baru dan atur limit kredit bila perlu.', 'Pilih model berlabel :free untuk penggunaan gratis.'],
+      en: ['Open OpenRouter Keys.', 'Create a key and optionally set a credit limit.', 'Choose models tagged :free for free usage.'],
+    },
+  },
+}
+
+export function ProviderLogo({ providerKey, size = 24 }) {
   switch (providerKey) {
     case 'gemini': return <GeminiLogo size={size} />
     case 'openai': return <OpenAILogo size={size} />
@@ -76,26 +126,17 @@ function ProviderLogo({ providerKey, size = 24 }) {
   }
 }
 
-function providerIcon(key) {
-  // Legacy: dipakai untuk fallback. Sekarang pakai ProviderLogo (SVG brand).
-  if (key === 'gemini') return Sparkles
-  if (key === 'openai') return Bot
-  if (key === 'anthropic') return Cpu
-  if (key === 'groq') return Zap
-  if (key === 'openrouter') return Cpu
-  return Bot
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // ProviderCard — pilih provider + set API key + test
 // ─────────────────────────────────────────────────────────────────────────────
-function ProviderCard({ provider, isActive, onSelect, onSaved }) {
+function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
   const [apiKey, setApiKey] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
   const [toast, setToast] = useState(null)
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const guide = PROVIDER_GUIDES[provider.key]
 
   useEffect(() => {
     setApiKey('')
@@ -110,9 +151,9 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
     setLoading(true); setToast(null)
     try {
       await api.put(`/ai_config/${provider.key}/key`, { value: apiKey.trim() })
+      await onSaved?.(provider.key)
       setToast({ type: 'success', msg: `${t('ai.toast.key_saved')} ${provider.label} ${t('ai.toast.saved_suffix')}` })
       setApiKey('')
-      onSaved && onSaved()
     } catch (e) {
       setToast({ type: 'error', msg: `${t('ai.toast.save_failed')} ${e.response?.data?.detail || e.message}` })
     } finally {
@@ -126,7 +167,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
     try {
       await api.delete(`/ai_config/${provider.key}/key`)
       setToast({ type: 'success', msg: `${t('ai.toast.key_deleted')} ${provider.label} ${t('ai.toast.deleted_suffix')}` })
-      onSaved && onSaved()
+      await onSaved?.()
     } catch (e) {
       setToast({ type: 'error', msg: `${t('ai.toast.delete_failed')} ${e.message}` })
     } finally {
@@ -149,8 +190,6 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
       setTesting(false)
     }
   }
-
-  const Icon = providerIcon(provider.key)
 
   return (
     <div className="card" style={{
@@ -188,8 +227,13 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
             ) : (
               <span className="badge badge-muted">{t('ai.badge.key_missing')}</span>
             )}
+            {guide && (
+              <span className={`badge ${guide.tier === 'paid' ? 'badge-warning' : 'badge-success'}`}>
+                {guide.cost[lang]}
+              </span>
+            )}
           </div>
-          <div className="card-subtitle">{provider.description}</div>
+          <div className="card-subtitle">{guide?.description[lang] || provider.description}</div>
           <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
             model: {provider.model}
           </div>
@@ -207,6 +251,26 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
 
       {/* Body */}
       <div className="card-pad" style={{ paddingTop: 16, paddingBottom: 20 }}>
+        {guide && (
+          <div style={{ marginBottom: 16 }}>
+            {provider.api_key_link && (
+              <a href={provider.api_key_link} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginBottom: 12 }}>
+                <ExternalLink size={13} />
+                {lang === 'id' ? `Buat API key di ${provider.label}` : `Create an API key on ${provider.label}`}
+              </a>
+            )}
+            <div className="notice notice-muted">
+              <Key size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+              <strong>{lang === 'id' ? 'Cara mendapatkan API key' : 'How to get an API key'}</strong>
+              <ol style={{ margin: '6px 0 6px 18px', padding: 0 }}>
+                {guide.steps[lang].map((step) => <li key={step} style={{ marginBottom: 3 }}>{step}</li>)}
+              </ol>
+              <span style={{ fontSize: 12 }}>{guide.oauth[lang]}</span>
+              </div>
+            </div>
+          </div>
+        )}
         {provider.configured && (
           <div style={{
             marginBottom: 12, padding: '8px 10px',
@@ -256,7 +320,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
             style={{ flex: 1, minWidth: 100 }}
           >
             {loading ? <Loader size={13} className="animate-spin" /> : <Save size={13} />}
-            {t('ai.btn.save_key')}
+            {lang === 'id' ? 'Simpan dan gunakan' : 'Save and use'}
           </button>
           {provider.configured && (
             <button
@@ -280,16 +344,22 @@ function ProviderCard({ provider, isActive, onSelect, onSaved }) {
           )}
         </div>
 
-        {provider.api_key_link && (
-          <a href={provider.api_key_link} target="_blank" rel="noreferrer" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            marginTop: 12, fontSize: 12,
-          }}>
-            <ExternalLink size={11} /> {t('ai.link.get_key')} {provider.api_key_label}
-          </a>
-        )}
-
         <Toast {...(toast || {})} />
+
+        {provider.configured && isActive && (
+          <div className="notice notice-success" style={{ marginTop: 14, alignItems: 'center' }}>
+            <CheckCircle size={16} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <strong>{lang === 'id' ? `${provider.label} siap dipakai` : `${provider.label} is ready`}</strong>
+              <div style={{ fontSize: 12, marginTop: 2 }}>
+                {lang === 'id' ? 'Kamu tidak perlu mengisi API key provider lain.' : 'You do not need to configure another provider.'}
+              </div>
+            </div>
+            <button type="button" onClick={onContinue} className="btn btn-primary" style={{ flexShrink: 0 }}>
+              {lang === 'id' ? 'Lanjut ke Cari Kerja' : 'Continue to Find Jobs'} <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -430,6 +500,7 @@ function ChatPlayground({ activeProvider, providers }) {
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AI() {
+  const navigate = useNavigate()
   const [providers, setProviders] = useState([])
   const [active, setActive] = useState('')
   const [selected, setSelected] = useState('')
@@ -464,6 +535,14 @@ export default function AI() {
     } catch (e) {
       setActionError(e.response?.data?.detail || e.message)
     }
+  }
+
+  const handleProviderSaved = async (providerKey) => {
+    if (providerKey) await api.put('/ai_config/active', { provider: providerKey })
+    const res = await api.get('/ai_config')
+    setProviders(res.data.providers || [])
+    setActive(res.data.active)
+    if (providerKey) setSelected(providerKey)
   }
 
   if (loading) {
@@ -505,6 +584,14 @@ export default function AI() {
         </p>
       </div>
 
+      <div className="notice notice-muted" style={{ marginBottom: 16 }}>
+        <Key size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+        <div>
+          <strong>{lang === 'id' ? 'Cukup pilih satu layanan AI.' : 'Choose only one AI service.'}</strong>
+          <div style={{ marginTop: 3 }}>{t('page.ai.oauth_note')}</div>
+        </div>
+      </div>
+
       {!anyConfigured && (
         <div className="notice notice-info" style={{ marginBottom: 20 }}>
           <Sparkles size={14} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -525,7 +612,7 @@ export default function AI() {
               {lang === 'id' ? 'Satu provider aktif dipakai seluruh proses lamaran.' : 'One active provider handles all application tasks.'}
             </div>
           </div>
-          <div style={{ padding: 10, display: 'grid', gap: 6 }}>
+          <div className="ai-provider-grid">
             {providers.map(provider => {
               const isSelected = provider.key === selectedProvider?.key
               return (
@@ -540,9 +627,16 @@ export default function AI() {
                   <ProviderLogo providerKey={provider.key} size={22} />
                   <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                     <strong>{provider.label}</strong>
-                    <small>{provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}</small>
+                    <small>
+                      {PROVIDER_GUIDES[provider.key]?.cost[lang]}
+                      {' · '}
+                      {provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                    </small>
                   </span>
-                  {provider.key === active && <span className="ai-active-dot" title={lang === 'id' ? 'Sedang dipakai' : 'Currently active'} />}
+                  <span
+                    className={`connection-light ${provider.configured ? 'is-online' : ''} ${provider.key === active ? 'is-active' : ''}`}
+                    title={provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                  />
                 </button>
               )
             })}
@@ -564,7 +658,8 @@ export default function AI() {
               provider={selectedProvider}
               isActive={selectedProvider.key === active}
               onSelect={handleSelectActive}
-              onSaved={refresh}
+              onSaved={handleProviderSaved}
+              onContinue={() => navigate('/kerja')}
             />
           ) : (
             <div className="notice notice-error">{lang === 'id' ? 'Provider AI tidak tersedia.' : 'No AI provider is available.'}</div>

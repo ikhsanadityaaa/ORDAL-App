@@ -85,7 +85,7 @@ async def startup():
     init_db()
     restore_persisted_files()
     db = get_db()
-    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=NOW() WHERE status='running'")
+    db.execute("UPDATE apply_sessions SET status='stopped', ended_at=datetime('now') WHERE status='running'")
     db.commit()
     db.close()
     from services.telegram_service import start_background_tasks
@@ -166,6 +166,10 @@ if os.path.isdir(_FRONTEND_DIST):
     if os.path.isdir(_assets_dir):
         app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
 
+    _platforms_dir = os.path.join(_FRONTEND_DIST, "platforms")
+    if os.path.isdir(_platforms_dir):
+        app.mount("/platforms", StaticFiles(directory=_platforms_dir), name="platforms")
+
     # Serve favicon PNG dari frontend/dist/ root (Vite copy public/ordal-icon.png
     # ke dist/ordal-icon.png saat build). Penting supaya WebView2/EdgeChromium
     # bisa load favicon untuk title bar icon di Windows app.
@@ -183,7 +187,7 @@ if os.path.isdir(_FRONTEND_DIST):
         Penting agar React Router handle client-side routing.
         """
         # Jangan intercept API routes
-        if full_path.startswith(("api/", "uploads/", "assets/")):
+        if full_path.startswith(("api/", "uploads/", "assets/", "platforms/")):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
 
         index_html = os.path.join(_FRONTEND_DIST, "index.html")

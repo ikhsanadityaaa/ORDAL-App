@@ -2,10 +2,10 @@
 AI Service — Unified wrapper untuk multi-provider AI.
 
 Provider yang didukung:
-  - gemini      (Google Gemini 1.5 Flash) — default
+  - gemini      (Gemini Flash) — default
   - openai      (GPT-4o-mini)
   - anthropic   (Claude 3.5 Haiku)
-  - groq        (Llama 3.1 70B via Groq)
+  - groq        (GPT-OSS 120B via Groq)
   - openrouter  (banyak model via OpenRouter)
 
 API key masing-masing provider disimpan di tabel app_secrets (Fernet-encrypted).
@@ -34,7 +34,7 @@ from app_secrets import get_user_secret, set_user_secret
 PROVIDERS = {
     "gemini": {
         "label": "Google Gemini",
-        "description": "Gemini (auto-update ke versi terbaru) — cepat, gratis untuk usage moderate.",
+        "description": "Gemini Flash — cepat, dengan free tier dan opsi billing.",
         "model": "gemini-flash-latest",
         "api_key_env": "GEMINI_API_KEY",
         "api_key_link": "https://aistudio.google.com/app/apikey",
@@ -42,7 +42,7 @@ PROVIDERS = {
     },
     "openai": {
         "label": "OpenAI",
-        "description": "GPT-4o-mini — murah, banyak dipakai, quality tinggi.",
+        "description": "GPT-4o mini — API berbayar pay-as-you-go.",
         "model": "gpt-4o-mini",
         "api_key_env": "OPENAI_API_KEY",
         "api_key_link": "https://platform.openai.com/api-keys",
@@ -50,7 +50,7 @@ PROVIDERS = {
     },
     "anthropic": {
         "label": "Anthropic Claude",
-        "description": "Claude 3.5 Haiku — cepat, ekonomis, terkenal untuk menulis.",
+        "description": "Claude 3.5 Haiku — API berbayar, kuat untuk penulisan.",
         "model": "claude-3-5-haiku-20241022",
         "api_key_env": "ANTHROPIC_API_KEY",
         "api_key_link": "https://console.anthropic.com/settings/keys",
@@ -58,8 +58,8 @@ PROVIDERS = {
     },
     "groq": {
         "label": "Groq",
-        "description": "Llama 3.1 70B via Groq — sangat cepat & murah (ada free tier).",
-        "model": "llama-3.1-70b-versatile",
+        "description": "GPT-OSS 120B via Groq — cepat, tersedia free tier terbatas.",
+        "model": "openai/gpt-oss-120b",
         "api_key_env": "GROQ_API_KEY",
         "api_key_link": "https://console.groq.com/keys",
         "api_key_label": "Groq API Key",

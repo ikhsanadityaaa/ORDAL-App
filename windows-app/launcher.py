@@ -32,7 +32,6 @@ import sys
 import threading
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 # ── Setup file logging di launcher juga (sebelum backend start) ──────────
 # Supaya log launcher (sebelum backend import) juga tertulis ke file yang
@@ -112,191 +111,6 @@ def resolve_user_data_dir() -> Path:
         data_dir = Path(__file__).resolve().parent.parent / "_ordal_data"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
-
-
-# ----------------------------------------------------------------------------
-# v3.1.1 — Database pusat: pre-flight check + .env layering
-# ----------------------------------------------------------------------------
-# MASALAH YANG DIFIX: sebelumnya app yang di-build tanpa DATABASE URL akan
-# crash saat dibuka (backend tidak bisa start → window tidak pernah muncul →
-# app "close sendiri"). Sekarang launcher memastikan DB reachable SEBELUM
-# start backend, dan kalau belum dikonfigurasi → dialog input URL native.
-#
-# Prioritas konfigurasi .env (tanpa rebuild app):
-#   1. env sistem (dari shell)
-#   2. %LOCALAPPDATA%\\ORDAL\\.env   (user override, per-device)
-#   3. backend/.env yang di-bundle ke ORDAL.exe (default dari build)
-_DEV_DB_URL = ""
-
-
-def _parse_env_file(path: Path) -> dict[str, str]:
-    """Parser .env sederhana (KEY=VALUE) — tanpa dependency."""
-    result: dict[str, str] = {}
-    try:
-        for raw in path.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            result[k.strip()] = v.strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return result
-
-
-def _load_env_layers(user_data: Path, backend_dir: Path) -> None:
-    """Gabungkan user .env + bundled backend/.env ke os.environ.
-    Key yang SUDAH ada di env sistem TIDAK di-override (prioritas tetap)."""
-    # Layer 2: user override (per-device, persisten antar update app)
-    user_env = user_data / ".env"
-    if user_env.exists():
-        loaded = []
-        for k, v in _parse_env_file(user_env).items():
-            if k not in os.environ:
-                os.environ[k] = v
-                loaded.append(k)
-        if loaded:
-            log.info(f"User .env dimuat ({len(loaded)} keys: {', '.join(sorted(loaded))})")
-    # Layer 3: bundled backend/.env (di-sync oleh ORDAL.exe bootstrap)
-    bundled_env = backend_dir / ".env"
-    if bundled_env.exists():
-        loaded = []
-        for k, v in _parse_env_file(bundled_env).items():
-            if k not in os.environ:
-                os.environ[k] = v
-                loaded.append(k)
-        if loaded:
-            log.info(f"Bundled backend/.env dimuat ({len(loaded)} keys)")
-
-
-def _usable_database_url(value: str) -> str:
-    value = (value or "").strip()
-    return "" if not value or any(marker in value for marker in ("<", ">", "YOUR-", "YOUR_")) else value
-
-
-def _resolve_db_url() -> str:
-    """Resolve production PostgreSQL env ORDAL-Web; reject placeholders."""
-    direct = next((value for value in (
-        os.getenv("POSTGRES_URL", ""),
-        os.getenv("POSTGRES_URL_NON_POOLING", ""),
-        os.getenv("POSTGRES_PRISMA_URL", ""),
-        os.getenv("ORDAL_DATABASE_URL", ""),
-        os.getenv("DATABASE_URL", ""),
-    ) if _usable_database_url(value)), "")
-    if direct:
-        return direct
-    host = os.getenv("POSTGRES_HOST", "").strip()
-    user = os.getenv("POSTGRES_USER", "").strip()
-    password = os.getenv("POSTGRES_PASSWORD", "")
-    database = os.getenv("POSTGRES_DATABASE", "").strip()
-    if host and user and database:
-        return f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}@{host}/{quote(database, safe='')}"
-    return _DEV_DB_URL
-
-
-def _db_reachable(url: str, timeout: int = 8) -> tuple[bool, str]:
-    """Cek koneksi PostgreSQL cepat (tanpa query)."""
-    try:
-        import psycopg2  # venv sudah install (requirements-app.txt)
-        conn = psycopg2.connect(url, connect_timeout=timeout)
-        conn.close()
-        return True, ""
-    except Exception as e:
-        first = str(e).splitlines()[0] if str(e) else "unknown error"
-        return False, first[:300]
-
-
-def _ask_db_url_dialog(prefill: str, error_note: str) -> str | None:
-    """Dialog input DATABASE URL native Windows (tkinter — stdlib, ada di
-    python.org install yang dipakai venv). None = user batal / tk unavailable."""
-    host = _resolve_db_url().split("@")[-1]
-    message = (
-        f"ORDAL tidak bisa terhubung ke database pusat.\n\n"
-        f"Server saat ini: {host}\n"
-        f"Error: {error_note[:120]}\n\n"
-        f"Paste DATABASE URL PostgreSQL (Supabase yang dipakai ORDAL-Web):\n"
-        f"postgresql://user:password@host:5432/postgres\n\n"
-        f"URL disimpan di komputer ini saja dan tidak menghapus data apa pun."
-    )
-    try:
-        import tkinter as tk
-        from tkinter import simpledialog
-        root = tk.Tk()
-        root.withdraw()
-        try:
-            root.attributes("-topmost", True)  # pastikan muncul di depan
-        except Exception:
-            pass
-        url = simpledialog.askstring(
-            "ORDAL — Konfigurasi Database", message, initialvalue=prefill or ""
-        )
-        root.destroy()
-        return url
-    except Exception as e:
-        log.warning(f"Dialog tkinter tidak tersedia ({e}).")
-        # Fallback terakhir: dialog pesan (ctypes MessageBoxW) dengan instruksi file
-        try:
-            import ctypes
-            user_env_path = resolve_user_data_dir() / ".env"
-            ctypes.windll.user32.MessageBoxW(
-                0,
-                f"ORDAL tidak bisa terhubung ke database pusat.\n\n"
-                f"Error: {error_note[:200]}\n\n"
-                f"Buat file berikut lalu isi satu baris:\n"
-                f"{user_env_path}\n"
-                f"ORDAL_DATABASE_URL=postgresql://user:password@host:5432/postgres\n\n"
-                f"Setelah itu buka ORDAL lagi.",
-                "ORDAL — Konfigurasi Database",
-                0x10,
-            )
-        except Exception:
-            pass
-        return None
-
-
-def _save_db_url_to_user_env(user_data: Path, url: str) -> None:
-    """Simpan ORDAL_DATABASE_URL ke user_data/.env (persisten antar update app)."""
-    env_file = user_data / ".env"
-    lines: list[str] = []
-    if env_file.exists():
-        lines = [
-            l for l in env_file.read_text(encoding="utf-8").splitlines()
-            if not l.strip().startswith(("ORDAL_DATABASE_URL=", "DATABASE_URL="))
-        ]
-    lines.append(f"ORDAL_DATABASE_URL={url}")
-    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    log.info(f"DATABASE URL disimpan ke {env_file}")
-
-
-def _ensure_database_ready(user_data: Path, backend_dir: Path) -> bool:
-    """Pastikan DB pusat reachable SEBELUM start backend (maks 3 percobaan
-    dengan dialog input URL). Return False → app exit dengan pesan jelas
-    di log + dialog — TIDAK close diam-diam."""
-    for attempt in range(1, 4):
-        url = _resolve_db_url()
-        if not url:
-            safe_host = "belum dikonfigurasi"
-            err = "URL Supabase belum diisi"
-            ok = False
-        else:
-            safe_host = url.split("@")[-1] if "@" in url else url
-            ok, err = _db_reachable(url)
-        if ok:
-            log.info(f"Database pusat OK ({safe_host})")
-            return True
-        log.error(f"Database tidak terhubung (percobaan {attempt}/3, host={safe_host}): {err}")
-        if attempt == 3:
-            break
-        # Jangan prefill URL dev default — biarkan kosong supaya user paste yang benar
-        prefill = "" if "127.0.0.1:5432" in url else url
-        answer = _ask_db_url_dialog(prefill, err)
-        if not answer:
-            log.warning("User membatalkan dialog konfigurasi database.")
-            break
-        _save_db_url_to_user_env(user_data, answer)
-        os.environ["ORDAL_DATABASE_URL"] = answer
-    log.error("App tidak bisa lanjut tanpa koneksi database pusat. Exit dengan pesan ini.")
-    return False
 
 
 # ----------------------------------------------------------------------------
@@ -532,20 +346,12 @@ def main() -> int:
     os.chdir(str(user_data))
     log.info(f"  cwd          = {os.getcwd()}")
 
-    # v3: APP_MODE single-user DIHAPUS — user wajib login ke DB pusat (PostgreSQL).
-    # Data dir tetap dipakai untuk cache lokal (CV/cookie files, secret, device_id, log).
+    # User wajib login ke API pusat; data operasional tetap lokal per device.
     os.environ.pop("ORDAL_APP_MODE", None)
     os.environ["ORDAL_DATA_DIR"] = str(user_data)
     os.environ["ORDAL_BACKEND_DIR"] = str(paths["backend_dir"])
     os.environ.setdefault("JWT_SECRET_FILE", str(user_data / "secret.key"))
     os.environ.setdefault("ENCRYPTION_KEY_FILE", str(user_data / "encrypt.key"))
-
-    # v3.1.1: gabungkan .env (user override + bundled) SEBELUM import backend,
-    # lalu pastikan database pusat reachable. Tanpa ini, app tanpa DATABASE URL
-    # akan crash saat dibuka (window tidak pernah muncul).
-    _load_env_layers(user_data, paths["backend_dir"])
-    if not _ensure_database_ready(user_data, paths["backend_dir"]):
-        return 1
 
     # First-run: install Chromium (background, tidak block window)
     threading.Thread(target=ensure_chromium_installed, daemon=True).start()

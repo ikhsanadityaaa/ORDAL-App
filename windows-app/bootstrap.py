@@ -489,7 +489,7 @@ def main() -> int:
 
     log(f"Menjalankan: {runner} {launcher_script}")
     env = os.environ.copy()
-    # v3: APP_MODE dihapus — login wajib (DB pusat PostgreSQL)
+    # Login wajib melalui API HTTPS ORDAL-Web; data bot tetap lokal.
     env.pop("ORDAL_APP_MODE", None)
     env["ORDAL_DATA_DIR"] = str(APP_DATA_DIR)
 

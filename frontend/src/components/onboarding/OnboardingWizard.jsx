@@ -2,27 +2,31 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Loader2, ArrowRight, ArrowLeft, FileText, Upload, CheckCircle2, Eye,
   Briefcase, MapPin, Wallet, CalendarClock, Building2, Ban, Sparkles,
-  Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle,
+  Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle, ChevronDown,
+  UserRound, ShieldCheck, Compass, Key, Save,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 import useI18n from '../../stores/i18nStore'
 import api from '../../api'
 import { PlatformLogo, LinkedInLogo, JobStreetLogo } from '../brand'
 import ChipsInput from './ChipsInput'
-import CoverLetterExampleModal from './CoverLetterExampleModal'
+import { COVER_LETTER_EXAMPLE } from './CoverLetterExampleModal'
+import { ProviderLogo, PROVIDER_GUIDES } from '../../pages/AI'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OnboardingWizard — wizard pop-up interaktif setelah login + verifikasi.
 // Langkah: 1) Upload CV  2) Preferensi kerja  3) Cover letter (lihat contoh
 // {company}/{position})  4) Pilih job platform  5) Email (wajib utk LinkedIn
 // Posts)  6) Login job platform (wajib min. satu) → selesai.
-// Progress tersimpan di DB pusat → bisa dilanjutkan di device lain.
+// Progress tersimpan di SQLite lokal per device.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PLATFORM_CARDS = [
   { id: 'jobstreet', name: 'JobStreet' },
   { id: 'linkedin_jobs', name: 'LinkedIn Jobs' },
   { id: 'linkedin_posts', name: 'LinkedIn Posts' },
+  { id: 'glints', name: 'Glints' },
+  { id: 'indeed', name: 'Indeed' },
 ]
 
 const EMPLOYMENT_TYPES = [
@@ -40,35 +44,43 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [error, setError] = useState('')
   const [showExample, setShowExample] = useState(false)
+  const [welcomePhase, setWelcomePhase] = useState('name')
+  const [preferredName, setPreferredName] = useState('')
 
   // data wizard
   const [cvId, setCvId] = useState(null)
   const [cvs, setCvs] = useState([])
   const [prefs, setPrefs] = useState({
+    preferred_name: '', welcome_completed: false,
     positions: [], locations: [], expected_salary: '',
     available_join: 'immediately', employment_type: 'full_time',
     excluded_positions: [], excluded_companies: [],
   })
   const [coverLetter, setCoverLetter] = useState('')
   const [platforms, setPlatforms] = useState([])
-  const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false })
+  const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false, glints: false, indeed: false })
   const [emailConnected, setEmailConnected] = useState(false)
   const [grabbingPlatform, setGrabbingPlatform] = useState(null)
-  const pollRef = useRef(null)
+  const [aiProviders, setAiProviders] = useState([])
+  const [selectedAi, setSelectedAi] = useState('')
+  const [aiKey, setAiKey] = useState('')
+  const [savingAi, setSavingAi] = useState(false)
+  const onboardingBodyRef = useRef(null)
 
   const needsEmailStep = platforms.includes('linkedin_posts')
   const steps = [
     { n: 1, key: 'onb.step_cv' },
     { n: 2, key: 'onb.step_prefs' },
-    { n: 3, key: 'onb.step_cover' },
-    { n: 4, key: 'onb.step_platforms' },
-    ...(needsEmailStep ? [{ n: 5, key: 'onb.step_email' }] : []),
-    { n: 6, key: 'onb.step_login' },
+    { n: 3, key: 'onb.step_platforms' },
+    ...(needsEmailStep ? [{ n: 4, key: 'onb.step_email' }] : []),
+    { n: 5, key: 'onb.step_ai' },
+    { n: 6, key: 'onb.step_cover' },
   ]
-  const maxStep = needsEmailStep ? 6 : 6 // langkah 5 dilewati kalau tak perlu email
+  const finalStep = 6
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -77,12 +89,16 @@ export default function OnboardingWizard() {
       const d = res.data
       setCvId(d.cv_id)
       setCvs(d.cvs || [])
-      setPrefs((p) => ({ ...p, ...(d.preferences || {}) }))
+      const loadedPrefs = d.preferences || {}
+      setPrefs((p) => ({ ...p, ...loadedPrefs }))
+      setPreferredName(loadedPrefs.preferred_name || '')
+      setWelcomePhase(loadedPrefs.welcome_completed ? 'wizard' : (loadedPrefs.preferred_name ? 'hello' : 'name'))
       setCoverLetter(d.cover_letter || '')
       setPlatforms(d.platforms || [])
       setPlatformLogins(d.platform_logins || {})
       setEmailConnected(d.email_connected)
-      setStep(Math.min(d.current_step || 1, 6))
+      const savedStep = Number(d.current_step || 1)
+      setStep(savedStep >= 6 ? 6 : savedStep === 4 ? 3 : Math.min(savedStep, 5))
     } catch (e) {
       setError(t('onb.err_load'))
     } finally {
@@ -92,10 +108,21 @@ export default function OnboardingWizard() {
 
   useEffect(() => {
     load()
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [load])
 
-  // ── simpan progress ke DB pusat ──
+  useEffect(() => {
+    api.get('/ai_config').then((res) => {
+      const providers = res.data?.providers || []
+      setAiProviders(providers)
+      setSelectedAi(res.data?.active || providers.find(provider => provider.configured)?.key || providers[0]?.key || '')
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    onboardingBodyRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+  }, [step, loading, welcomePhase])
+
+  // ── simpan progress ke database lokal ──
   const save = async (stepNum, extra = {}) => {
     setSaving(true)
     try {
@@ -114,6 +141,27 @@ export default function OnboardingWizard() {
     }
   }
 
+  const rememberName = async () => {
+    const name = preferredName.trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!name) {
+      setError(t('onb.name_error'))
+      return
+    }
+    const nextPrefs = { ...prefs, preferred_name: name }
+    setPreferredName(name)
+    setPrefs(nextPrefs)
+    setError('')
+    await save(1, { preferences: nextPrefs })
+    setWelcomePhase('hello')
+  }
+
+  const beginSetup = async () => {
+    const nextPrefs = { ...prefs, preferred_name: preferredName, welcome_completed: true }
+    setPrefs(nextPrefs)
+    await save(1, { preferences: nextPrefs })
+    setWelcomePhase('wizard')
+  }
+
   const refreshLogins = async () => {
     try {
       const res = await api.get('/credentials/status')
@@ -121,8 +169,10 @@ export default function OnboardingWizard() {
       // format lama: { linkedin: { logged_in }, jobstreet: { logged_in } } — cek dua-duanya
       const li = d.linkedin?.logged_in ?? d.linkedin ?? false
       const js = d.jobstreet?.logged_in ?? d.jobstreet ?? false
-      setPlatformLogins({ linkedin: !!li, jobstreet: !!js })
-      return { linkedin: !!li, jobstreet: !!js }
+      const gl = d.glints?.logged_in ?? d.glints ?? false
+      const ind = d.indeed?.logged_in ?? d.indeed ?? false
+      setPlatformLogins({ linkedin: !!li, jobstreet: !!js, glints: !!gl, indeed: !!ind })
+      return { linkedin: !!li, jobstreet: !!js, glints: !!gl, indeed: !!ind }
     } catch (e) {
       return platformLogins
     }
@@ -135,8 +185,13 @@ export default function OnboardingWizard() {
       if (!prefs.positions.length) return t('onb.err_positions')
       if (!prefs.locations.length) return t('onb.err_locations')
     }
-    if (n === 3 && coverLetter.trim().length < 50) return t('onb.err_cover')
-    if (n === 4 && !platforms.length) return t('onb.err_platforms')
+    if (n === 3) {
+      if (!platforms.length) return t('onb.err_platforms')
+      const loginKeys = [...new Set(platforms.map(id => id.startsWith('linkedin_') ? 'linkedin' : id))]
+      if (loginKeys.some(key => !platformLogins[key])) return t('onb.err_login_required')
+    }
+    if (n === 5 && !aiProviders.some(provider => provider.configured)) return t('onb.err_ai_required')
+    if (n === 6 && coverLetter.trim().length < 50) return t('onb.err_cover')
     return ''
   }
 
@@ -145,31 +200,27 @@ export default function OnboardingWizard() {
     if (err) { setError(err); return }
     setError('')
     await save(step)
-    let target = step + 1
-    if (target === 5 && !needsEmailStep) target = 6
-    if (target === 6) {
-      await refreshLogins()
-    }
-    setStep(Math.min(target, 6))
+    const index = steps.findIndex(item => item.n === step)
+    setStep(steps[Math.min(index + 1, steps.length - 1)]?.n || finalStep)
   }
 
   const back = () => {
     setError('')
-    let target = step - 1
-    if (step === 6 && !needsEmailStep) target = 4
-    setStep(Math.max(target, 1))
+    const index = steps.findIndex(item => item.n === step)
+    setStep(steps[Math.max(index - 1, 0)]?.n || 1)
   }
 
   const finish = async () => {
     const logins = await refreshLogins()
-    if (!logins.linkedin && !logins.jobstreet) {
+    const selectedLoginKeys = [...new Set(platforms.map(id => id.startsWith('linkedin_') ? 'linkedin' : id))]
+    if (!selectedLoginKeys.length || selectedLoginKeys.some(key => !logins[key])) {
       setError(t('onb.err_login_required'))
       return
     }
     setFinishing(true)
     setError('')
     try {
-      await save(6)
+      await save(finalStep)
       const res = await api.post('/onboarding/complete')
       if (res.data?.ok) {
         // Tampilkan layar sukses dulu — store baru di-set saat user klik
@@ -194,7 +245,13 @@ export default function OnboardingWizard() {
     try {
       const res = await api.post('/cvs/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       const d = res.data
-      const newCv = { id: d.id, position_label: d.position_label || label, file_name: d.file_name || file.name }
+      const newCv = {
+        id: d.id,
+        position_label: d.position_label || label,
+        file_name: d.file_name || file.name,
+        has_text: Boolean(d.has_text),
+        cv_memory: d.cv_memory || {},
+      }
       setCvs((c) => [newCv, ...c])
       setCvId(d.id)
     } catch (e) {
@@ -205,26 +262,83 @@ export default function OnboardingWizard() {
     }
   }
 
+  const generateCoverLetterFromCv = async () => {
+    if (!cvId) {
+      setError(t('onb.err_cv'))
+      return
+    }
+    const positions = prefs.positions.map(position => position.trim()).filter(Boolean)
+    if (positions.length === 0) {
+      setError(t('onb.err_positions'))
+      return
+    }
+    setGeneratingCoverLetter(true)
+    setError('')
+    try {
+      const res = await api.post(`/cvs/${cvId}/generate-cover-letter-template`, { positions }, { timeout: 45000 })
+      if (!res.data?.ok || !res.data?.template) throw new Error(t('cari_kerja.gagal_generate_cover_ai'))
+      setCoverLetter(res.data.template)
+    } catch (e) {
+      const detail = e.code === 'ECONNABORTED'
+        ? (lang === 'id' ? 'AI terlalu lama merespons. Coba lagi atau pilih provider AI lain.' : 'AI took too long to respond. Try again or choose another AI provider.')
+        : (e.response?.data?.detail || e.message)
+      setError(detail || t('cari_kerja.gagal_generate_cover_ai'))
+    } finally {
+      setGeneratingCoverLetter(false)
+    }
+  }
+
+  const connectAiProvider = async () => {
+    const provider = aiProviders.find(item => item.key === selectedAi)
+    if (!provider) return
+    if (provider.configured) {
+      setSavingAi(true)
+      try {
+        await api.put('/ai_config/active', { provider: provider.key })
+        setAiProviders(current => current.map(item => ({ ...item })))
+      } catch (e) {
+        setError(e.response?.data?.detail || e.message)
+      } finally {
+        setSavingAi(false)
+      }
+      return
+    }
+    if (!aiKey.trim()) {
+      setError(lang === 'id' ? 'Masukkan API key provider yang kamu pilih.' : 'Enter the API key for your selected provider.')
+      return
+    }
+    setSavingAi(true)
+    setError('')
+    try {
+      await api.put(`/ai_config/${provider.key}/key`, { value: aiKey.trim() })
+      await api.put('/ai_config/active', { provider: provider.key })
+      const res = await api.get('/ai_config')
+      setAiProviders(res.data?.providers || [])
+      setSelectedAi(provider.key)
+      setAiKey('')
+    } catch (e) {
+      setError(e.response?.data?.detail || e.message)
+    } finally {
+      setSavingAi(false)
+    }
+  }
+
   // ── login job platform (capture session browser) ──
   const grabPlatform = async (platform) => {
     setGrabbingPlatform(platform)
     setError('')
     try {
-      await api.post(`/credentials/grab/${platform}`)
-      // browser terbuka di device — poll status sampai logged_in
-      if (pollRef.current) clearInterval(pollRef.current)
-      pollRef.current = setInterval(async () => {
-        const logins = await refreshLogins()
-        if (logins[platform]) {
-          clearInterval(pollRef.current)
-          pollRef.current = null
-          setGrabbingPlatform(null)
-        }
-      }, 2500)
+      const res = await api.post(`/credentials/grab/${platform}`)
+      if (!res.data?.logged_in) {
+        setError(res.data?.message || t('onb.err_grab'))
+        return
+      }
+      await refreshLogins()
     } catch (e) {
-      setGrabbingPlatform(null)
       const msg = e.response?.data?.detail
       setError(typeof msg === 'string' ? msg : t('onb.err_grab'))
+    } finally {
+      setGrabbingPlatform(null)
     }
   }
 
@@ -232,27 +346,69 @@ export default function OnboardingWizard() {
     setPlatforms((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
 
+  const connectPlatform = async (id) => {
+    const loginKey = id.startsWith('linkedin_') ? 'linkedin' : id
+    if (platforms.includes(id)) {
+      if (platformLogins[loginKey]) togglePlatform(id)
+      else await grabPlatform(loginKey)
+      return
+    }
+    setPlatforms(current => [...current, id])
+    if (!platformLogins[loginKey]) await grabPlatform(loginKey)
+  }
+
   if (onboarding.completed && step !== 7) return null
+
+  if (loading) {
+    return (
+      <main className="onboarding-shell">
+        <div className="onboarding-journey-card">
+          <Loader2 size={34} className="animate-spin" color="#F2661A" />
+          <p>{t('onb.loading')}</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (welcomePhase !== 'wizard') {
+    return (
+      <WarmWelcome
+        phase={welcomePhase}
+        name={preferredName}
+        setName={setPreferredName}
+        onRememberName={rememberName}
+        onNext={() => setWelcomePhase('intro')}
+        onBegin={beginSetup}
+        saving={saving}
+        error={error}
+        t={t}
+      />
+    )
+  }
 
   // ── layar sukses ──
   if (step === 7) {
+    const enterApp = (path) => {
+      window.history.replaceState({}, '', path)
+      setOnboarding({ completed: true, current_step: 7 })
+    }
     return (
-      <div className="sticker-overlay">
-        <div className="sticker-modal" role="dialog" aria-modal="true">
-          <div className="sticker-modal-header" style={{ textAlign: 'center', paddingBottom: 30 }}>
-            <span className="deco-glyph animate-float" style={{ top: 20, left: 28, color: 'rgba(242,102,26,0.6)', fontSize: 26 }}>✦</span>
-            <span className="deco-glyph animate-wiggle" style={{ bottom: 20, right: 30, color: 'rgba(244,242,236,0.25)', fontSize: 30 }}>✳</span>
-            <div style={{
-              width: 64, height: 64, margin: '4px auto 14px', background: '#F2661A',
+      <main className="onboarding-shell">
+        <section className="onboarding-page onboarding-complete" aria-labelledby="onboarding-complete-title">
+          <header className="onboarding-page-header">
+            <div className="onboarding-page-header-inner onboarding-complete-hero">
+            <div className="onboarding-complete-icon" style={{
+              width: 64, height: 64, margin: '0 auto 16px', background: '#F2661A',
               border: '2px solid rgba(244,242,236,0.35)', borderRadius: 16,
               display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
             }}>
               <PartyPopper size={30} strokeWidth={2} />
             </div>
-            <h2>{t('onb.done_title')}</h2>
+            <h2 id="onboarding-complete-title">{t('onb.done_title')}</h2>
             <p>{t('onb.done_sub')}</p>
-          </div>
-          <div className="sticker-modal-body" style={{ textAlign: 'center' }}>
+            </div>
+          </header>
+          <div className="onboarding-page-main onboarding-complete-main" style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', marginBottom: 6 }}>
               {[
                 { icon: FileText, text: t('onb.done_cv') },
@@ -267,61 +423,65 @@ export default function OnboardingWizard() {
                 </div>
               ))}
             </div>
+            <div className="notice notice-info" style={{ marginTop: 14, textAlign: 'left' }}>
+              <Sparkles size={17} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                <strong style={{ display: 'block', marginBottom: 3 }}>{t('onb.ai_title')}</strong>
+                {t('onb.ai_sub')}
+              </span>
+            </div>
+            <div className="onboarding-page-actions onboarding-complete-actions">
+              <button className="btn btn-primary btn-lg" onClick={() => enterApp('/ai')}>
+                <Sparkles size={17} /> {t('onb.ai_setup')}
+              </button>
+              <button className="btn btn-secondary btn-lg" onClick={() => enterApp('/kerja')}>
+                {t('onb.ai_skip')} <ArrowRight size={17} />
+              </button>
+            </div>
           </div>
-          <div className="sticker-modal-footer" style={{ justifyContent: 'center' }}>
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => setOnboarding({ completed: true, current_step: 7 })}
-            >
-              {t('onb.start_btn')} <ArrowRight size={17} />
-            </button>
-          </div>
-        </div>
-      </div>
+        </section>
+      </main>
     )
   }
 
   const stepInfo = steps.find((s) => s.n === step)
-  const progressPct = Math.round(((step - 1) / 5) * 100)
+  const visibleStepIndex = steps.findIndex((item) => item.n === step) + 1
+  const visibleStepTotal = steps.length
+  const progressPct = visibleStepTotal > 1 ? Math.round(((visibleStepIndex - 1) / (visibleStepTotal - 1)) * 100) : 100
 
   return (
-    <div className="sticker-overlay" style={{ background: 'rgba(20,22,26,0.35)' }}>
-      <div className="sticker-modal wide" role="dialog" aria-modal="true">
+    <main className="onboarding-shell">
+      <section className="onboarding-page" aria-labelledby="onboarding-step-title">
 
         {/* Header + progress */}
-        <div className="sticker-modal-header" style={{ paddingBottom: 20 }}>
-          <span className="deco-glyph" style={{ top: 14, right: 22, color: 'rgba(242,102,26,0.55)' }}>✦</span>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 34, height: 34, background: '#F2661A',
-                border: '2px solid rgba(244,242,236,0.35)', borderRadius: 9,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 900, fontSize: 18, letterSpacing: '-0.04em',
-              }}>O</div>
-              <div style={{ color: '#F4F2EC', fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>ORDAL</div>
+        <header className="onboarding-page-header">
+          <div className="onboarding-page-header-inner">
+            <div className="onboarding-page-brand" aria-label="ORDAL">
+              <div className="onboarding-page-logo">O</div>
             </div>
-            <div className="chip-sticker-dark" style={{ padding: '3px 12px', fontSize: 10.5 }}>
-              {t('onb.step_of', { n: step > 5 && !needsEmailStep ? 5 : steps.findIndex((s) => s.n === step) + 1, total: needsEmailStep ? 6 : 5 })}
+            <div className="onboarding-page-title-row">
+              <p>{lang === 'id' ? 'MISI PERSIAPAN' : 'SETUP MISSION'}</p>
+              <h2 id="onboarding-step-title">{stepInfo ? t(stepInfo.key) : ''}</h2>
             </div>
-          </div>
-          <h2 style={{ fontSize: 20 }}>{stepInfo ? t(stepInfo.key) : ''}</h2>
-          <div style={{ marginTop: 12 }}>
-            <div className="progress-determinate" style={{ background: 'rgba(244,242,236,0.25)', border: 'none' }}>
-              <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
+            <div className="onboarding-page-progress">
+              <div className="onboarding-step-count">
+                <span>{lang === 'id' ? 'TAHAP' : 'STAGE'}</span>
+                <strong>{visibleStepIndex}</strong>
+                <small>/ {visibleStepTotal}</small>
+              </div>
+              <div className="progress-determinate" aria-label={`${progressPct}%`}>
+                <div className="progress-determinate-fill" style={{ width: `${progressPct}%` }} />
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Body */}
-        <div className="sticker-modal-body" style={{ maxHeight: '56vh', overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '30px 0' }}>
-              <Loader2 size={32} className="animate-spin" color="#F2661A" style={{ margin: '0 auto 12px' }} />
-              <div style={{ color: '#6B6E76', fontSize: 13 }}>{t('onb.loading')}</div>
-            </div>
-          ) : (
+        <div className="onboarding-page-main">
+          <div ref={onboardingBodyRef} key={step} className="onboarding-page-body" data-step={step}>
             <>
+              {step !== 6 && <StageAnimation step={step} />}
+
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
                 <StepCv
@@ -337,79 +497,103 @@ export default function OnboardingWizard() {
               )}
 
               {/* ── LANGKAH 3: Cover letter ── */}
-              {step === 3 && (
-                <div>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowExample(true)}>
-                      <Eye size={14} /> {t('onb.view_example')}
-                    </button>
+              {step === 6 && (
+                <section className="cover-letter-stage">
+                  <div className="cover-letter-quest">
+                    <div className="cover-letter-quest-copy">
+                      <span className="cover-letter-mission-tag">{lang === 'id' ? 'MISI MENULIS' : 'WRITING MISSION'}</span>
+                      <h3>{lang === 'id' ? 'Buat surat lamaranmu' : 'Create your cover letter'}</h3>
+                      <p>
+                        {lang === 'id'
+                          ? 'Gunakan pengalaman nyata dari CV. ORDAL akan mengganti dua token ini untuk setiap lowongan.'
+                          : 'Use real experience from your CV. ORDAL replaces these two tokens for every vacancy.'}
+                      </p>
+                      <div className="cover-letter-token-row">
+                        <span>{'{company}'}</span>
+                        <span>{'{position}'}</span>
+                      </div>
+                      <div className="cover-letter-quest-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={generateCoverLetterFromCv}
+                          disabled={generatingCoverLetter || !cvId}
+                        >
+                          {generatingCoverLetter ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                          {generatingCoverLetter
+                            ? (lang === 'id' ? 'AI sedang menulis...' : 'AI is writing...')
+                            : (lang === 'id' ? 'Buat dari CV dengan AI' : 'Create from CV with AI')}
+                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowExample(value => !value)}>
+                          <Eye size={15} /> {showExample ? t('common.close') : t('onb.view_example')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="typewriter-scene" aria-hidden="true">
+                      <div className="mail-float"><Mail size={27} /></div>
+                      <div className="typewriter-paper">
+                        <span className="typed-line line-one" />
+                        <span className="typed-line line-two" />
+                        <span className="typed-line line-three" />
+                        <span className="type-cursor" />
+                      </div>
+                      <div className="typewriter-body">
+                        <div className="typewriter-slot" />
+                        <div className="typewriter-keys">
+                          {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="notice notice-info" style={{ marginBottom: 14 }}>
-                    <Sparkles size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ fontSize: 12.5 }}>
-                      {t('onb.cover_hint')} <b>{'{company}'}</b> & <b>{'{position}'}</b> {t('onb.cover_hint2')}
-                    </span>
+                  {showExample && (
+                    <section className="onboarding-inline-example" aria-label={t('cover.title')}>
+                      <div className="onboarding-inline-example-header">
+                        <div>
+                          <strong>{t('cover.title')}</strong>
+                          <p>{t('cover.sub')}</p>
+                        </div>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowExample(false)}>
+                          {t('common.close')}
+                        </button>
+                      </div>
+                      <pre>{COVER_LETTER_EXAMPLE}</pre>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => { setCoverLetter(COVER_LETTER_EXAMPLE); setShowExample(false) }}
+                      >
+                        <CheckCircle2 size={15} /> {t('cover.use_example')}
+                      </button>
+                    </section>
+                  )}
+                  <div className="cover-letter-workbench">
+                    <div className="cover-letter-workbench-bar">
+                      <div>
+                        <FileText size={16} />
+                        <strong>{lang === 'id' ? 'DRAF SURAT' : 'LETTER DRAFT'}</strong>
+                      </div>
+                      <span>{coverLetter.trim().length} {t('onb.chars')}</span>
+                    </div>
+                    <textarea
+                      className="textarea cover-letter-editor"
+                      placeholder={t('onb.cover_ph')}
+                      value={coverLetter}
+                      onChange={(e) => setCoverLetter(e.target.value)}
+                    />
                   </div>
-                  <textarea
-                    className="textarea"
-                    rows={9}
-                    style={{ fontSize: 13.5, lineHeight: 1.7 }}
-                    placeholder={t('onb.cover_ph')}
-                    value={coverLetter}
-                    onChange={(e) => setCoverLetter(e.target.value)}
-                  />
-                  <div style={{ fontSize: 11.5, color: '#6B6E76', marginTop: 6, textAlign: 'right' }}>
-                    {coverLetter.trim().length} {t('onb.chars')}
-                  </div>
-                </div>
+                </section>
               )}
 
-              {/* ── LANGKAH 4: Pilih platform ── */}
-              {step === 4 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {PLATFORM_CARDS.map((p) => {
-                    const active = platforms.includes(p.id)
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => togglePlatform(p.id)}
-                        className="card-flat"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                          textAlign: 'left', cursor: 'pointer',
-                          background: active ? '#FEF0E7' : '#FFFFFF',
-                          borderColor: active ? '#F2661A' : 'rgba(51,54,63,0.14)',
-                          boxShadow: active ? '3px 3px 0 rgba(242,102,26,0.55)' : 'none',
-                          transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                        }}
-                      >
-                        <div style={{
-                          width: 46, height: 46, borderRadius: 12, background: '#FFFFFF',
-                          border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0,
-                        }}>
-                          <PlatformLogo platformId={p.id} size={26} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>
-                            {t(`onb.platform_${p.id}`)}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#6B6E76', marginTop: 2, lineHeight: 1.45 }}>
-                            {t(`onb.platform_${p.id}_desc`)}
-                          </div>
-                        </div>
-                        <div style={{
-                          width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                          border: '2px solid ' + (active ? '#F2661A' : 'rgba(51,54,63,0.25)'),
-                          background: active ? '#F2661A' : 'transparent',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {active && <CheckCircle2 size={15} color="#fff" strokeWidth={3} />}
-                        </div>
-                      </button>
-                    )
-                  })}
+              {/* ── LANGKAH 4: Pilih sekaligus login platform ── */}
+              {step === 3 && (
+                <div className="onboarding-mission-content">
+                  <StepPlatformConnections
+                    t={t}
+                    platforms={platforms}
+                    platformLogins={platformLogins}
+                    grabbingPlatform={grabbingPlatform}
+                    onConnect={connectPlatform}
+                  />
                   {platforms.includes('linkedin_posts') && (
                     <div className="notice notice-info" style={{ marginTop: 2 }}>
                       <Mail size={15} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -420,15 +604,21 @@ export default function OnboardingWizard() {
               )}
 
               {/* ── LANGKAH 5: Hubungkan email (LinkedIn Posts) ── */}
-              {step === 5 && (
+              {step === 4 && (
                 <StepEmail t={t} emailConnected={emailConnected} setEmailConnected={setEmailConnected} setError={setError} />
               )}
 
-              {/* ── LANGKAH 6: Login job platform ── */}
-              {step === 6 && (
-                <StepPlatformLogin
-                  t={t} lang={lang} platformLogins={platformLogins}
-                  grabbingPlatform={grabbingPlatform} onGrab={grabPlatform}
+              {step === 5 && (
+                <StepAiConnection
+                  t={t}
+                  lang={lang}
+                  providers={aiProviders}
+                  selected={selectedAi}
+                  setSelected={setSelectedAi}
+                  apiKey={aiKey}
+                  setApiKey={setAiKey}
+                  saving={savingAi}
+                  onConnect={connectAiProvider}
                 />
               )}
 
@@ -439,15 +629,14 @@ export default function OnboardingWizard() {
                 </div>
               )}
             </>
-          )}
-        </div>
+          </div>
 
-        {/* Footer navigasi */}
-        <div className="sticker-modal-footer" style={{ justifyContent: 'space-between' }}>
+        {/* Navigasi menyatu dengan konten halaman */}
+        <div className="onboarding-page-actions">
           <button className="btn btn-secondary" onClick={back} disabled={step === 1 || loading}>
             <ArrowLeft size={15} /> {t('common.back')}
           </button>
-          {step < 6 ? (
+          {step < finalStep ? (
             <button className="btn btn-primary" onClick={next} disabled={loading || saving}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : null}
               {t('common.next')} <ArrowRight size={15} />
@@ -459,14 +648,200 @@ export default function OnboardingWizard() {
             </button>
           )}
         </div>
-      </div>
+        </div>
+      </section>
 
-      <CoverLetterExampleModal
-        open={showExample}
-        onClose={() => setShowExample(false)}
-        onUse={(text) => { setCoverLetter(text); setShowExample(false) }}
-      />
+    </main>
+  )
+}
+
+function StageAnimation({ step }) {
+  if (step === 1) {
+    return (
+      <div className="onboarding-topic-scene topic-cv-story" aria-hidden="true">
+        <div className="ats-upload-tray"><Upload size={20} /></div>
+        <div className="ats-document">
+          <div className="ats-document-head"><FileText size={17} /><strong>CV</strong><b>ATS 92</b></div>
+          <span className="ats-copy-line ats-copy-long" />
+          <span className="ats-copy-line ats-copy-medium" />
+          <span className="ats-copy-line ats-copy-short" />
+          <div className="ats-check-row"><i>✓</i><span /></div>
+          <div className="ats-check-row"><i>✓</i><span /></div>
+          <div className="ats-scan-line" />
+        </div>
+        <div className="ats-ready-badge"><CheckCircle2 size={16} /> ATS READY</div>
+        <span className="story-spark story-spark-one">✦</span>
+        <span className="story-spark story-spark-two">✦</span>
+      </div>
+    )
+  }
+  if (step === 2) {
+    return (
+      <div className="onboarding-topic-scene topic-commute-story" aria-hidden="true">
+        <div className="commute-sun" />
+        <div className="commute-cloud"><i /><i /><i /></div>
+        <div className="office-building">
+          <strong>WORK</strong>
+          {Array.from({ length: 6 }, (_, index) => <i key={index} />)}
+          <span className="office-door" />
+        </div>
+        <div className="commute-pin"><MapPin size={18} /></div>
+        <div className="walking-person">
+          <span className="person-head" />
+          <span className="person-body" />
+          <span className="person-arm" />
+          <span className="person-leg person-leg-one" />
+          <span className="person-leg person-leg-two" />
+          <span className="person-bag"><Briefcase size={15} /></span>
+        </div>
+        <div className="commute-road"><span /><span /><span /><span /></div>
+      </div>
+    )
+  }
+  if (step === 3) {
+    return (
+      <div className="onboarding-topic-scene topic-platform-story" aria-hidden="true">
+        <div className="platform-browser">
+          <div className="platform-browser-bar"><i /><i /><i /></div>
+          <div className="platform-job-card"><Briefcase size={14} /><span /><b>✓</b></div>
+          <div className="platform-job-card"><Briefcase size={14} /><span /><b>✓</b></div>
+        </div>
+        <div className="platform-flying-logo platform-linkedin"><LinkedInLogo size={25} /></div>
+        <div className="platform-flying-logo platform-jobstreet"><JobStreetLogo size={25} /></div>
+        <div className="platform-search-ring"><Globe size={22} /></div>
+      </div>
+    )
+  }
+  if (step === 4) {
+    return (
+      <div className="onboarding-topic-scene topic-email-story" aria-hidden="true">
+        <span className="email-speed email-speed-one" />
+        <span className="email-speed email-speed-two" />
+        <div className="flying-envelope"><Mail size={36} /></div>
+        <div className="security-gate"><ShieldCheck size={30} /><span /></div>
+        <div className="email-safe-dot"><CheckCircle2 size={17} /></div>
+      </div>
+    )
+  }
+  if (step === 5) {
+    return (
+      <div className="onboarding-topic-scene topic-login-story" aria-hidden="true">
+        <div className="login-browser">
+          <div className="login-browser-bar"><i /><i /><i /></div>
+          <div className="login-avatar"><Sparkles size={24} /></div>
+          <span className="login-field" />
+          <span className="login-field login-field-short" />
+          <span className="login-button"><Key size={13} /></span>
+        </div>
+        <div className="login-success"><CheckCircle2 size={24} /></div>
+        <span className="login-success-ring" />
+      </div>
+    )
+  }
+  return (
+    <div className="onboarding-topic-scene topic-login-story" aria-hidden="true">
+      <div className="login-browser">
+        <div className="login-browser-bar"><i /><i /><i /></div>
+        <div className="login-avatar"><UserRound size={24} /></div>
+        <span className="login-field" />
+        <span className="login-field login-field-short" />
+        <span className="login-button"><ExternalLink size={13} /></span>
+      </div>
+      <div className="login-success"><CheckCircle2 size={24} /></div>
+      <span className="login-success-ring" />
     </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Sambutan awal — full-screen, bukan modal.
+// ═════════════════════════════════════════════════════════════════════════════
+
+function WarmWelcome({ phase, name, setName, onRememberName, onNext, onBegin, saving, error, t }) {
+  const content = {
+    name: {
+      icon: UserRound,
+      kicker: t('onb.name_kicker'),
+      title: t('onb.name_title'),
+      sub: t('onb.name_sub'),
+      cta: t('onb.name_cta'),
+    },
+    hello: {
+      icon: Sparkles,
+      kicker: t('onb.hello_kicker'),
+      title: t('onb.hello_title', { name }),
+      sub: t('onb.hello_sub'),
+      cta: t('onb.hello_cta'),
+    },
+    intro: {
+      icon: Compass,
+      kicker: t('onb.intro_kicker'),
+      title: t('onb.intro_title'),
+      sub: t('onb.intro_sub'),
+      cta: t('onb.lets_begin'),
+    },
+  }[phase]
+  const Icon = content.icon
+
+  return (
+    <main className="onboarding-shell onboarding-welcome">
+      <section key={phase} className={`onboarding-journey-card welcome-phase-${phase}`} aria-labelledby="welcome-journey-title" aria-live="polite">
+        <div className="onboarding-orbit" aria-hidden="true">✦</div>
+        <div className="onboarding-welcome-steps" aria-label="Welcome progress">
+          {['name', 'hello', 'intro'].map((item) => (
+            <span key={item} className={item === phase ? 'active' : ''} />
+          ))}
+        </div>
+        <div className="onboarding-hero-icon"><Icon size={34} strokeWidth={2.1} /></div>
+        <div className="onboarding-kicker">{content.kicker}</div>
+        <h1 id="welcome-journey-title">{content.title}</h1>
+        <p className="onboarding-lead">{content.sub}</p>
+
+        {phase === 'name' && (
+          <div className="onboarding-name-form">
+            <label className="input-label" htmlFor="preferred-name">{t('onb.name_label')}</label>
+            <input
+              id="preferred-name"
+              className="input onboarding-name-input"
+              autoFocus
+              maxLength={60}
+              placeholder={t('onb.name_ph')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onRememberName() }}
+            />
+          </div>
+        )}
+
+        {phase === 'intro' && (
+          <div className="onboarding-promise-grid">
+            {[
+              [FileText, t('onb.intro_cv')],
+              [Briefcase, t('onb.intro_prefs')],
+              [ShieldCheck, t('onb.intro_questions')],
+            ].map(([ItemIcon, text]) => (
+              <div className="onboarding-promise" key={text}>
+                <ItemIcon size={20} />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {error && <div className="notice notice-error"><AlertCircle size={15} /> {error}</div>}
+
+        <button
+          type="button"
+          className="btn btn-primary btn-lg onboarding-journey-next"
+          disabled={saving}
+          onClick={phase === 'name' ? onRememberName : phase === 'hello' ? onNext : onBegin}
+        >
+          {saving && <Loader2 size={16} className="animate-spin" />}
+          {content.cta}
+          <ArrowRight size={17} />
+        </button>
+      </section>
+    </main>
   )
 }
 
@@ -478,6 +853,7 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
   const [label, setLabel] = useState(positionLabel || '')
   const fileRef = useRef(null)
   const [fileName, setFileName] = useState('')
+  const activeCv = cvs.find((cv) => cv.id === cvId)
 
   const pick = () => fileRef.current?.click()
 
@@ -490,7 +866,16 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
   }
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-cv-mission">
+      <div className="ats-guide" style={{ marginBottom: 18 }}>
+        <div className="ats-guide-icon"><ShieldCheck size={21} /></div>
+        <div>
+          <strong>{t('onb.cv_ats_title')}</strong>
+          <p>{t('onb.cv_ats_desc')}</p>
+          <small><Sparkles size={13} /> {t('onb.cv_ai_tip')}</small>
+        </div>
+      </div>
+
       {/* Dropzone */}
       <div
         className="card-flat"
@@ -567,6 +952,13 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
           </div>
         </div>
       )}
+
+      {activeCv?.has_text ? (
+        <div className="notice notice-success" style={{ marginTop: 14 }}>
+          <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+          <span>{t('onb.cv_read_ok')}</span>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -591,12 +983,15 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
   const up = (k, v) => setPrefs((p) => ({ ...p, [k]: v }))
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-preferences-mission">
       <Field icon={Briefcase} label={t('onb.f_positions')}>
         <ChipsInput
           value={prefs.positions}
           onChange={(v) => up('positions', v)}
           placeholder={t('onb.f_positions_ph')}
+          helper={t('onb.f_positions_help')}
+          savedLabel={t('onb.f_saved_values')}
+          clearLabel={t('common.clear_all')}
         />
       </Field>
 
@@ -605,6 +1000,9 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           value={prefs.locations}
           onChange={(v) => up('locations', v)}
           placeholder={t('onb.f_locations_ph')}
+          helper={t('onb.f_locations_help')}
+          savedLabel={t('onb.f_saved_values')}
+          clearLabel={t('common.clear_all')}
         />
       </Field>
 
@@ -618,15 +1016,18 @@ function StepPrefs({ t, lang, prefs, setPrefs }) {
           />
         </Field>
         <Field icon={CalendarClock} label={t('onb.f_join')}>
-          <select
-            className="select"
-            value={prefs.available_join}
-            onChange={(e) => up('available_join', e.target.value)}
-          >
-            {JOIN_OPTIONS.map((j) => (
-              <option key={j} value={j}>{t(`onb.join_${j}`)}</option>
-            ))}
-          </select>
+          <div className="select-sticker-wrap">
+            <select
+              className="select select-sticker"
+              value={prefs.available_join}
+              onChange={(e) => up('available_join', e.target.value)}
+            >
+              {JOIN_OPTIONS.map((j) => (
+                <option key={j} value={j}>{t(`onb.join_${j}`)}</option>
+              ))}
+            </select>
+            <ChevronDown size={18} strokeWidth={3} />
+          </div>
         </Field>
       </div>
 
@@ -716,7 +1117,7 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
 
   if (emailConnected) {
     return (
-      <div style={{ textAlign: 'center', padding: '14px 0' }}>
+      <div className="onboarding-mission-content" style={{ textAlign: 'center', padding: '14px 0' }}>
         <CheckCircle2 size={44} color="#1E9E3E" style={{ margin: '0 auto 12px' }} strokeWidth={2} />
         <div style={{ fontWeight: 800, fontSize: 15, color: '#33363F', marginBottom: 4 }}>{t('onb.email_ok')}</div>
         <p style={{ fontSize: 13, color: '#6B6E76', margin: 0 }}>{t('onb.email_ok_sub')}</p>
@@ -725,7 +1126,7 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
   }
 
   return (
-    <div>
+    <div className="onboarding-mission-content onboarding-email-mission">
       <div className="notice notice-info" style={{ marginBottom: 16 }}>
         <Mail size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>{t('onb.email_note')}</span>
@@ -768,76 +1169,114 @@ function StepEmail({ t, emailConnected, setEmailConnected, setError }) {
   )
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Langkah 6 — Login job platform (wajib minimal satu, lainnya bisa di-skip)
-// ═════════════════════════════════════════════════════════════════════════════
-
-function LoginCard({ t, platform, name, loggedIn, grabbing, onGrab, children }) {
+function StepPlatformConnections({ t, platforms, platformLogins, grabbingPlatform, onConnect }) {
   return (
-    <div className="card-flat" style={{
-      padding: '16px 18px',
-      background: loggedIn ? '#E9F7EC' : '#FFFFFF',
-      borderColor: loggedIn ? 'rgba(30,158,62,0.6)' : 'rgba(51,54,63,0.14)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 12, background: '#fff',
-          border: '2px solid #33363F', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          {platform === 'jobstreet' ? <JobStreetLogo size={28} /> : <LinkedInLogo size={26} />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 800, fontSize: 14.5, color: '#33363F' }}>{name}</span>
-            {loggedIn
-              ? <span className="badge badge-success">{t('onb.logged_in')}</span>
-              : <span className="badge badge-muted">{t('onb.not_logged_in')}</span>}
-          </div>
-          <div style={{ fontSize: 12, color: '#6B6E76', marginTop: 3, lineHeight: 1.45 }}>
-            {children}
-          </div>
-        </div>
-        {!loggedIn && (
-          <button className="btn btn-primary btn-sm" onClick={() => onGrab(platform)} disabled={!!grabbing}>
-            {grabbing === platform ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
-            {grabbing === platform ? t('onb.waiting_login') : t('onb.login_btn')}
-          </button>
-        )}
-      </div>
-      {grabbing === platform && (
-        <div className="notice notice-info" style={{ marginTop: 12, marginBottom: 0 }}>
-          <Loader2 size={14} className="animate-spin" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 12.5 }}>{t('onb.grab_hint')}</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StepPlatformLogin({ t, lang, platformLogins, grabbingPlatform, onGrab }) {
-  return (
-    <div>
+    <div className="onboarding-platform-connections">
       <div className="notice notice-info" style={{ marginBottom: 14 }}>
         <Globe size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span style={{ fontSize: 12.5 }}>{t('onb.login_required_note')}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <LoginCard
-          t={t} platform="jobstreet" name="JobStreet"
-          loggedIn={platformLogins.jobstreet}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_jobstreet_desc')}
-        </LoginCard>
-        <LoginCard
-          t={t} platform="linkedin" name="LinkedIn"
-          loggedIn={platformLogins.linkedin}
-          grabbing={grabbingPlatform} onGrab={onGrab}
-        >
-          {t('onb.login_linkedin_desc')}
-        </LoginCard>
+      <div className="onboarding-provider-grid">
+        {PLATFORM_CARDS.map(platform => {
+          const loginKey = platform.id.startsWith('linkedin_') ? 'linkedin' : platform.id
+          const selected = platforms.includes(platform.id)
+          const connected = Boolean(platformLogins[loginKey])
+          const connecting = grabbingPlatform === loginKey
+          return (
+            <button
+              key={platform.id}
+              type="button"
+              className="onboarding-provider-card"
+              data-selected={selected ? 'true' : 'false'}
+              data-connected={connected ? 'true' : 'false'}
+              onClick={() => onConnect(platform.id)}
+              disabled={Boolean(grabbingPlatform) && !connecting}
+            >
+              <span className="onboarding-provider-logo"><PlatformLogo platformId={platform.id} size={30} /></span>
+              <span className="onboarding-provider-copy">
+                <strong>{t(`onb.platform_${platform.id}`)}</strong>
+                {connected && (
+                  <small className="provider-connected-status">
+                    <span className="connection-light is-online" /> {t('onb.logged_in')}
+                  </small>
+                )}
+                {connecting && <small>{t('onb.waiting_login')}</small>}
+              </span>
+              {connecting && <Loader2 size={16} className="animate-spin" />}
+            </button>
+          )
+        })}
       </div>
+      <p className="onboarding-coming-soon">{t('onb.platforms_coming_soon')}</p>
+    </div>
+  )
+}
+
+function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, setApiKey, saving, onConnect }) {
+  const provider = providers.find(item => item.key === selected) || providers[0]
+  return (
+    <div className="onboarding-mission-content onboarding-ai-connect">
+      <div className="notice notice-info" style={{ marginBottom: 14 }}>
+        <Sparkles size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span style={{ fontSize: 12.5 }}>
+          {lang === 'id' ? 'Pilih satu AI. Kamu tidak perlu menghubungkan semuanya.' : 'Choose one AI. You do not need to connect every provider.'}
+        </span>
+      </div>
+      <div className="onboarding-provider-grid">
+        {providers.map(item => {
+          const connected = Boolean(item.configured)
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="onboarding-provider-card"
+              data-selected={item.key === provider?.key ? 'true' : 'false'}
+              onClick={() => { setSelected(item.key); setApiKey('') }}
+            >
+              <span className="onboarding-provider-logo"><ProviderLogo providerKey={item.key} size={28} /></span>
+              <span className="onboarding-provider-copy">
+                <strong>{item.label}</strong>
+                <small>{PROVIDER_GUIDES[item.key]?.cost?.[lang] || item.model}</small>
+                {connected && (
+                  <small className="provider-connected-status">
+                    <span className="connection-light is-online" /> {lang === 'id' ? 'Terhubung' : 'Connected'}
+                  </small>
+                )}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {provider && (
+        <div className="onboarding-ai-key-panel">
+          <div>
+            <strong>{provider.label}</strong>
+            <p>{PROVIDER_GUIDES[provider.key]?.description?.[lang] || provider.description}</p>
+          </div>
+          {!provider.configured && (
+            <input
+              className="input"
+              type="password"
+              value={apiKey}
+              onChange={event => setApiKey(event.target.value)}
+              placeholder={provider.api_key_label || 'API key'}
+              autoComplete="off"
+            />
+          )}
+          <div className="onboarding-ai-key-actions">
+            {provider.api_key_link && !provider.configured && (
+              <a className="btn btn-secondary" href={provider.api_key_link} target="_blank" rel="noreferrer">
+                <ExternalLink size={14} /> {lang === 'id' ? 'Dapatkan API key' : 'Get API key'}
+              </a>
+            )}
+            <button className="btn btn-primary" type="button" onClick={onConnect} disabled={saving}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : provider.configured ? <CheckCircle2 size={15} /> : <Save size={15} />}
+              {provider.configured ? (lang === 'id' ? 'Gunakan AI ini' : 'Use this AI') : (lang === 'id' ? 'Simpan dan hubungkan' : 'Save and connect')}
+            </button>
+          </div>
+          <div className="onboarding-ai-local-note"><Key size={13} /> {lang === 'id' ? 'API key dienkripsi dan disimpan lokal di perangkat ini.' : 'API key is encrypted and stored locally on this device.'}</div>
+        </div>
+      )}
     </div>
   )
 }

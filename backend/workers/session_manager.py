@@ -404,7 +404,9 @@ class SessionManager:
         linkedin_targets      = [t for t in targets if t["platform"] in ("linkedin", "both", "all")]
         linkedin_post_targets = [t for t in targets if t["platform"] in ("linkedin_posts", "all")]
         jobstreet_targets     = [t for t in targets if t["platform"] in ("jobstreet", "both", "all")]
-        _log(f"session={session_id} source={source} LI:{len(linkedin_targets)} LIP:{len(linkedin_post_targets)} JS:{len(jobstreet_targets)}")
+        glints_targets        = [t for t in targets if t["platform"] in ("glints", "all")]
+        indeed_targets        = [t for t in targets if t["platform"] in ("indeed", "all")]
+        _log(f"session={session_id} source={source} LI:{len(linkedin_targets)} LIP:{len(linkedin_post_targets)} JS:{len(jobstreet_targets)} GL:{len(glints_targets)} IN:{len(indeed_targets)}")
 
         stop_flag = self._stop_flags.get(user_id, threading.Event())
         should_stop = lambda: self.session_should_stop(session_id, stop_flag)
@@ -608,6 +610,20 @@ class SessionManager:
                             pass
                         self._put_threadsafe(user_id, {"type": "error", "platform": "jobstreet", "message": f"JobStreetBot: {e}"}, main_loop)
                 bot_tasks.append(_run_jobstreet())
+
+            if glints_targets and not stop_flag.is_set():
+                async def _run_glints():
+                    from workers.glints_bot import GlintsBot
+                    bot = GlintsBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                    await bot.run(glints_targets)
+                bot_tasks.append(_run_glints())
+
+            if indeed_targets and not stop_flag.is_set():
+                async def _run_indeed():
+                    from workers.indeed_bot import IndeedBot
+                    bot = IndeedBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                    await bot.run(indeed_targets)
+                bot_tasks.append(_run_indeed())
 
             # Jalankan semua bot paralel. Kalau salah satu crash, yang lain
             # tetap jalan (return_exceptions=True supaya exception di satu bot

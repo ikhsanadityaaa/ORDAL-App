@@ -1,7 +1,10 @@
 import asyncio
+import hashlib
+import logging
 import os
 import sys
 import threading
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from playwright.async_api import TimeoutError as PlaywrightTimeout
@@ -11,21 +14,20 @@ from auth_utils import get_current_user
 from database import get_db, get_data_dir
 
 router = APIRouter()
+log = logging.getLogger("ordal-credentials")
 
 # v42: Pakai get_data_dir() single source of truth dari database.py.
 COOKIES_DIR = os.path.join(get_data_dir(), "cookies")
 os.makedirs(COOKIES_DIR, exist_ok=True)
 
 LOGIN_TIMEOUT_MS = int(os.getenv("LOGIN_TIMEOUT_MS", "300000"))
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
-)
-
-
 def cookies_path(user_id: str, platform_name: str) -> str:
     return os.path.join(COOKIES_DIR, f"{user_id}_{platform_name}.json")
+
+
+def browser_profile_path(user_id: str) -> str:
+    profile_id = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:20]
+    return os.path.join(get_data_dir(), "browser-profiles", profile_id)
 
 
 def save_credential_marker(user_id: str, platform_name: str, method: str):
@@ -144,6 +146,34 @@ PLATFORM_CONFIG = {
         "logged_in_selectors": [],
         "login_form_selectors": [],
     },
+    "glints": {
+        "label": "Glints",
+        "login_url": "https://glints.com/id/login",
+        "check_url": "https://glints.com/id/opportunities/jobs/explore",
+        "protected_url": "https://glints.com/id/profile",
+        "cookie_urls": ["https://glints.com", "https://www.glints.com"],
+        "key_cookies": [],
+        "invalid_url_parts": ["/login", "/signup", "/register"],
+        "logged_in_selectors": [
+            "a[href*='/profile']", "button[aria-label*='profile' i]",
+            "img[alt*='profile' i]", "[data-testid*='profile' i]",
+        ],
+        "login_form_selectors": ["input[type='email']", "input[type='password']"],
+    },
+    "indeed": {
+        "label": "Indeed",
+        "login_url": "https://secure.indeed.com/auth",
+        "check_url": "https://id.indeed.com/",
+        "protected_url": "https://profile.indeed.com/",
+        "cookie_urls": ["https://indeed.com", "https://id.indeed.com", "https://secure.indeed.com"],
+        "key_cookies": [],
+        "invalid_url_parts": ["/auth", "/account/login"],
+        "logged_in_selectors": [
+            "a[href*='profile.indeed.com']", "a[href*='/account']",
+            "button[aria-label*='account' i]", "[data-testid*='account' i]",
+        ],
+        "login_form_selectors": ["input[type='email']", "input[type='password']"],
+    },
 }
 
 
@@ -194,7 +224,7 @@ async def _run_grab(platform_name: str, user_id: str):
     3. Tambah retry untuk page.goto kalau timeout (network lambat di Mac).
     4. Cek page.url validity sebelum akses (page bisa closed di tengah loop).
     """
-    from workers.browser_launcher import launch_browser
+    from workers.browser_launcher import launch_persistent_login_context
 
     cfg = PLATFORM_CONFIG[platform_name]
     state_path = cookies_path(user_id, platform_name)
@@ -202,29 +232,26 @@ async def _run_grab(platform_name: str, user_id: str):
     logged_in    = False
     cookie_count = 0
     cookie_names_seen: list[str] = []
-    browser = None
+    context = None
     _iteration = 0  # v30: counter untuk periodic check
 
     try:
         async with async_playwright() as p:
-            # v14: pakai launch_browser() bukan p.chromium.launch langsung
-            # supaya Mac launch args (v12) dipakai → lebih cepat & stabil.
-            browser = await launch_browser(p, headless=False)
-
-            context_kwargs = {"user_agent": USER_AGENT}
-            # v27: JANGAN load storage_state lama — mulai dari clean state.
-            # Sebelumnya, storage_state lama (yang mungkin expired/false positive)
-            # di-load → cookies lama bikin has_key True → false positive.
-            # Sekarang: selalu mulai fresh. Kalau user login, session baru
-            # akan di-save.
+            # Profil khusus ORDAL menyimpan akun Google dan session job platform
+            # antar pembukaan tanpa menyentuh profil Chrome utama user.
+            context = await launch_persistent_login_context(
+                p,
+                browser_profile_path(user_id),
+            )
+            # File state bot dibuat ulang setelah login terkonfirmasi. Profil
+            # browser tetap persisten agar akun Google tidak hilang.
             if os.path.exists(state_path):
                 try:
                     os.remove(state_path)
                 except Exception:
                     pass
 
-            context = await browser.new_context(**context_kwargs)
-            page    = await context.new_page()
+            page = context.pages[0] if context.pages else await context.new_page()
 
             # Goto login_url dengan retry (Mac network kadang lambat)
             goto_ok = False
@@ -272,27 +299,16 @@ async def _run_grab(platform_name: str, user_id: str):
                 except Exception:
                     break
 
-                # v25: Handle popup/tab baru (mis. Facebook login popup dari JobStreet).
-                # JobStreet punya "Sign in with Facebook" yang buka tab baru.
-                # Tab baru ini bisa ganggu detection. Tutup semua tab selain page utama.
-                try:
-                    all_pages = context.pages
-                    for extra_page in all_pages:
-                        if extra_page != page:
-                            try:
-                                await extra_page.close()
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
+                # Popup OAuth harus tetap terbuka. Menutup semua tab tambahan di
+                # sini sebelumnya ikut menutup Google sesaat setelah tombol diklik.
 
-                # v25: Pastikan page utama masih aktif. Kalau page di-close
-                # (mis. user close tab utama), gunakan page pertama yang tersisa.
+                # Pastikan halaman platform masih aktif setelah popup OAuth selesai.
                 try:
                     _ = page.url
                 except Exception:
                     try:
-                        page = context.pages[0] if context.pages else page
+                        live_pages = [candidate for candidate in context.pages if not candidate.is_closed()]
+                        page = live_pages[0] if live_pages else page
                     except Exception:
                         break
 
@@ -353,6 +369,7 @@ async def _run_grab(platform_name: str, user_id: str):
 
                 is_linkedin = (platform_name == "linkedin")
                 is_jobstreet = (platform_name == "jobstreet")
+                is_ui_detected_platform = platform_name in ("glints", "indeed")
 
                 if is_linkedin:
                     # LinkedIn: cek protected URL kalau ada signal login
@@ -449,6 +466,10 @@ async def _run_grab(platform_name: str, user_id: str):
                         except Exception:
                             pass
 
+                elif is_ui_detected_platform and has_ui and not is_invalid:
+                    logged_in = True
+                    break
+
             if logged_in:
                 # v34 Patch 4: perlindungan terakhir — jangan save storage_state
                 # kalau logged_in somehow False (race condition, dll).
@@ -467,9 +488,9 @@ async def _run_grab(platform_name: str, user_id: str):
         raise RuntimeError(f"Gagal capture session {cfg['label']}: {e}")
     finally:
         # v14: pastikan browser di-close walau ada exception
-        if browser:
+        if context:
             try:
-                await browser.close()
+                await context.close()
             except Exception:
                 pass
 
@@ -515,6 +536,8 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
 
     cfg = PLATFORM_CONFIG[platform_name]
 
+    request_started_at = time.time()
+
     # Jalankan di thread terpisah dengan ProactorEventLoop (Windows fix)
     loop   = asyncio.get_running_loop()
     result = await loop.run_in_executor(
@@ -523,6 +546,21 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
 
     if result["error"]:
         err_msg = result["error"]
+        state_path = cookies_path(user["id"], platform_name)
+        state_saved_during_login = (
+            os.path.exists(state_path)
+            and os.path.getmtime(state_path) >= request_started_at - 2
+        )
+        if state_saved_during_login:
+            log.warning("Browser cleanup gagal setelah session %s tersimpan: %s", platform_name, err_msg)
+            save_credential_marker(user["id"], platform_name, "playwright_session")
+            return {
+                "success": True,
+                "logged_in": True,
+                "message": f"Session {cfg['label']} berhasil disimpan.",
+            }
+
+        log.error("Login browser %s gagal: %s", platform_name, err_msg)
         # v15: deteksi error network dan return pesan user-friendly (bukan 500).
         # Sebelumnya, semua error return 500 "Gagal membuka browser login: ..."
         # yang teknis dan menakutkan user. Sekarang:
@@ -539,10 +577,7 @@ async def grab_cookies(platform_name: str, user=Depends(get_current_user)):
                 "error_type": "internet_disconnected",
             }
         # Error lain (browser crash, dll) — return sebagai HTTPException
-        raise HTTPException(
-            status_code=500,
-            detail=f"Gagal membuka browser login: {err_msg}",
-        )
+        raise HTTPException(status_code=500, detail=f"Login {cfg['label']} gagal: {err_msg}")
 
     if not result["logged_in"]:
         return {

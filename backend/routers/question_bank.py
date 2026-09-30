@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -7,6 +9,27 @@ from workers.answer_helper import normalize_question
 from workers.session_manager import session_manager
 
 router = APIRouter()
+VALID_FIELD_TYPES = {"", "text", "textarea", "number", "yes_no", "checkbox", "dropdown", "select", "choice", "radio"}
+
+
+def _question_options(question: str) -> list[str]:
+    match = re.search(r"options?\s*:\s*([\s\S]+)$", question or "", re.I)
+    if not match:
+        return []
+    return [item.strip() for item in re.split(r"[;,]\s*|\n+", match.group(1)) if item.strip()]
+
+
+def _validate_typed_answer(question: str, answer: str, field_type: str) -> None:
+    normalized_type = (field_type or "").strip().lower()
+    if normalized_type not in VALID_FIELD_TYPES:
+        raise HTTPException(status_code=400, detail="Tipe jawaban tidak dikenal")
+    options = _question_options(question)
+    if options and not any(answer.casefold() == option.casefold() for option in options):
+        raise HTTPException(status_code=400, detail="Jawaban harus dipilih dari opsi dropdown")
+    if normalized_type == "number" and not re.fullmatch(r"-?\d+(?:[.,]\d+)?", answer):
+        raise HTTPException(status_code=400, detail="Jawaban untuk field number harus berupa angka")
+    if normalized_type in {"yes_no", "checkbox"} and answer.casefold() not in {"yes", "no", "ya", "tidak"}:
+        raise HTTPException(status_code=400, detail="Jawaban harus Yes atau No")
 
 
 class QuestionUpdate(BaseModel):
@@ -43,6 +66,7 @@ def create_question(body: QuestionUpdate, user=Depends(get_current_user)):
     platform = (body.platform or "").strip()
     if not question or not answer:
         raise HTTPException(status_code=400, detail="Pertanyaan dan jawaban wajib diisi")
+    _validate_typed_answer(question, answer, body.field_type)
     normalized = normalize_question(question)
     db = get_db()
     cur = db.execute(
@@ -91,6 +115,7 @@ def update_question(question_id: int, body: QuestionUpdate, user=Depends(get_cur
     if not row:
         db.close()
         raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
+    _validate_typed_answer(body.question or row["question"], answer, body.field_type)
     db.execute(
         """
         UPDATE question_bank

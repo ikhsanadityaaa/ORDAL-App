@@ -29,17 +29,13 @@ if not FRONTEND_DIST.exists():
 
 datas = []
 
+ENV_FILE = REPO_ROOT / "backend" / ".env"
+if ENV_FILE.exists():
+    raise SystemExit("Hapus backend/.env sebelum build. Secret produksi hanya boleh disimpan di Vercel.")
+
 # backend/ -> bundle/backend/  (source code mentah, dipakai lewat venv nyata)
 if BACKEND_DIR.exists():
     datas.append((str(BACKEND_DIR), "backend"))
-
-# v3.1.1: backend/.env -> bundle/backend/.env (konfigurasi DATABASE pusat).
-# Tanpa ini app tidak punya DATABASE URL dan akan menanyakannya via dialog
-# saat pertama dibuka (fallback launcher). Bundling membuat app langsung jalan.
-ENV_FILE = REPO_ROOT / "backend" / ".env"
-if ENV_FILE.exists():
-    datas.append((str(ENV_FILE), "backend"))
-    print("NOTE: backend/.env di-bundle ke ORDAL.exe (pastikan isinya konfigurasi production, bukan dev)")
 
 # frontend/dist/ -> bundle/frontend/dist/
 if FRONTEND_DIST.exists():

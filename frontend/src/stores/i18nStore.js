@@ -4,7 +4,7 @@ import { create } from 'zustand'
 // i18n Store — Internationalization (Indonesia / English)
 // ─────────────────────────────────────────────────────────────────────────────
 // Sederhana: pakai object dictionary, bukan library berat seperti i18next.
-// Bahasa default: 'id' (Indonesia). Disimpan di localStorage supaya persist
+// Bahasa default: English. Disimpan di localStorage supaya persist
 // antar session.
 //
 // Cara pakai:
@@ -16,6 +16,7 @@ import { create } from 'zustand'
 // ditemukan, fallback ke key itu sendiri (supaya app tidak crash).
 
 const STORAGE_KEY = 'ordal_lang'
+const CONFIRMED_KEY = 'ordal_language_confirmed'
 
 function loadStoredLang() {
   try {
@@ -24,7 +25,15 @@ function loadStoredLang() {
   } catch (e) {
     // localStorage tidak tersedia (mis. SSR) — abaikan
   }
-  return 'id'  // default Indonesia — konsisten dengan ORDAL-Web
+  return 'en'
+}
+
+function hasStoredLang() {
+  try {
+    return localStorage.getItem(CONFIRMED_KEY) === '1'
+  } catch (e) {
+    return false
+  }
 }
 
 // ── Dictionary ─────────────────────────────────────────────────────────────
@@ -48,6 +57,10 @@ const TRANSLATIONS = {
   // ── Language switcher ────────────────────────────────────────────────
   'lang.label':              { id: 'Bahasa',                en: 'Language' },
   'lang.toggle_to_en':       { id: 'Switch to English',     en: 'Ganti ke Indonesia' },
+  'lang.choose_title':       { id: 'Pilih bahasa',          en: 'Choose your language' },
+  'lang.choose_sub':         { id: 'Mari mulai dengan bahasa yang paling nyaman untukmu. Kamu bisa mengubahnya lagi nanti.', en: 'Let’s begin in the language that feels most comfortable. You can change it later.' },
+  'lang.indonesian':         { id: 'Bahasa Indonesia',      en: 'Bahasa Indonesia' },
+  'lang.english':            { id: 'English',               en: 'English' },
 
   // ── Page: Cari Kerja ─────────────────────────────────────────────────
   'page.cari_kerja.title':         { id: 'Cari Kerja',           en: 'Find Jobs' },
@@ -101,13 +114,17 @@ const TRANSLATIONS = {
   // ── Page: AI ─────────────────────────────────────────────────────────
   'page.ai.title': { id: 'AI', en: 'AI' },
   'page.ai.desc': {
-    id: 'Pilih provider AI yang dipakai bot untuk menjawab pertanyaan form lamaran & menulis email ke recruiter. Set API key untuk provider yang ingin dipakai, lalu klik "Pakai" untuk mengaktifkan.',
-    en: 'Choose the AI provider the bot uses to answer application form questions & write recruiter emails. Set the API key for the provider you want, then click "Use" to activate.',
+    id: 'Pilih satu layanan AI untuk membantu menjawab formulir, membuat surat lamaran, dan menganalisis lowongan.',
+    en: 'Choose one AI service to help answer forms, write cover letters, and analyze jobs.',
   },
   'page.ai.no_key_title': { id: 'Belum ada API key yang di-set', en: 'No API key set yet' },
   'page.ai.no_key_desc': {
-    id: 'Pilih salah satu provider di bawah, dapatkan API key dari link yang tersedia, lalu simpan. Setelah itu, klik "Pakai" untuk mengaktifkan provider tersebut.',
-    en: 'Pick a provider below, get an API key from the link provided, then save. After that, click "Use" to activate that provider.',
+    id: 'Pilih satu layanan saja. Klik tombol pembuatan API key, salin key ke ORDAL, lalu pilih Simpan dan gunakan.',
+    en: 'Choose one service only. Open its API key page, paste the key into ORDAL, then choose Save and use.',
+  },
+  'page.ai.oauth_note': {
+    id: 'Kamu tidak perlu mengisi semuanya. Gemini punya free tier. Groq dan OpenRouter punya pilihan gratis terbatas. OpenAI dan Anthropic berbayar. Akses API berbeda dari login akun biasa.',
+    en: 'You do not need to configure every service. Gemini has a free tier. Groq and OpenRouter offer limited free options. OpenAI and Anthropic are paid. API access is separate from normal account sign-in.',
   },
   'page.ai.section_provider': { id: 'Provider AI', en: 'AI Provider' },
   'page.ai.section_provider_desc': {
@@ -192,7 +209,7 @@ const TRANSLATIONS = {
   'cari_kerja.pilih_cv':         { id: 'Pilih CV dulu',    en: 'Select a CV first' },
   'cari_kerja.isi_posisi':       { id: 'Isi minimal 1 posisi', en: 'Enter at least 1 position' },
   'cari_kerja.isi_lokasi':       { id: 'Isi minimal 1 lokasi', en: 'Enter at least 1 location' },
-  'cari_kerja.max_2_platform':   { id: 'Maksimal 2 platform, atau pilih Semua', en: 'Max 2 platforms, or select All' },
+  'cari_kerja.max_2_platform':   { id: 'Maksimal 4 platform, atau pilih Semua', en: 'Max 4 platforms, or select All' },
   'cari_kerja.testing_email':     { id: 'TESTING EMAIL',    en: 'TESTING EMAIL' },
   'cari_kerja.testing_on':       { id: 'LinkedIn Posts tetap mencari lowongan match, tapi email lamaran dikirim ke diri sendiri.', en: 'LinkedIn Posts still finds matching jobs, but application emails are sent to yourself.' },
   'cari_kerja.testing_off':      { id: 'Email lamaran LinkedIn Posts dikirim ke kontak recruiter normal.', en: 'LinkedIn Posts application emails are sent to the actual recruiter.' },
@@ -222,7 +239,7 @@ const TRANSLATIONS = {
   'cari_kerja.lokasi':           { id: 'LOKASI',           en: 'LOCATION' },
   'cari_kerja.platform':         { id: 'PLATFORM',         en: 'PLATFORM' },
   'cari_kerja.semua':            { id: 'Semua',             en: 'All' },
-  'cari_kerja.pilih':            { id: '— Pilih —',         en: '— Select —' },
+  'cari_kerja.pilih':            { id: 'Pilih',              en: 'Select' },
   'cari_kerja.secepatnya':       { id: 'Secepatnya',        en: 'Immediately' },
   'cari_kerja.1_minggu':         { id: '1 minggu',          en: '1 week' },
   'cari_kerja.1_month_notice':   { id: '1 month notice',   en: '1 month notice' },
@@ -257,7 +274,7 @@ const TRANSLATIONS = {
   'register.login_link':         { id: 'Sudah punya akun? Masuk', en: 'Already have an account? Login' },
 
   // ── Window title (synced via JS) ──────────────────────────────────────
-  'app.title':                    { id: 'ORDAL — Auto-Apply Kerja', en: 'ORDAL — Job Auto-Apply' },
+  'app.title':                    { id: 'ORDAL | Auto-Apply Kerja', en: 'ORDAL | Job Auto-Apply' },
 
   // ── CariKerja: extra strings (v43) ───────────────────────────────────
   'cari_kerja.headless_on_desc':  { id: 'Bot jalan diam saat sesi berikutnya.', en: 'Bot runs silently in the next session.' },
@@ -335,6 +352,11 @@ const TRANSLATIONS = {
   // ── KumpulanPertanyaan (v43) ──────────────────────────────────────────
   'pertanyaan.gagal_memuat':     { id: 'Gagal memuat pertanyaan', en: 'Failed to load questions' },
   'pertanyaan.qa_wajib':         { id: 'Pertanyaan dan jawaban wajib diisi', en: 'Question and answer are required' },
+  'pertanyaan.opsi_wajib':       { id: 'Isi minimal satu opsi untuk pertanyaan dropdown.', en: 'Add at least one option for a dropdown question.' },
+  'pertanyaan.jawaban_harus_opsi': { id: 'Jawaban dropdown harus dipilih dari opsi yang tersedia.', en: 'A dropdown answer must be selected from the available options.' },
+  'pertanyaan.opsi_ph':          { id: 'Opsi, pisahkan dengan koma atau baris baru', en: 'Options, separated by commas or new lines' },
+  'pertanyaan.pilih_jawaban':    { id: 'Pilih jawaban', en: 'Choose an answer' },
+  'pertanyaan.jawaban':          { id: 'Jawaban', en: 'Answer' },
   'pertanyaan.gagal_menyimpan': { id: 'Gagal menyimpan', en: 'Failed to save' },
   'pertanyaan.gagal_update':     { id: 'Gagal update', en: 'Failed to update' },
 
@@ -353,17 +375,21 @@ const TRANSLATIONS = {
   'common.close':     { id: 'Tutup',            en: 'Close' },
   'common.add':       { id: 'Tambah',           en: 'Add' },
   'common.remove':    { id: 'Hapus',            en: 'Remove' },
+  'common.clear_all': { id: 'Hapus semua',      en: 'Clear all' },
 
   // ═══ v3: AUTH — popup login (gaya web) ══════════════════════════════
   'auth.login_title':     { id: 'Masuk ke ORDAL',          en: 'Sign in to ORDAL' },
   'auth.login_sub':      { id: 'Satu akun untuk semua fitur auto-apply.', en: 'One account for all auto-apply features.' },
   'auth.register_title':  { id: 'Buat akun ORDAL',         en: 'Create your ORDAL account' },
-  'auth.register_sub':   { id: 'Gratis — mulai auto-apply sekarang.', en: 'Free — start auto-applying now.' },
+  'auth.register_sub':   { id: 'Gratis. Mulai auto-apply sekarang.', en: 'Free. Start auto-applying now.' },
   'auth.google_btn':     { id: 'Lanjut dengan Google',    en: 'Continue with Google' },
-  'auth.google_soon':    { id: 'Login Google belum dikonfigurasi. Isi GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET di backend/.env (OAuth Client tipe "Desktop app" dari Google Cloud Console), lalu jalankan ulang aplikasi.', en: 'Google login is not configured yet. Fill GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET in backend/.env (a "Desktop app" OAuth Client from Google Cloud Console), then restart the app.' },
+  'auth.google_soon':    { id: 'Login Google belum aktif di server ORDAL-Web. Hubungi admin ORDAL.', en: 'Google login is not enabled on the ORDAL-Web server. Contact the ORDAL administrator.' },
+  'auth.google_unreachable': { id: 'Server ORDAL tidak dapat dihubungi. Periksa koneksi internet lalu coba lagi.', en: 'The ORDAL server could not be reached. Check your internet connection and try again.' },
   'auth.google_waiting': { id: 'Menunggu login Google...', en: 'Waiting for Google login...' },
   'auth.google_waiting_sub': { id: 'Browser telah terbuka. Selesaikan login Google, lalu kembali ke aplikasi ini.', en: 'Your browser has opened. Complete Google sign-in, then return to this app.' },
   'auth.google_failed':  { id: 'Login Google gagal atau dibatalkan.', en: 'Google login failed or was cancelled.' },
+  'auth.google_timeout': { id: 'Waktu login Google habis. Silakan coba lagi.', en: 'Google sign-in timed out. Please try again.' },
+  'auth.browser_note':   { id: 'Chrome tidak wajib. Login dibuka aman di browser default kamu.', en: 'Chrome is not required. Sign-in opens safely in your default browser.' },
   'auth.or':             { id: 'atau', en: 'or' },
   'auth.name':           { id: 'Nama', en: 'Name' },
   'auth.name_ph':        { id: 'Aditya Pratama', en: 'Aditya Pratama' },
@@ -386,7 +412,7 @@ const TRANSLATIONS = {
   'verify.sub':          { id: 'Masukkan kode 6 digit yang kami kirim ke', en: 'Enter the 6-digit code we sent to' },
   'verify.expires_in':   { id: 'Kode berlaku', en: 'Code expires in' },
   'verify.dev_mode':     { id: 'Mode pengembangan', en: 'Development mode' },
-  'verify.dev_code':     { id: 'SMTP belum dikonfigurasi — kode verifikasi kamu:', en: 'SMTP not configured — your verification code:' },
+  'verify.dev_code':     { id: 'SMTP belum dikonfigurasi. Ini kode verifikasi kamu:', en: 'SMTP is not configured. Here is your verification code:' },
   'verify.dev_hint':     { id: 'Isi SMTP_USER & SMTP_APP_PASSWORD di backend/.env agar kode dikirim via email.', en: 'Set SMTP_USER & SMTP_APP_PASSWORD in backend/.env to send codes via email.' },
   'verify.btn':          { id: 'Verifikasi & Lanjut', en: 'Verify & continue' },
   'verify.not_received': { id: 'Tidak menerima kode?', en: "Didn't receive a code?" },
@@ -398,16 +424,16 @@ const TRANSLATIONS = {
   // ═══ v3: DEVICE (maks 2 — konsep WhatsApp) ═════════════════════════
   'device.limit_title':     { id: 'Batas Device Tercapai', en: 'Device Limit Reached' },
   'device.limit_msg':       { id: 'Akun ini sudah dipakai di 2 device. Keluarkan salah satu untuk lanjut.', en: 'This account is already used on 2 devices. Remove one to continue.' },
-  'device.limit_explain':   { id: 'Satu akun ORDAL maksimal bisa diakses dari 2 device — mirip konsep WhatsApp. Data kamu tersinkron otomatis di semua device.', en: 'One ORDAL account can be used on at most 2 devices — similar to WhatsApp. Your data syncs automatically across devices.' },
+  'device.limit_explain':   { id: 'Satu akun ORDAL maksimal bisa diakses dari 2 device, mirip konsep WhatsApp. Data kamu tersinkron otomatis di semua device.', en: 'One ORDAL account can be used on at most 2 devices, similar to WhatsApp. Your data syncs automatically across devices.' },
   'device.this_device':     { id: 'Device ini', en: 'This device' },
   'device.last_login':      { id: 'Login terakhir', en: 'Last login' },
   'device.remove':          { id: 'Keluarkan device ini', en: 'Remove this device' },
   'device.remove_btn':      { id: 'Keluarkan', en: 'Remove' },
   'device.remove_failed':   { id: 'Gagal mengeluarkan device.', en: 'Failed to remove device.' },
-  'device.slot_available':  { id: 'Slot device tersedia — kamu bisa login sekarang.', en: 'A device slot is now available — you can sign in now.' },
+  'device.slot_available':  { id: 'Slot device tersedia. Kamu bisa login sekarang.', en: 'A device slot is now available. You can sign in now.' },
   'device.back_login':      { id: 'Kembali ke Login', en: 'Back to sign in' },
   'device.retry_login':     { id: 'Coba Login Lagi', en: 'Try signing in again' },
-  'device.still_full':      { id: 'Masih penuh — keluarkan minimal satu device lain.', en: 'Still full — remove at least one other device.' },
+  'device.still_full':      { id: 'Masih penuh. Keluarkan minimal satu device lain.', en: 'Still full. Remove at least one other device.' },
   'device.manager_title':   { id: 'Kelola Device', en: 'Manage Devices' },
   'device.manager_sub':     { id: 'Device yang terhubung ke akunmu (maksimal 2).', en: 'Devices connected to your account (max 2).' },
   'device.slot_free':       { id: '1 slot device masih kosong', en: '1 device slot still free' },
@@ -420,41 +446,67 @@ const TRANSLATIONS = {
 
   // ═══ v3: WELCOME ═══════════════════════════════════════════════════
   'welcome.title': { id: 'Bantu kamu dapet kerja dengan', en: 'Land your next job with' },
-  'welcome.sub':   { id: 'Login dulu untuk melanjutkan — CV, preferensi, riwayat lamaran, dan bank pertanyaan kamu tersimpan aman di akunmu.', en: 'Sign in to continue — your CV, preferences, application history, and question bank are safely stored in your account.' },
+  'welcome.sub':   { id: 'Login dulu untuk melanjutkan. CV, preferensi, riwayat lamaran, dan bank pertanyaan kamu tersimpan aman di akunmu.', en: 'Sign in to continue. Your CV, preferences, application history, and question bank are safely stored in your account.' },
 
   // ═══ v3: ONBOARDING WIZARD ═════════════════════════════════════════
   'onb.step_cv':        { id: 'Upload CV', en: 'Upload your CV' },
   'onb.step_prefs':     { id: 'Preferensi Kerja', en: 'Job Preferences' },
   'onb.step_cover':     { id: 'Cover Letter', en: 'Cover Letter' },
-  'onb.step_platforms': { id: 'Pilih Job Platform', en: 'Choose Job Platforms' },
+  'onb.step_platforms': { id: 'Pilih dan Hubungkan Job Platform', en: 'Choose and Connect Job Platforms' },
+  'onb.step_ai':        { id: 'Hubungkan AI', en: 'Connect AI' },
   'onb.step_email':     { id: 'Hubungkan Email', en: 'Connect Email' },
   'onb.step_login':     { id: 'Login Job Platform', en: 'Sign in to Job Platforms' },
   'onb.step_of':        { id: 'Langkah {n} dari {total}', en: 'Step {n} of {total}' },
   'onb.loading':        { id: 'Memuat progres onboarding...', en: 'Loading onboarding progress...' },
+  'onb.name_kicker':    { id: 'KENALAN DULU', en: 'FIRST, A QUICK HELLO' },
+  'onb.name_title':     { id: 'Hai! Nama panggilan kamu siapa?', en: 'Hi! What should we call you?' },
+  'onb.name_sub':       { id: 'Biar nanti aku bisa menyapamu dengan nama yang kamu suka.', en: 'Tell us the name you’d like to hear around here.' },
+  'onb.name_label':     { id: 'Nama panggilan kamu', en: 'Your name' },
+  'onb.name_ph':        { id: 'Tulis di sini', en: 'Type it here' },
+  'onb.name_error':     { id: 'Namanya belum diisi, nih.', en: 'You haven’t told us your name yet.' },
+  'onb.name_cta':       { id: 'Lanjut', en: 'Continue' },
+  'onb.hello_kicker':   { id: 'SELAMAT DATANG', en: 'WELCOME' },
+  'onb.hello_title':    { id: 'Halo, {name}!', en: 'Hi, {name}!' },
+  'onb.hello_sub':      { id: 'Senang berkenalan denganmu. Mulai sekarang, ORDAL bakal bantu menyiapkan semuanya satu per satu.', en: 'Nice to meet you. From here, ORDAL will help you get everything ready, one step at a time.' },
+  'onb.hello_cta':      { id: 'Lihat caranya', en: 'Show me how' },
+  'onb.intro_kicker':   { id: 'SANTAI, CUMA 3 HAL', en: 'JUST THREE SIMPLE THINGS' },
+  'onb.intro_title':    { id: 'Oke, kita mulai pelan-pelan', en: 'Okay, let’s take it step by step' },
+  'onb.intro_sub':      { id: 'Bantu ORDAL mengenal CV dan pekerjaan yang kamu cari. Kalau ada informasi yang belum jelas, kami akan bertanya, bukan menebak.', en: 'Help ORDAL understand your CV and the work you want. If something is unclear, we’ll ask instead of guessing.' },
+  'onb.intro_cv':       { id: 'Baca isi CV kamu, bukan sekadar filenya', en: 'Read your CV, not just store the file' },
+  'onb.intro_prefs':    { id: 'Ingat posisi dan lokasi incaranmu', en: 'Remember the roles and places you want' },
+  'onb.intro_questions': { id: 'Tanya dulu kalau jawabannya belum ada', en: 'Ask you whenever an answer is missing' },
+  'onb.lets_begin':     { id: 'Yuk, mulai', en: 'Let’s get started' },
   'onb.finish':         { id: 'Selesaikan & Mulai', en: 'Finish & start' },
   'onb.view_example':   { id: 'Lihat Contoh', en: 'View example' },
   'onb.cover_hint':     { id: 'Tulis cover letter dengan placeholder', en: 'Write your cover letter using the placeholders' },
-  'onb.cover_hint2':    { id: '— akan otomatis diganti sesuai lowongan saat bot melamar.', en: '— they will be auto-replaced per job when the bot applies.' },
+  'onb.cover_hint2':    { id: 'Placeholder akan otomatis diganti sesuai lowongan saat bot melamar.', en: 'Placeholders will be replaced automatically for each application.' },
   'onb.cover_ph':       { id: 'Halo Tim {company}, saya tertarik dengan posisi {position}...', en: 'Hello {company} team, I am interested in the {position} role...' },
   'onb.chars':          { id: 'karakter', en: 'characters' },
 
   'onb.cv_title':     { id: 'Klik untuk pilih file PDF', en: 'Click to select a PDF file' },
   'onb.cv_hint':      { id: 'Format PDF · teks harus bisa dibaca (bukan hasil scan)', en: 'PDF format · text must be selectable (not a scan)' },
+  'onb.cv_ats_title': { id: 'Tips sebelum upload: gunakan CV ATS-friendly', en: 'Before uploading: use an ATS-friendly CV' },
+  'onb.cv_ats_desc':  { id: 'ATS adalah sistem yang membaca dan menyaring CV sebelum dilihat recruiter. Gunakan layout sederhana, judul bagian yang jelas, kata kunci relevan, dan teks asli, bukan gambar atau hasil scan.', en: 'An ATS reads and filters CVs before a recruiter sees them. Use a simple layout, clear section headings, relevant keywords, and real text, not images or scanned pages.' },
+  'onb.cv_ai_tip':    { id: 'AI boleh membantu merapikan kalimat dan struktur, tetapi semua pengalaman, tanggal, keahlian, dan pencapaian harus tetap benar.', en: 'AI can help improve wording and structure, but every experience, date, skill, and achievement must remain true.' },
+  'onb.cv_read_ok':   { id: 'CV sudah terbaca. ORDAL akan memakai isi CV ini sebagai sumber utama dan bertanya jika informasi tidak ditemukan.', en: 'CV read successfully. ORDAL will use it as the main source and ask you whenever information is missing.' },
   'onb.cv_label':     { id: 'Label posisi untuk CV ini', en: 'Position label for this CV' },
   'onb.cv_label_ph':  { id: 'cth: Backend Engineer', en: 'e.g. Backend Engineer' },
   'onb.cv_list':      { id: 'Pilih CV aktif', en: 'Select active CV' },
 
   'onb.f_positions':     { id: 'Posisi yang diincar', en: 'Target positions' },
-  'onb.f_positions_ph':  { id: 'cth: Backend Engineer — tekan Enter', en: 'e.g. Backend Engineer — press Enter' },
+  'onb.f_positions_ph':  { id: 'cth: Backend Engineer, lalu tekan Enter', en: 'e.g. Backend Engineer, then press Enter' },
+  'onb.f_positions_help': { id: 'Ketik satu posisi lalu tekan Enter. Ulangi untuk menambahkan beberapa posisi.', en: 'Type one position and press Enter. Repeat to add multiple positions.' },
   'onb.f_locations':     { id: 'Lokasi kerja', en: 'Work locations' },
-  'onb.f_locations_ph':  { id: 'cth: Jakarta — tekan Enter', en: 'e.g. Jakarta — press Enter' },
+  'onb.f_locations_ph':  { id: 'cth: Jakarta, lalu tekan Enter', en: 'e.g. Jakarta, then press Enter' },
+  'onb.f_locations_help': { id: 'Ketik satu lokasi lalu tekan Enter. Kamu bisa menambahkan beberapa kota atau area.', en: 'Type one location and press Enter. You can add multiple cities or areas.' },
+  'onb.f_saved_values':  { id: 'Tersimpan dari pengisian sebelumnya.', en: 'Saved from your previous entry.' },
   'onb.f_salary':        { id: 'Gaji yang diharapkan', en: 'Expected salary' },
   'onb.f_salary_ph':     { id: 'cth: Rp 10-15 juta', en: 'e.g. IDR 10-15 million' },
   'onb.f_join':          { id: 'Kapan bisa bergabung', en: 'Available to join' },
   'onb.f_excl_pos':      { id: 'Posisi yang dihindari', en: 'Positions to avoid' },
-  'onb.f_excl_pos_ph':   { id: 'opsional — cth: Sales', en: 'optional — e.g. Sales' },
+  'onb.f_excl_pos_ph':   { id: 'opsional, cth: Sales', en: 'optional, e.g. Sales' },
   'onb.f_excl_co':       { id: 'Perusahaan yang dihindari', en: 'Companies to avoid' },
-  'onb.f_excl_co_ph':    { id: 'opsional — cth: PT Contoso', en: 'optional — e.g. Contoso Ltd' },
+  'onb.f_excl_co_ph':    { id: 'opsional, cth: PT Contoso', en: 'optional, e.g. Contoso Ltd' },
   'onb.f_type':          { id: 'Tipe pekerjaan', en: 'Employment type' },
 
   'onb.join_immediately':       { id: 'Segera / secepatnya', en: 'Immediately' },
@@ -469,8 +521,13 @@ const TRANSLATIONS = {
   'onb.platform_jobstreet_desc':      { id: 'Auto-apply lowongan JobStreet dengan CV & jawaban otomatis.', en: 'Auto-apply to JobStreet listings with CV & automatic answers.' },
   'onb.platform_linkedin_jobs':       { id: 'LinkedIn Jobs (Easy Apply)', en: 'LinkedIn Jobs (Easy Apply)' },
   'onb.platform_linkedin_jobs_desc':  { id: 'Apply cepat lowongan LinkedIn lewat tombol Easy Apply.', en: 'Quickly apply to LinkedIn jobs via Easy Apply.' },
-  'onb.platform_linkedin_posts':      { id: 'LinkedIn Posts', en: 'LinkedIn Posts' },
+  'onb.platform_linkedin_posts':      { id: 'LinkedIn Post (Auto Email)', en: 'LinkedIn Post (Auto Email)' },
   'onb.platform_linkedin_posts_desc': { id: 'Bot cari lowongan dari post LinkedIn & email langsung ke recruiter.', en: 'Bot finds jobs from LinkedIn posts & emails recruiters directly.' },
+  'onb.platform_glints':               { id: 'Glints', en: 'Glints' },
+  'onb.platform_glints_desc':          { id: 'Cari dan lamar lowongan Glints yang sesuai targetmu.', en: 'Find and apply to matching jobs on Glints.' },
+  'onb.platform_indeed':               { id: 'Indeed', en: 'Indeed' },
+  'onb.platform_indeed_desc':          { id: 'Cari dan lamar lowongan Indeed yang sesuai targetmu.', en: 'Find and apply to matching jobs on Indeed.' },
+  'onb.platforms_coming_soon':         { id: 'Platform kerja lainnya akan segera hadir.', en: 'More job platforms are coming soon.' },
   'onb.posts_email_note':             { id: 'LinkedIn Posts wajib menghubungkan email (Gmail) untuk kirim lamaran ke recruiter.', en: 'LinkedIn Posts requires connecting your email (Gmail) to send applications to recruiters.' },
 
   'onb.email_note':          { id: 'Hubungkan Gmail untuk kirim lamaran dari LinkedIn Posts ke recruiter. Pakai App Password (bukan password biasa).', en: 'Connect Gmail to send LinkedIn Posts applications to recruiters. Use an App Password (not your regular password).' },
@@ -479,36 +536,43 @@ const TRANSLATIONS = {
   'onb.email_save':          { id: 'Simpan & Hubungkan', en: 'Save & connect' },
   'onb.email_test':          { id: 'Kirim Email Tes', en: 'Send test email' },
   'onb.email_test_ok':       { id: 'Email tes berhasil terkirim!', en: 'Test email sent successfully!' },
-  'onb.email_test_fail':     { id: 'Email tes gagal — cek alamat & app password.', en: 'Test email failed — check address & app password.' },
+  'onb.email_test_fail':     { id: 'Email tes gagal. Cek alamat dan app password.', en: 'Test email failed. Check the address and app password.' },
   'onb.email_ok':            { id: 'Email terhubung!', en: 'Email connected!' },
   'onb.email_ok_sub':        { id: 'LinkedIn Posts siap mengirim lamaran ke recruiter.', en: 'LinkedIn Posts is ready to send applications to recruiters.' },
 
-  'onb.login_required_note':  { id: 'Wajib login minimal SATU platform (JobStreet atau LinkedIn) sebelum mulai. Platform lain bisa di-skip.', en: 'You must sign in to at least ONE platform (JobStreet or LinkedIn) before starting. The other one can be skipped.' },
-  'onb.login_jobstreet_desc': { id: 'Login JobStreet sekali — bot pakai sesi kamu untuk melamar.', en: 'Sign in to JobStreet once — the bot uses your session to apply.' },
-  'onb.login_linkedin_desc':  { id: 'Login LinkedIn sekali — dipakai untuk Jobs (Easy Apply) & Posts.', en: 'Sign in to LinkedIn once — used for both Jobs (Easy Apply) & Posts.' },
+  'onb.login_required_note':  { id: 'Klik platform yang ingin dipakai. Browser login terbuka otomatis, lalu lampu berubah hijau setelah berhasil.', en: 'Click each platform you want to use. Its login browser opens automatically, and the light turns green after a successful sign-in.' },
+  'onb.login_jobstreet_desc': { id: 'Login JobStreet sekali. Bot akan memakai sesi kamu untuk melamar.', en: 'Sign in to JobStreet once. The bot will use your session to apply.' },
+  'onb.login_linkedin_desc':  { id: 'Login LinkedIn sekali. Sesi ini dipakai untuk Jobs (Easy Apply) dan Posts.', en: 'Sign in to LinkedIn once. This session works for both Jobs (Easy Apply) and Posts.' },
+  'onb.login_glints_desc':    { id: 'Login Glints sekali. Browser tetap terbuka jika ada verifikasi.', en: 'Sign in to Glints once. The browser stays open for verification.' },
+  'onb.login_indeed_desc':    { id: 'Login Indeed sekali. Browser tetap terbuka jika ada verifikasi.', en: 'Sign in to Indeed once. The browser stays open for verification.' },
   'onb.login_btn':            { id: 'Login via Browser', en: 'Sign in via browser' },
   'onb.logged_in':            { id: 'Sudah login', en: 'Signed in' },
   'onb.not_logged_in':        { id: 'Belum login', en: 'Not signed in' },
   'onb.waiting_login':        { id: 'Menunggu...', en: 'Waiting...' },
-  'onb.grab_hint':            { id: 'Browser sedang terbuka — login akun kamu di sana, status akan update otomatis.', en: 'A browser window has opened — sign in there, this status will update automatically.' },
+  'onb.grab_hint':            { id: 'Browser ORDAL memakai profil terpisah dari Chrome utama. Login sekali di sini, lalu akun dan sesi akan tetap tersimpan untuk login berikutnya.', en: 'The ORDAL browser uses a separate profile from your main Chrome profile. Sign in once here and your account and session will remain available next time.' },
 
   'onb.done_title':     { id: 'Onboarding Selesai!', en: 'Onboarding Complete!' },
-  'onb.done_sub':       { id: 'Semua siap — ORDAL siap mencarikan kerjaan untukmu.', en: 'All set — ORDAL is ready to hunt jobs for you.' },
+  'onb.done_sub':       { id: 'Semua siap. ORDAL siap mencarikan pekerjaan untukmu.', en: 'All set. ORDAL is ready to find jobs for you.' },
   'onb.done_cv':        { id: 'CV terupload & tersimpan di akun', en: 'CV uploaded & stored in your account' },
   'onb.done_prefs':     { id: 'Preferensi kerja tersimpan', en: 'Job preferences saved' },
   'onb.done_platforms': { id: 'Job platform terpilih', en: 'Job platforms selected' },
   'onb.done_login':     { id: 'Sesi job platform aktif', en: 'Job platform session active' },
   'onb.start_btn':      { id: 'Mulai Pakai ORDAL', en: 'Start using ORDAL' },
+  'onb.ai_title':       { id: 'Hubungkan AI agar bot bekerja maksimal', en: 'Connect AI for the best results' },
+  'onb.ai_sub':         { id: 'Opsional, tetapi direkomendasikan untuk menjawab formulir, menilai kecocokan, dan membuat cover letter.', en: 'Optional, but recommended for answering forms, matching jobs, and writing cover letters.' },
+  'onb.ai_setup':       { id: 'Atur AI sekarang', en: 'Set up AI now' },
+  'onb.ai_skip':        { id: 'Lewati untuk sekarang', en: 'Skip for now' },
 
   'onb.err_load':           { id: 'Gagal memuat onboarding.', en: 'Failed to load onboarding.' },
   'onb.err_cv':             { id: 'Pilih atau upload CV dulu.', en: 'Select or upload a CV first.' },
   'onb.err_positions':      { id: 'Tambahkan minimal satu posisi.', en: 'Add at least one position.' },
   'onb.err_locations':      { id: 'Tambahkan minimal satu lokasi.', en: 'Add at least one location.' },
-  'onb.err_cover':          { id: 'Cover letter terlalu pendek (minimal 50 karakter) — klik Lihat Contoh bila perlu.', en: 'Cover letter is too short (min 50 characters) — click View example if needed.' },
+  'onb.err_cover':          { id: 'Cover letter terlalu pendek, minimal 50 karakter. Klik Lihat Contoh bila perlu.', en: 'Cover letter is too short. Use at least 50 characters or click View example.' },
   'onb.err_platforms':      { id: 'Pilih minimal satu job platform.', en: 'Select at least one job platform.' },
-  'onb.err_login_required': { id: 'Login minimal satu job platform dulu (JobStreet atau LinkedIn).', en: 'Sign in to at least one job platform first (JobStreet or LinkedIn).' },
-  'onb.err_finish':         { id: 'Gagal menyelesaikan onboarding — coba lagi.', en: 'Failed to complete onboarding — try again.' },
-  'onb.err_cv_upload':      { id: 'Upload CV gagal — pastikan PDF & teksnya bisa dibaca.', en: 'CV upload failed — make sure it is a readable-text PDF.' },
+  'onb.err_login_required': { id: 'Selesaikan login untuk semua platform yang kamu pilih.', en: 'Finish signing in to every selected platform.' },
+  'onb.err_ai_required':    { id: 'Hubungkan satu provider AI dulu.', en: 'Connect one AI provider first.' },
+  'onb.err_finish':         { id: 'Onboarding belum berhasil diselesaikan. Coba lagi.', en: 'Onboarding could not be completed. Try again.' },
+  'onb.err_cv_upload':      { id: 'Upload CV gagal. Pastikan PDF dan teksnya bisa dibaca.', en: 'CV upload failed. Make sure the PDF contains readable text.' },
   'onb.err_grab':           { id: 'Gagal membuka browser login.', en: 'Failed to open the login browser.' },
   'onb.err_email_save':     { id: 'Gagal menyimpan konfigurasi email.', en: 'Failed to save email configuration.' },
 
@@ -532,30 +596,30 @@ const TRANSLATIONS = {
   'lic.b2':               { id: 'JobStreet + LinkedIn', en: 'JobStreet + LinkedIn' },
   'lic.b3':               { id: 'Lisensi aktif di 2 device', en: 'License works on 2 devices' },
   'lic.b4':               { id: 'Semua data tetap tersimpan', en: 'All your data stays saved' },
-  'lic.method_qris':      { id: 'QRIS — Bank BCA', en: 'QRIS — Bank BCA' },
+  'lic.method_qris':      { id: 'QRIS Bank BCA', en: 'QRIS Bank BCA' },
   'lic.method_qris_desc': { id: 'Scan QR pakai mobile banking / e-wallet apa pun', en: 'Scan with any mobile banking / e-wallet app' },
   'lic.method_paypal_desc': { id: 'Bayar internasional via PayPal', en: 'International payment via PayPal' },
   'lic.creating_invoice': { id: 'Menyiapkan invoice pembayaran…', en: 'Preparing payment invoice…' },
   'lic.have_code':        { id: 'Saya sudah punya kode aktivasi', en: 'I already have an activation code' },
   'lic.pay_qris':         { id: 'Bayar via QRIS (BCA)', en: 'Pay via QRIS (BCA)' },
   'lic.pay_paypal':       { id: 'Bayar via PayPal', en: 'Pay via PayPal' },
-  'lic.sub_pay':          { id: 'Status pembayaran dicek otomatis — begitu dibayar, kode aktivasi langsung muncul.', en: 'Payment status is checked automatically — your activation code appears as soon as it is paid.' },
-  'lic.qris_channel':     { id: 'QRIS — Bank BCA', en: 'QRIS — Bank BCA' },
-  'lic.qr_static_hint':   { id: 'QR statis belum diatur — ikuti instruksi transfer di samping', en: 'Static QR not configured — follow the transfer instructions' },
+  'lic.sub_pay':          { id: 'Status pembayaran dicek otomatis. Setelah dibayar, kode aktivasi langsung muncul.', en: 'Payment status is checked automatically. Your activation code appears as soon as payment is received.' },
+  'lic.qris_channel':     { id: 'QRIS Bank BCA', en: 'QRIS Bank BCA' },
+  'lic.qr_static_hint':   { id: 'QR statis belum diatur. Ikuti instruksi transfer di samping.', en: 'Static QR is not configured. Follow the transfer instructions.' },
   'lic.exact_amount':     { id: 'Nominal transfer PERSIS', en: 'Transfer EXACTLY' },
-  'lic.unique_note':      { id: 'Termasuk 3 angka unik di belakang — jangan dibulatkan!', en: 'Includes a unique 3-digit suffix — do not round it!' },
+  'lic.unique_note':      { id: 'Termasuk 3 angka unik di belakang. Jangan dibulatkan!', en: 'Includes a unique 3-digit suffix. Do not round it!' },
   'lic.reference':        { id: 'Berita / Reference', en: 'Note / Reference' },
   'lic.total':            { id: 'Total pembayaran', en: 'Total' },
   'lic.invoice_expires':  { id: 'Invoice berakhir dalam', en: 'Invoice expires in' },
   'lic.i_paid':           { id: 'Saya Sudah Bayar', en: "I've Paid" },
   'lic.waiting_payment':  { id: 'Menunggu pembayaran…', en: 'Waiting for payment…' },
-  'lic.verifying_note':   { id: 'Pembayaran sedang diverifikasi. Jendela ini akan otomatis lanjut begitu pembayaran valid terdeteksi — biarkan tetap terbuka.', en: 'Payment is being verified. This window will continue automatically once your valid payment is detected — keep it open.' },
+  'lic.verifying_note':   { id: 'Pembayaran sedang diverifikasi. Jendela ini akan otomatis lanjut begitu pembayaran valid terdeteksi. Biarkan tetap terbuka.', en: 'Payment is being verified. This window will continue automatically once valid payment is detected. Keep it open.' },
   'lic.simulate':         { id: 'Simulasikan Pembayaran (Demo)', en: 'Simulate Payment (Demo)' },
   'lic.back':             { id: 'Kembali', en: 'Back' },
   'lic.pay_with_paypal':  { id: 'Bayar dengan PayPal', en: 'Pay with PayPal' },
   'lic.open_paypal_me':   { id: 'Buka PayPal', en: 'Open PayPal' },
   'lic.enter_code':       { id: 'Masukkan Kode Aktivasi', en: 'Enter Activation Code' },
-  'lic.sub_code':         { id: 'Kode aktivasi personal kamu — dikirim ke email setelah pembayaran diverifikasi.', en: 'Your personal activation code — emailed after your payment is verified.' },
+  'lic.sub_code':         { id: 'Kode aktivasi personal kamu akan dikirim ke email setelah pembayaran diverifikasi.', en: 'Your personal activation code will be emailed after payment is verified.' },
   'lic.code_label':       { id: 'Kode aktivasi', en: 'Activation code' },
   'lic.payment_verified': { id: 'Pembayaran terverifikasi!', en: 'Payment verified!' },
   'lic.code_emailed':     { id: 'Kode yang sama juga dikirim ke email kamu', en: 'The same code was also emailed to you' },
@@ -566,13 +630,13 @@ const TRANSLATIONS = {
   'lic.resend_code':      { id: 'Kirim ulang kode ke email', en: 'Email me the code again' },
   'lic.resend_in':        { id: 'Kirim ulang dalam', en: 'Resend in' },
   'lic.resent_ok':        { id: 'Kode aktivasi sudah dikirim ulang ke email kamu.', en: 'Activation code has been resent to your email.' },
-  'lic.dev_code_note':    { id: 'Mode pengembangan (SMTP belum diatur) — kode kamu:', en: 'Dev mode (SMTP not configured) — your code:' },
+  'lic.dev_code_note':    { id: 'Mode pengembangan. SMTP belum diatur. Kode kamu:', en: 'Development mode. SMTP is not configured. Your code:' },
   'lic.activated':        { id: 'ORDAL PRO Aktif!', en: 'ORDAL PRO Active!' },
   'lic.sub_activated':    { id: 'Terima kasih sudah mendukung ORDAL!', en: 'Thanks for supporting ORDAL!' },
   'lic.success_title':    { id: 'ORDAL PRO sudah aktif!', en: 'ORDAL PRO is now active!' },
-  'lic.success_desc':     { id: 'Akses penuh auto-apply terbuka. Lisensi terikat ke akun kamu — tetap aktif walau ganti komputer atau install ulang app.', en: 'Full auto-apply access unlocked. Your license is tied to your account — it stays active even if you switch computers or reinstall the app.' },
+  'lic.success_desc':     { id: 'Akses penuh auto-apply terbuka. Lisensi terikat ke akun kamu dan tetap aktif walau ganti komputer atau install ulang app.', en: 'Full auto-apply access unlocked. Your license stays active even if you switch computers or reinstall the app.' },
   'lic.start_using':      { id: 'Mulai Pakai ORDAL', en: 'Start Using ORDAL' },
-  'lic.footer_note':      { id: 'Lisensi terikat akun kamu (maks 2 device) dan tersimpan di server — tidak hilang walau install ulang app.', en: 'Your license is tied to your account (max 2 devices) and stored on the server — it survives app reinstalls.' },
+  'lic.footer_note':      { id: 'Lisensi terikat akun kamu (maks 2 device) dan tersimpan di server. Lisensi tidak hilang walau app di-install ulang.', en: 'Your license is tied to your account (max 2 devices) and stored on the server. It remains active after reinstalling the app.' },
   'lic.create_failed':    { id: 'Gagal membuat invoice pembayaran.', en: 'Failed to create payment invoice.' },
   'lic.confirm_failed':   { id: 'Gagal mengonfirmasi pembayaran.', en: 'Failed to confirm payment.' },
   'lic.simulate_failed':  { id: 'Simulasi gagal.', en: 'Simulation failed.' },
@@ -584,14 +648,14 @@ const TRANSLATIONS = {
   'lic.st_failed':        { id: 'GAGAL', en: 'FAILED' },
   'lic.st_expired_inv':   { id: 'INVOICE EXPIRED', en: 'INVOICE EXPIRED' },
   'lic.badge_trial':      { id: 'Trial', en: 'Trial' },
-  'lic.badge_trial_title': { id: 'Sisa trial gratis kamu — aktifkan kapan saja untuk akses penuh', en: 'Your remaining free trial — activate anytime for full access' },
+  'lic.badge_trial_title': { id: 'Sisa trial gratis kamu. Aktifkan kapan saja untuk akses penuh.', en: 'Your free trial time remaining. Activate anytime for full access.' },
   'lic.badge_not_started': { id: 'Trial 3 hari belum dimulai', en: '3-day trial not started' },
   'lic.badge_not_started_title': { id: 'Trial 3 hari dimulai saat kamu klik "Cari Kerja" pertama kali', en: 'Your 3-day trial starts when you first click "Find Jobs"' },
-  'lic.badge_expired':    { id: 'Trial Habis — Aktivasi', en: 'Trial Over — Activate' },
-  'lic.pro':              { id: 'ORDAL PRO aktif — akses penuh', en: 'ORDAL PRO active — full access' },
+  'lic.badge_expired':    { id: 'Trial Habis. Aktivasi', en: 'Trial Over. Activate' },
+  'lic.pro':              { id: 'ORDAL PRO aktif. Akses penuh', en: 'ORDAL PRO active. Full access' },
   'lic.pro_admin':        { id: 'ORDAL PRO aktif (admin)', en: 'ORDAL PRO active (admin)' },
   'lic.toast_started':    { id: 'Trial gratis 3 hari dimulai! Sisa:', en: 'Free 3-day trial started! Time left:' },
-  'lic.toast_started_sub': { id: 'Terhitung sekarang — data tersimpan di server, install ulang tidak me-reset trial.', en: 'Counting from now — stored on our server, reinstalling the app will not reset it.' },
+  'lic.toast_started_sub': { id: 'Trial dihitung mulai sekarang. Data tersimpan di server, jadi install ulang tidak akan mengulang trial.', en: 'Your trial starts now. Reinstalling the app will not reset it because the data is stored on our server.' },
   'sidebar.upgrade_pro':  { id: 'Upgrade ke PRO', en: 'Upgrade to PRO' },
 }
 
@@ -624,15 +688,17 @@ function translateJoin(value, lang) {
 
 const useI18n = create((set, get) => ({
   lang: loadStoredLang(),
+  languageChosen: hasStoredLang(),
 
   setLang: (lang) => {
     if (lang !== 'id' && lang !== 'en') return
     try {
       localStorage.setItem(STORAGE_KEY, lang)
+      localStorage.setItem(CONFIRMED_KEY, '1')
     } catch (e) {
       // localStorage tidak tersedia — abaikan, tetap update state
     }
-    set({ lang })
+    set({ lang, languageChosen: true })
   },
 
   toggleLang: () => {

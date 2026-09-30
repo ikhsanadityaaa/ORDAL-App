@@ -39,7 +39,5 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>ORDAL tidak menggunakan kamera.</string>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>ORDAL mengontrol Chrome via AppleScript untuk capture session platform.</string>
 </dict>
 </plist>

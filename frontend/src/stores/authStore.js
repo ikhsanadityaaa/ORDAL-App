@@ -32,7 +32,7 @@ const useAuthStore = create((set, get) => ({
   token: loadStoredToken(),
   onboarding: { completed: false, current_step: 1 },
   devices: [],
-  googleConfigured: false,
+  googleConfigured: null,
   smtpConfigured: false,
   booted: false,        // true setelah pengecekan /auth/me pertama selesai
   showAuthModal: false, // popup login muncul saat app dibuka

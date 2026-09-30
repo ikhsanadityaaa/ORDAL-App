@@ -76,23 +76,15 @@ if not exist "frontend\dist\index.html" (
 )
 echo   OK: frontend\dist\ siap.
 
-REM ---- 3b. Cek konfigurasi database (.env) ----
+REM ---- 3b. Pastikan secret tidak ikut build ----
 echo.
-echo [3b/5] Cek backend\.env (database pusat)...
+echo [3b/5] Cek backend\.env...
 if exist "%REPO_ROOT%\backend\.env" (
-    echo   OK: backend\.env ditemukan — akan di-bundle ke ORDAL.exe.
-    findstr /C:"127.0.0.1:5432" "%REPO_ROOT%\backend\.env" >nul 2>&1
-    if not errorlevel 1 (
-        echo   [!] WARNING: .env masih memakai DATABASE URL development ^(127.0.0.1^).
-        echo       Ganti ORDAL_DATABASE_URL dengan URL Supabase production sebelum
-        echo       distribusi, atau app akan minta DATABASE URL saat pertama dibuka.
-    )
-) else (
-    echo   [!] backend\.env tidak ada. App akan menampilkan dialog input
-    echo       DATABASE URL saat pertama kali dibuka oleh user.
-    echo       ^(Copy backend\.env.example ke backend\.env dan isi
-    echo        ORDAL_DATABASE_URL untuk embed konfigurasi saat build.^)
+    echo ERROR: backend\.env tidak boleh ikut build.
+    echo Secret database dan pembayaran hanya boleh disimpan di Vercel.
+    exit /b 1
 )
+echo   OK: tidak ada secret production dalam bundle.
 
 REM ---- 4. Setup build-venv (hanya untuk PyInstaller, terpisah dari venv app) ----
 echo.

@@ -7,7 +7,7 @@ from auth_utils import get_current_user
 router = APIRouter()
 
 # 'all' = gabungan LinkedIn Jobs + LinkedIn Posts + JobStreet
-VALID_PLATFORMS = ("linkedin", "linkedin_posts", "jobstreet", "both", "all")
+VALID_PLATFORMS = ("linkedin", "linkedin_posts", "jobstreet", "glints", "indeed", "both", "all")
 VALID_EMPLOYMENT_TYPES = ("full_time", "contract", "intern")
 
 class TargetRequest(BaseModel):
@@ -84,9 +84,9 @@ def create_targets(req: TargetRequest, user=Depends(get_current_user)):
         db.close()
         raise HTTPException(status_code=400, detail=f"Platform harus salah satu dari: {', '.join(VALID_PLATFORMS)}")
 
-    if len(platforms) > 2:
+    if len(platforms) > 4:
         db.close()
-        raise HTTPException(status_code=400, detail="Maksimal pilih 2 platform, atau pilih Semua")
+        raise HTTPException(status_code=400, detail="Maksimal pilih 4 platform, atau pilih Semua")
 
     request_cover_letter = req.cover_letter.strip() if req.cover_letter else None
     expected_salary = (req.expected_salary or "").strip()

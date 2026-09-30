@@ -70,36 +70,31 @@ export function LinkedInLogo({ size = 28 }) {
 }
 
 export function JobStreetLogo({ size = 28 }) {
-  // Logo JobStreet asli: lingkaran biru tua dengan panah putih dari titik-titik
   return (
-    <svg width={size} height={size} viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="128" cy="128" r="128" fill="#0D3880"/>
-      <g fill="white">
-        <circle cx="70" cy="90" r="4"/>
-        <circle cx="95" cy="90" r="6"/>
-        <circle cx="125" cy="90" r="8"/>
-        <circle cx="160" cy="90" r="10"/>
-        <circle cx="200" cy="90" r="12"/>
-        <circle cx="70" cy="115" r="5"/>
-        <circle cx="98" cy="115" r="7"/>
-        <circle cx="130" cy="115" r="9"/>
-        <circle cx="167" cy="115" r="11"/>
-        <circle cx="208" cy="115" r="13"/>
-        <circle cx="70" cy="140" r="6"/>
-        <circle cx="100" cy="140" r="8"/>
-        <circle cx="135" cy="140" r="10"/>
-        <circle cx="175" cy="140" r="12"/>
-        <circle cx="215" cy="140" r="14"/>
-        <circle cx="75" cy="165" r="5"/>
-        <circle cx="103" cy="165" r="7"/>
-        <circle cx="135" cy="165" r="9"/>
-        <circle cx="172" cy="165" r="11"/>
-        <circle cx="213" cy="165" r="13"/>
-        <circle cx="80" cy="190" r="4"/>
-        <circle cx="105" cy="190" r="6"/>
-        <circle cx="135" cy="190" r="8"/>
-        <circle cx="170" cy="190" r="10"/>
-        <circle cx="208" cy="190" r="12"/>
+    <svg width={size} height={size} viewBox="25 25 206 206" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="JobStreet">
+      <circle cx="128" cy="128" r="103" fill="#123E87" />
+      <g fill="#FFFFFF">
+        <circle cx="47" cy="107" r="2" /><circle cx="58" cy="107" r="2.5" />
+        <circle cx="71" cy="107" r="4" /><circle cx="85" cy="107" r="5" />
+        <circle cx="101" cy="107" r="5.5" /><circle cx="119" cy="107" r="6.5" />
+        <circle cx="138" cy="107" r="7" /><circle cx="158" cy="107" r="8" />
+        <circle cx="180" cy="107" r="8.5" />
+
+        <circle cx="47" cy="129" r="2" /><circle cx="58" cy="129" r="2.5" />
+        <circle cx="71" cy="129" r="4" /><circle cx="85" cy="129" r="5" />
+        <circle cx="101" cy="129" r="5.5" /><circle cx="119" cy="129" r="6.5" />
+        <circle cx="138" cy="129" r="7" /><circle cx="158" cy="129" r="8" />
+        <circle cx="180" cy="129" r="8.5" /><circle cx="202" cy="129" r="9" />
+
+        <circle cx="47" cy="151" r="2" /><circle cx="58" cy="151" r="2.5" />
+        <circle cx="71" cy="151" r="4" /><circle cx="85" cy="151" r="5" />
+        <circle cx="101" cy="151" r="5.5" /><circle cx="119" cy="151" r="6.5" />
+        <circle cx="138" cy="151" r="7" /><circle cx="158" cy="151" r="8" />
+        <circle cx="180" cy="151" r="8.5" />
+
+        <circle cx="137" cy="64" r="7" /><circle cx="137" cy="86" r="7" />
+        <circle cx="158" cy="86" r="7" /><circle cx="137" cy="173" r="7" />
+        <circle cx="158" cy="173" r="7" /><circle cx="137" cy="194" r="7" />
       </g>
     </svg>
   )
@@ -110,7 +105,29 @@ export function PlatformLogo({ platformId, size = 28 }) {
     return <LinkedInLogo size={size} />
   }
   if (platformId === 'jobstreet') return <JobStreetLogo size={size} />
+  if (platformId === 'glints') return <GlintsLogo size={size} />
+  if (platformId === 'indeed') return <IndeedLogo size={size} />
   return null
+}
+
+export function GlintsLogo({ size = 28 }) {
+  return (
+    <img
+      src="/platforms/glints.png"
+      alt="Glints"
+      style={{ width: size * 1.32, height: size, objectFit: 'contain', display: 'block' }}
+    />
+  )
+}
+
+export function IndeedLogo({ size = 28 }) {
+  return (
+    <img
+      src="/platforms/indeed.png"
+      alt="Indeed"
+      style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+    />
+  )
 }
 
 // Logo Google RESMI — huruf "G" 4 warna sesuai brand guideline Google
