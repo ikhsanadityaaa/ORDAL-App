@@ -3,7 +3,7 @@ import {
   Loader2, ArrowRight, ArrowLeft, FileText, Upload, CheckCircle2, Eye,
   Briefcase, MapPin, Wallet, CalendarClock, Building2, Ban, Sparkles,
   Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle, ChevronDown,
-  UserRound, ShieldCheck, Compass,
+  UserRound, ShieldCheck, Compass, Key, Save,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 import useI18n from '../../stores/i18nStore'
@@ -11,6 +11,7 @@ import api from '../../api'
 import { PlatformLogo, LinkedInLogo, JobStreetLogo } from '../brand'
 import ChipsInput from './ChipsInput'
 import { COVER_LETTER_EXAMPLE } from './CoverLetterExampleModal'
+import { ProviderLogo, PROVIDER_GUIDES } from '../../pages/AI'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OnboardingWizard — wizard pop-up interaktif setelah login + verifikasi.
@@ -64,17 +65,22 @@ export default function OnboardingWizard() {
   const [platformLogins, setPlatformLogins] = useState({ linkedin: false, jobstreet: false, glints: false, indeed: false })
   const [emailConnected, setEmailConnected] = useState(false)
   const [grabbingPlatform, setGrabbingPlatform] = useState(null)
+  const [aiProviders, setAiProviders] = useState([])
+  const [selectedAi, setSelectedAi] = useState('')
+  const [aiKey, setAiKey] = useState('')
+  const [savingAi, setSavingAi] = useState(false)
   const onboardingBodyRef = useRef(null)
 
   const needsEmailStep = platforms.includes('linkedin_posts')
   const steps = [
     { n: 1, key: 'onb.step_cv' },
     { n: 2, key: 'onb.step_prefs' },
-    { n: 3, key: 'onb.step_cover' },
-    { n: 4, key: 'onb.step_platforms' },
-    ...(needsEmailStep ? [{ n: 5, key: 'onb.step_email' }] : []),
+    { n: 3, key: 'onb.step_platforms' },
+    ...(needsEmailStep ? [{ n: 4, key: 'onb.step_email' }] : []),
+    { n: 5, key: 'onb.step_ai' },
+    { n: 6, key: 'onb.step_cover' },
   ]
-  const finalStep = needsEmailStep ? 5 : 4
+  const finalStep = 6
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -92,7 +98,7 @@ export default function OnboardingWizard() {
       setPlatformLogins(d.platform_logins || {})
       setEmailConnected(d.email_connected)
       const savedStep = Number(d.current_step || 1)
-      setStep(savedStep >= 6 ? (d.platforms?.includes('linkedin_posts') ? 5 : 4) : Math.min(savedStep, 5))
+      setStep(savedStep >= 6 ? 6 : savedStep === 4 ? 3 : Math.min(savedStep, 5))
     } catch (e) {
       setError(t('onb.err_load'))
     } finally {
@@ -103,6 +109,14 @@ export default function OnboardingWizard() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    api.get('/ai_config').then((res) => {
+      const providers = res.data?.providers || []
+      setAiProviders(providers)
+      setSelectedAi(res.data?.active || providers.find(provider => provider.configured)?.key || providers[0]?.key || '')
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     onboardingBodyRef.current?.scrollTo({ top: 0, behavior: 'auto' })
@@ -171,8 +185,13 @@ export default function OnboardingWizard() {
       if (!prefs.positions.length) return t('onb.err_positions')
       if (!prefs.locations.length) return t('onb.err_locations')
     }
-    if (n === 3 && coverLetter.trim().length < 50) return t('onb.err_cover')
-    if (n === 4 && !platforms.length) return t('onb.err_platforms')
+    if (n === 3) {
+      if (!platforms.length) return t('onb.err_platforms')
+      const loginKeys = [...new Set(platforms.map(id => id.startsWith('linkedin_') ? 'linkedin' : id))]
+      if (loginKeys.some(key => !platformLogins[key])) return t('onb.err_login_required')
+    }
+    if (n === 5 && !aiProviders.some(provider => provider.configured)) return t('onb.err_ai_required')
+    if (n === 6 && coverLetter.trim().length < 50) return t('onb.err_cover')
     return ''
   }
 
@@ -181,12 +200,14 @@ export default function OnboardingWizard() {
     if (err) { setError(err); return }
     setError('')
     await save(step)
-    setStep(Math.min(step + 1, finalStep))
+    const index = steps.findIndex(item => item.n === step)
+    setStep(steps[Math.min(index + 1, steps.length - 1)]?.n || finalStep)
   }
 
   const back = () => {
     setError('')
-    setStep(Math.max(step - 1, 1))
+    const index = steps.findIndex(item => item.n === step)
+    setStep(steps[Math.max(index - 1, 0)]?.n || 1)
   }
 
   const finish = async () => {
@@ -264,6 +285,41 @@ export default function OnboardingWizard() {
       setError(detail || t('cari_kerja.gagal_generate_cover_ai'))
     } finally {
       setGeneratingCoverLetter(false)
+    }
+  }
+
+  const connectAiProvider = async () => {
+    const provider = aiProviders.find(item => item.key === selectedAi)
+    if (!provider) return
+    if (provider.configured) {
+      setSavingAi(true)
+      try {
+        await api.put('/ai_config/active', { provider: provider.key })
+        setAiProviders(current => current.map(item => ({ ...item })))
+      } catch (e) {
+        setError(e.response?.data?.detail || e.message)
+      } finally {
+        setSavingAi(false)
+      }
+      return
+    }
+    if (!aiKey.trim()) {
+      setError(lang === 'id' ? 'Masukkan API key provider yang kamu pilih.' : 'Enter the API key for your selected provider.')
+      return
+    }
+    setSavingAi(true)
+    setError('')
+    try {
+      await api.put(`/ai_config/${provider.key}/key`, { value: aiKey.trim() })
+      await api.put('/ai_config/active', { provider: provider.key })
+      const res = await api.get('/ai_config')
+      setAiProviders(res.data?.providers || [])
+      setSelectedAi(provider.key)
+      setAiKey('')
+    } catch (e) {
+      setError(e.response?.data?.detail || e.message)
+    } finally {
+      setSavingAi(false)
     }
   }
 
@@ -424,7 +480,7 @@ export default function OnboardingWizard() {
         <div className="onboarding-page-main">
           <div ref={onboardingBodyRef} key={step} className="onboarding-page-body" data-step={step}>
             <>
-              {step !== 3 && <StageAnimation step={step} />}
+              {step !== 6 && <StageAnimation step={step} />}
 
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
@@ -441,7 +497,7 @@ export default function OnboardingWizard() {
               )}
 
               {/* ── LANGKAH 3: Cover letter ── */}
-              {step === 3 && (
+              {step === 6 && (
                 <section className="cover-letter-stage">
                   <div className="cover-letter-quest">
                     <div className="cover-letter-quest-copy">
@@ -529,7 +585,7 @@ export default function OnboardingWizard() {
               )}
 
               {/* ── LANGKAH 4: Pilih sekaligus login platform ── */}
-              {step === 4 && (
+              {step === 3 && (
                 <div className="onboarding-mission-content">
                   <StepPlatformConnections
                     t={t}
@@ -548,8 +604,22 @@ export default function OnboardingWizard() {
               )}
 
               {/* ── LANGKAH 5: Hubungkan email (LinkedIn Posts) ── */}
-              {step === 5 && (
+              {step === 4 && (
                 <StepEmail t={t} emailConnected={emailConnected} setEmailConnected={setEmailConnected} setError={setError} />
+              )}
+
+              {step === 5 && (
+                <StepAiConnection
+                  t={t}
+                  lang={lang}
+                  providers={aiProviders}
+                  selected={selectedAi}
+                  setSelected={setSelectedAi}
+                  apiKey={aiKey}
+                  setApiKey={setAiKey}
+                  saving={savingAi}
+                  onConnect={connectAiProvider}
+                />
               )}
 
               {error && (
@@ -628,7 +698,7 @@ function StageAnimation({ step }) {
       </div>
     )
   }
-  if (step === 4) {
+  if (step === 3) {
     return (
       <div className="onboarding-topic-scene topic-platform-story" aria-hidden="true">
         <div className="platform-browser">
@@ -642,7 +712,7 @@ function StageAnimation({ step }) {
       </div>
     )
   }
-  if (step === 5) {
+  if (step === 4) {
     return (
       <div className="onboarding-topic-scene topic-email-story" aria-hidden="true">
         <span className="email-speed email-speed-one" />
@@ -650,6 +720,21 @@ function StageAnimation({ step }) {
         <div className="flying-envelope"><Mail size={36} /></div>
         <div className="security-gate"><ShieldCheck size={30} /><span /></div>
         <div className="email-safe-dot"><CheckCircle2 size={17} /></div>
+      </div>
+    )
+  }
+  if (step === 5) {
+    return (
+      <div className="onboarding-topic-scene topic-login-story" aria-hidden="true">
+        <div className="login-browser">
+          <div className="login-browser-bar"><i /><i /><i /></div>
+          <div className="login-avatar"><Sparkles size={24} /></div>
+          <span className="login-field" />
+          <span className="login-field login-field-short" />
+          <span className="login-button"><Key size={13} /></span>
+        </div>
+        <div className="login-success"><CheckCircle2 size={24} /></div>
+        <span className="login-success-ring" />
       </div>
     )
   }
@@ -1123,6 +1208,75 @@ function StepPlatformConnections({ t, platforms, platformLogins, grabbingPlatfor
         })}
       </div>
       <p className="onboarding-coming-soon">{t('onb.platforms_coming_soon')}</p>
+    </div>
+  )
+}
+
+function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, setApiKey, saving, onConnect }) {
+  const provider = providers.find(item => item.key === selected) || providers[0]
+  return (
+    <div className="onboarding-mission-content onboarding-ai-connect">
+      <div className="notice notice-info" style={{ marginBottom: 14 }}>
+        <Sparkles size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span style={{ fontSize: 12.5 }}>
+          {lang === 'id' ? 'Pilih satu AI. Kamu tidak perlu menghubungkan semuanya.' : 'Choose one AI. You do not need to connect every provider.'}
+        </span>
+      </div>
+      <div className="onboarding-provider-grid">
+        {providers.map(item => {
+          const connected = Boolean(item.configured)
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="onboarding-provider-card"
+              data-selected={item.key === provider?.key ? 'true' : 'false'}
+              onClick={() => { setSelected(item.key); setApiKey('') }}
+            >
+              <span className="onboarding-provider-logo"><ProviderLogo providerKey={item.key} size={28} /></span>
+              <span className="onboarding-provider-copy">
+                <strong>{item.label}</strong>
+                <small>{PROVIDER_GUIDES[item.key]?.cost?.[lang] || item.model}</small>
+                {connected && (
+                  <small className="provider-connected-status">
+                    <span className="connection-light is-online" /> {lang === 'id' ? 'Terhubung' : 'Connected'}
+                  </small>
+                )}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {provider && (
+        <div className="onboarding-ai-key-panel">
+          <div>
+            <strong>{provider.label}</strong>
+            <p>{PROVIDER_GUIDES[provider.key]?.description?.[lang] || provider.description}</p>
+          </div>
+          {!provider.configured && (
+            <input
+              className="input"
+              type="password"
+              value={apiKey}
+              onChange={event => setApiKey(event.target.value)}
+              placeholder={provider.api_key_label || 'API key'}
+              autoComplete="off"
+            />
+          )}
+          <div className="onboarding-ai-key-actions">
+            {provider.api_key_link && !provider.configured && (
+              <a className="btn btn-secondary" href={provider.api_key_link} target="_blank" rel="noreferrer">
+                <ExternalLink size={14} /> {lang === 'id' ? 'Dapatkan API key' : 'Get API key'}
+              </a>
+            )}
+            <button className="btn btn-primary" type="button" onClick={onConnect} disabled={saving}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : provider.configured ? <CheckCircle2 size={15} /> : <Save size={15} />}
+              {provider.configured ? (lang === 'id' ? 'Gunakan AI ini' : 'Use this AI') : (lang === 'id' ? 'Simpan dan hubungkan' : 'Save and connect')}
+            </button>
+          </div>
+          <div className="onboarding-ai-local-note"><Key size={13} /> {lang === 'id' ? 'API key dienkripsi dan disimpan lokal di perangkat ini.' : 'API key is encrypted and stored locally on this device.'}</div>
+        </div>
+      )}
     </div>
   )
 }

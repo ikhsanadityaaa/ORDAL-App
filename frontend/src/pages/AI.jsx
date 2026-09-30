@@ -62,7 +62,7 @@ function OpenRouterLogo({ size = 24 }) {
   )
 }
 
-const PROVIDER_GUIDES = {
+export const PROVIDER_GUIDES = {
   gemini: {
     description: { id: 'Cepat dan praktis untuk analisis lowongan serta jawaban formulir.', en: 'Fast and practical for job analysis and application answers.' },
     cost: { id: 'Free tier tersedia', en: 'Free tier available' },
@@ -115,7 +115,7 @@ const PROVIDER_GUIDES = {
   },
 }
 
-function ProviderLogo({ providerKey, size = 24 }) {
+export function ProviderLogo({ providerKey, size = 24 }) {
   switch (providerKey) {
     case 'gemini': return <GeminiLogo size={size} />
     case 'openai': return <OpenAILogo size={size} />

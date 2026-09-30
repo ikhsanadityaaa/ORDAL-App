@@ -116,6 +116,7 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Merged job-platform selection and login into one provider-style onboarding stage: clicking a platform selects it and opens login automatically, while a green status light confirms a saved session.
 - Reworked AI selection into a responsive provider-card grid with connection lights, keeping the existing ORDAL theme and detailed key setup panel.
 - Fixed clipped job-platform animation logos, removed orange selected-card emphasis, made successful login status green and softly blinking, renamed LinkedIn Post to clarify Auto Email, and added a coming-soon note for future platforms.
+- Restored AI connection inside onboarding and reordered the journey to platform login, AI connection, then AI-assisted cover-letter creation; LinkedIn Post email setup remains conditional between platform and AI stages.
 
 ## Security Result
 
