@@ -2129,6 +2129,72 @@ hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
   align-items: start;
 }
 
+/* Career progress uses local evidence only; no decorative score inflation. */
+.career-progress-page { max-width: 1180px; margin: 0 auto; }
+.career-progress-page .page-header { padding-right: 64px; }
+.career-hero {
+  padding: 24px 28px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 26px;
+  background: linear-gradient(135deg, #fff 0%, #fff7ef 100%);
+}
+.career-hero h2 { margin: 10px 0 6px; font-size: 25px; letter-spacing: -0.035em; }
+.career-hero p { color: var(--gray-600); line-height: 1.55; }
+.career-score {
+  width: 132px;
+  height: 132px;
+  padding: 10px;
+  border-radius: 50%;
+  background: conic-gradient(var(--orange) var(--score), var(--cream-2) 0);
+}
+.career-score > div {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  border: 2px solid var(--black);
+  border-radius: 50%;
+  background: white;
+}
+.career-score strong { font-size: 31px; line-height: 1; }
+.career-score span { margin-top: 5px; color: var(--gray-500); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; }
+.career-dimension-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.career-dimension { padding: 15px; }
+.career-dimension > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 750; }
+.career-dimension strong { color: var(--orange-600); }
+.career-meter { height: 7px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: var(--cream-2); }
+.career-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--orange-2)); }
+.career-two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.career-panel { padding: 20px; }
+.career-panel-title { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 16px; }
+.career-panel-title > svg { color: var(--orange); }
+.career-panel-title h2 { margin: 0; font-size: 18px; }
+.career-panel-title p, .career-stretch p { margin: 4px 0 0; color: var(--gray-500); font-size: 12px; line-height: 1.45; }
+.career-insight { padding: 14px; border-radius: 14px; border: 1.5px solid rgba(51,54,63,0.14); background: #F7F6F1; }
+.career-insight-aligned { background: #EAF8EF; border-color: #9AD5AC; }
+.career-insight-ambitious { background: #FFF3E8; border-color: #F3B181; }
+.career-insight p { margin: 5px 0 0; color: var(--gray-600); font-size: 12.5px; line-height: 1.5; }
+.career-recommendations { margin-top: 16px; padding-top: 14px; border-top: 1.5px solid var(--cream-2); }
+.career-recommendations h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-size: 13px; }
+.career-recommendations p { margin: 5px 0; color: var(--gray-600); font-size: 12px; line-height: 1.45; }
+.career-stretch { display: flex; gap: 10px; padding: 11px 0; border-top: 1.5px solid var(--cream-2); }
+.career-stretch > svg { color: var(--navy); flex-shrink: 0; margin-top: 2px; }
+.career-stretch:first-of-type { border-top: 0; }
+.career-source-list > div { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; padding: 10px 0; border-top: 1.5px solid var(--cream-2); }
+.career-source-list > div:first-child { border-top: 0; }
+.career-source-list span { font-size: 13px; font-weight: 800; }
+.career-source-list small { color: var(--gray-500); }
+.career-source-list strong { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--orange-600); font-size: 20px; }
+.career-milestones { display: grid; gap: 9px; }
+.career-milestones > div { display: flex; align-items: center; gap: 10px; color: var(--gray-500); font-size: 13px; font-weight: 700; }
+.career-milestones span { width: 23px; height: 23px; display: grid; place-items: center; border: 2px solid var(--gray-300); border-radius: 50%; }
+.career-milestones .complete { color: var(--black); }
+.career-milestones .complete span { color: white; background: var(--orange); border-color: var(--black); }
+.career-empty { color: var(--gray-500); font-size: 13px; }
+
 @media (max-width: 760px) {
   .ats-report-head { grid-template-columns: 1fr; }
   .ats-criteria-grid { grid-template-columns: 1fr; }
@@ -2159,6 +2225,11 @@ hr { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
   .question-create-grid {
     grid-template-columns: 1fr;
   }
+
+  .career-hero { grid-template-columns: 1fr; text-align: center; }
+  .career-score { margin: 0 auto; }
+  .career-dimension-grid, .career-two-column { grid-template-columns: 1fr; }
+  .career-progress-page .page-header { padding-right: 0; }
 }
 
 /* Buttons stay flat at rest; depth appears only as hover feedback. */

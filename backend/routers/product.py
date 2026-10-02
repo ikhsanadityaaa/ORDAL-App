@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth_utils import get_app_version, get_current_user, get_token_for_user
+from database import get_db
 from ordal_api import request
+from workers.career_progress import build_career_progress
 
 
 router = APIRouter()
@@ -47,3 +49,12 @@ def send_feedback(body: FeedbackCreate, user=Depends(get_current_user)):
 @router.get("/updates/latest")
 def latest_update(user=Depends(get_current_user)):
     return request("GET", f"/releases/latest?platform={sys.platform}&current={get_app_version()}", token=get_token_for_user(user["id"]))
+
+
+@router.get("/career-progress")
+def career_progress(user=Depends(get_current_user)):
+    db = get_db()
+    try:
+        return build_career_progress(db, user["id"])
+    finally:
+        db.close()

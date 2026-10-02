@@ -4,6 +4,7 @@ import {
   ClipboardList, HelpCircle, Settings, Zap, Cpu,
   FileText, Languages, LogOut, MonitorSmartphone, ChevronUp,
   Bell, ListChecks, MessageSquare, Download,
+  TrendingUp,
 } from 'lucide-react'
 import useI18n from '../stores/i18nStore'
 import useAuthStore from '../stores/authStore'
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/kerja',                  icon: Zap,           labelKey: 'nav.cari_kerja' },
   { to: '/ai',                     icon: Cpu,           labelKey: 'nav.ai' },
   { to: '/antrean-lamaran',        icon: ListChecks,    label: { id: 'Antrean Lamaran', en: 'Application Queue' } },
+  { to: '/progres-karier',         icon: TrendingUp,    label: { id: 'Progres Karier', en: 'Career Progress' } },
   { to: '/riwayat-lamaran',        icon: ClipboardList, labelKey: 'nav.riwayat_lamaran' },
   { to: '/kumpulan-pertanyaan',    icon: HelpCircle,    labelKey: 'nav.kumpulan_pertanyaan' },
   { to: '/persiapan',              icon: Settings,      labelKey: 'nav.persiapan' },

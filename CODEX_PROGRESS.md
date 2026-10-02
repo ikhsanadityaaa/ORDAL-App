@@ -23,6 +23,16 @@ Remove production secrets and direct Supabase access from the desktop applicatio
 - Added safe update manifest handling with optional and mandatory update states; installer execution remains outside the app.
 - Added migration, intelligence, and product-foundation self-checks.
 
+## Career Progress Foundation (2026-10-02)
+
+- Added a bilingual Career Progress page backed only by local, deterministic evidence.
+- Added readiness dimensions for profile strength, CV readiness, target readiness, and application readiness; the score explicitly measures preparation, not human value.
+- Added Career Reality Check with a minimum sample of five analyzed jobs, avoiding conclusions when market evidence is insufficient.
+- Added explainable stretch opportunities from the local role taxonomy without replacing the user's chosen targets.
+- Added per-platform source performance, quality milestones, and actionable next steps without rewarding raw application volume.
+- Added `backend/career_progress_self_check.py` and a protected `GET /api/product/career-progress` endpoint.
+- Verified every backend self-check, target grouping, Python compilation, frontend production build, responsive browser rendering, and `git diff --check`.
+
 ## Completed
 
 - Replaced direct PostgreSQL authentication with calls to the central Web API.
