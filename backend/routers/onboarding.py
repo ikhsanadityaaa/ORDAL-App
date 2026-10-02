@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from database import get_db, query_one, query_all
 from auth_utils import get_current_user
+from workers import ai_service
 
 router = APIRouter()
 
@@ -93,12 +94,18 @@ def get_status(user=Depends(get_current_user)):
 
     prefs = _parse_prefs(row.get("preferences"))
     cvs = query_all(
-        """SELECT id, position_label, file_name, cv_memory, created_at,
+        """SELECT id, position_label, file_name, cv_memory, ats_report, optimized, source_cv_id, created_at,
                   CASE WHEN length(trim(COALESCE(cv_text, ''))) >= 50 THEN 1 ELSE 0 END AS has_text
            FROM cvs WHERE user_id = ? ORDER BY id DESC""",
         (user["id"],),
     )
     for cv in cvs:
+        try:
+            cv["ats_report"] = json.loads(cv.get("ats_report") or "null")
+        except Exception:
+            cv["ats_report"] = None
+        cv["optimized"] = bool(cv.get("optimized"))
+        cv["file_url"] = f"/api/cvs/{cv['id']}/file"
         if isinstance(cv.get("created_at"), object) and hasattr(cv["created_at"], "isoformat"):
             cv["created_at"] = cv["created_at"].isoformat()
 
@@ -188,6 +195,9 @@ def complete_onboarding(user=Depends(get_current_user)):
             raise HTTPException(status_code=400, detail="Pilih minimal satu job platform")
         if not cover_letter.strip():
             raise HTTPException(status_code=400, detail="Cover letter belum diisi")
+        active_ai = ai_service.get_active_provider(user["id"])
+        if not ai_service.is_provider_verified(user["id"], active_ai):
+            raise HTTPException(status_code=400, detail="Test koneksi AI harus berhasil sebelum onboarding selesai")
         logins = _platform_login_status(user["id"])
         if not any(logins.values()):
             raise HTTPException(

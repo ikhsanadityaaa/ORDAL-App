@@ -107,12 +107,13 @@ async def safe_text(el_or_page, selector=None) -> str:
 
 
 class LinkedInBot:
-    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None):
+    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None, before_apply=None):
         self.user_id  = user_id
         self.on_apply = on_apply
         self.emit     = emit
         self.ask_user_question = ask_user_question
         self.should_stop = should_stop or (lambda: False)
+        self.before_apply = before_apply
         self._browser = None
         self._target_locations_by_position = {}
         self._seen_card_ids = set()
@@ -472,7 +473,7 @@ class LinkedInBot:
                     is_dup = await self._process_job(
                         page, cv_path, cv_text, all_positions_str, location, job_id,
                         cover_template, cv_name, expected_salary, accepted_locations, summary,
-                        employment_type, excluded_positions_str,
+                        employment_type, excluded_positions_str, target,
                     )
 
                 except Exception as e:
@@ -766,7 +767,7 @@ class LinkedInBot:
     async def _process_job(self, page, cv_path, cv_text, position, location,
                            job_id, cover_template="", cv_name="", expected_salary="",
                            accepted_locations=None, card_summary=None, employment_type="full_time",
-                           excluded_positions_str="") -> bool:
+                           excluded_positions_str="", target=None) -> bool:
         """Returns True if duplicate."""
         job_title = "Unknown"; company = "Unknown"; job_location = ""; salary = ""
         card_summary = card_summary or {}
@@ -883,6 +884,17 @@ class LinkedInBot:
                                     position, location, "skipped", "Sudah dilamar di LinkedIn", job_location, salary)
                 return True
             self._progress(job_id, job_title, company, job_location or location, "duplikat", "ok", salary=salary)
+
+            if self.before_apply and not await self.before_apply(
+                "linkedin", target or {}, job_title, company, job_url,
+                job_location or location, detail_text,
+            ):
+                self._progress(job_id, job_title, company, job_location or location, "apply", "skip", "Masuk Antrean Lamaran", salary=salary)
+                await self.on_apply(
+                    "linkedin", job_title, company, job_url, position, location,
+                    "found", "Masuk Antrean Lamaran", job_location, salary,
+                )
+                return False
 
             # Apply — 3-stage Easy Apply detection (from reference bot)
             self._progress(job_id, job_title, company, job_location or location, "apply", "running", salary=salary)

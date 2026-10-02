@@ -21,7 +21,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db, get_db, restore_persisted_files, get_data_dir
-from routers import auth, credentials, cv, targets, sessions, preferences, question_bank, telegram, onboarding
+from routers import (
+    application_queue,
+    auth,
+    credentials,
+    cv,
+    notifications,
+    onboarding,
+    preferences,
+    product,
+    question_bank,
+    sessions,
+    targets,
+    telegram,
+)
 from routers.license import router as license_router
 from routers.email_config import router as email_router
 from routers.app_config import router as app_config_router
@@ -78,6 +91,9 @@ app.include_router(question_bank.router, prefix="/api/questions", tags=["Questio
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram"])
 app.include_router(app_config_router, prefix="/api/app_config", tags=["App Config"])
 app.include_router(ai_config_router, prefix="/api/ai_config", tags=["AI Config"])
+app.include_router(application_queue.router, prefix="/api/application_queue", tags=["Application Queue"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(product.router, prefix="/api/product", tags=["Product"])
 
 
 @app.on_event("startup")

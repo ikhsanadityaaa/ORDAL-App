@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "roles": {
+    "software_engineering": ["software engineer", "backend developer", "frontend developer", "full stack developer", "mobile developer", "web developer"],
+    "data": ["data analyst", "business intelligence", "data scientist", "data engineer", "analytics engineer"],
+    "product_project": ["product manager", "product owner", "project manager", "scrum master", "program manager"],
+    "design": ["ui designer", "ux designer", "product designer", "graphic designer", "visual designer"],
+    "marketing": ["digital marketing", "content marketing", "social media", "seo specialist", "brand marketing"],
+    "sales": ["sales executive", "account executive", "business development", "account manager", "relationship manager"],
+    "finance": ["accounting", "finance", "auditor", "tax", "treasury"],
+    "people_operations": ["human resources", "talent acquisition", "recruiter", "people operations", "general affair"],
+    "operations": ["operations", "supply chain", "procurement", "purchasing", "logistics", "warehouse"],
+    "customer_service": ["customer service", "customer support", "customer success", "call center"]
+  },
+  "skills": [
+    "python", "javascript", "typescript", "java", "go", "php", "react", "next.js", "node.js", "sql",
+    "postgresql", "mysql", "excel", "power bi", "tableau", "figma", "seo", "sem", "google analytics",
+    "copywriting", "salesforce", "sap", "accounting", "tax", "recruitment", "supply chain", "procurement",
+    "project management", "agile", "scrum", "communication", "leadership", "english"
+  ]
+}

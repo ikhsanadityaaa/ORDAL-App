@@ -24,7 +24,9 @@ supaya bot bisa pakai provider apapun yang dipilih user.
 from __future__ import annotations
 
 import os
+import ipaddress
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -71,11 +73,64 @@ PROVIDERS = {
         "api_key_env": "OPENROUTER_API_KEY",
         "api_key_link": "https://openrouter.ai/keys",
         "api_key_label": "OpenRouter API Key",
+        "api_base": "https://openrouter.ai/api/v1",
+        "extra_headers": {"HTTP-Referer": "https://www.applywithordal.com", "X-Title": "ORDAL"},
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        "description": "DeepSeek V4 Flash, API berbayar dengan biaya rendah.",
+        "model": "deepseek-v4-flash",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "api_key_link": "https://platform.deepseek.com/api_keys",
+        "api_key_label": "DeepSeek API Key",
+        "api_base": "https://api.deepseek.com",
+    },
+    "mimo": {
+        "label": "Xiaomi MiMo",
+        "description": "MiMo V2.6 dari Xiaomi, gunakan kuota akun MiMo.",
+        "model": "mimo-v2.6",
+        "api_key_env": "MIMO_API_KEY",
+        "api_key_link": "https://platform.xiaomimimo.com/",
+        "api_key_label": "MiMo API Key",
+        "api_base": "https://api.xiaomimimo.com/v1",
+    },
+    "zai": {
+        "label": "Z.ai GLM",
+        "description": "GLM 5.3 Flash dari Z.ai, tersedia pilihan gratis dan berbayar.",
+        "model": "glm-5.3-flash",
+        "api_key_env": "ZAI_API_KEY",
+        "api_key_link": "https://z.ai/manage-apikey/apikey-list",
+        "api_key_label": "Z.ai API Key",
+        "api_base": "https://api.z.ai/api/paas/v4",
+    },
+    "custom": {
+        "label": "AI lain atau AI lokal",
+        "description": "Hubungkan API OpenAI-compatible, Ollama, LM Studio, atau server milik Anda.",
+        "model": "",
+        "api_key_env": "CUSTOM_AI_API_KEY",
+        "api_key_link": "",
+        "api_key_label": "API Key (opsional untuk AI lokal)",
+        "api_base": "",
+        "key_optional": True,
     },
 }
 
 ACTIVE_KEY = "ACTIVE_AI_PROVIDER"
 DEFAULT_PROVIDER = "gemini"
+CUSTOM_BASE_KEY = "CUSTOM_AI_BASE_URL"
+CUSTOM_MODEL_KEY = "CUSTOM_AI_MODEL"
+
+
+def _verification_key(provider: str) -> str:
+    return f"AI_PROVIDER_VERIFIED_{provider.upper()}"
+
+
+def is_provider_verified(user_id: str, provider: str) -> bool:
+    return get_user_secret(user_id, _verification_key(provider), "") == "1"
+
+
+def set_provider_verified(user_id: str, provider: str, verified: bool) -> None:
+    set_user_secret(user_id, _verification_key(provider), "1" if verified else "")
 
 
 # ── Provider helpers ─────────────────────────────────────────────────────────
@@ -98,18 +153,72 @@ def list_providers(user_id: str) -> list[dict]:
     out = []
     for key, meta in PROVIDERS.items():
         api_key = get_user_secret(user_id, meta["api_key_env"], "")
+        runtime = get_provider_runtime(user_id, key)
         out.append({
             "key": key,
             "label": meta["label"],
             "description": meta["description"],
-            "model": meta["model"],
+            "model": runtime["model"],
             "api_key_env": meta["api_key_env"],
             "api_key_label": meta["api_key_label"],
             "api_key_link": meta["api_key_link"],
-            "configured": bool(api_key),
+            "api_base": runtime.get("api_base", ""),
+            "key_optional": bool(meta.get("key_optional")),
+            "configured": is_provider_configured(user_id, key),
+            "verified": is_provider_verified(user_id, key),
             "masked": _mask(api_key) if api_key else "",
         })
     return out
+
+
+def validate_api_base(value: str) -> str:
+    base_url = (value or "").strip().rstrip("/")
+    parsed = urlparse(base_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("Endpoint harus berupa URL http:// atau https:// yang valid.")
+    if parsed.username or parsed.password:
+        raise ValueError("Endpoint tidak boleh berisi username atau password.")
+    if parsed.scheme == "http":
+        host = parsed.hostname.lower()
+        local = host == "localhost"
+        try:
+            address = ipaddress.ip_address(host)
+            local = address.is_loopback or address.is_private
+        except ValueError:
+            pass
+        if not local:
+            raise ValueError("Endpoint HTTP hanya boleh memakai localhost atau alamat jaringan lokal. Gunakan HTTPS untuk server internet.")
+    return base_url
+
+
+def configure_custom_provider(user_id: str, *, api_key: str, base_url: str, model: str) -> None:
+    clean_model = (model or "").strip()
+    if not clean_model:
+        raise ValueError("Nama model wajib diisi.")
+    set_user_secret(user_id, CUSTOM_BASE_KEY, validate_api_base(base_url))
+    set_user_secret(user_id, CUSTOM_MODEL_KEY, clean_model)
+    set_user_secret(user_id, PROVIDERS["custom"]["api_key_env"], (api_key or "").strip())
+
+
+def get_provider_runtime(user_id: str, provider: str) -> dict:
+    meta = PROVIDERS[provider]
+    if provider != "custom":
+        return {**meta}
+    return {
+        **meta,
+        "api_base": get_user_secret(user_id, CUSTOM_BASE_KEY, ""),
+        "model": get_user_secret(user_id, CUSTOM_MODEL_KEY, ""),
+    }
+
+
+def is_provider_configured(user_id: str, provider: str) -> bool:
+    if provider not in PROVIDERS:
+        return False
+    runtime = get_provider_runtime(user_id, provider)
+    api_key = get_user_secret(user_id, runtime["api_key_env"], "")
+    if provider == "custom":
+        return bool(runtime.get("api_base") and runtime.get("model"))
+    return bool(api_key)
 
 
 def _mask(val: str) -> str:
@@ -175,10 +284,12 @@ async def chat_raw(
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown provider: {provider}")
 
-    meta = PROVIDERS[provider]
-    api_key = get_user_secret(user_id, meta["api_key_env"], "")
-    if not api_key:
+    meta = get_provider_runtime(user_id, provider)
+    if not is_provider_configured(user_id, provider):
+        if provider == "custom":
+            raise ValueError("Isi endpoint dan nama model untuk AI lain atau AI lokal.")
         raise ValueError(f"{meta['api_key_label']} belum di-set.")
+    api_key = get_user_secret(user_id, meta["api_key_env"], "")
 
     try:
         if provider == "gemini":
@@ -202,7 +313,9 @@ async def chat_raw(
         elif provider == "groq":
             return await _call_groq(api_key, meta["model"], prompt, system_prompt, max_tokens, temperature)
         elif provider == "openrouter":
-            return await _call_openrouter(api_key, meta["model"], prompt, system_prompt, max_tokens, temperature)
+            return await _call_openai_compatible(api_key, meta["model"], meta["api_base"], meta["label"], prompt, system_prompt, max_tokens, temperature, meta.get("extra_headers"))
+        elif provider in ("deepseek", "mimo", "zai", "custom"):
+            return await _call_openai_compatible(api_key, meta["model"], meta["api_base"], meta["label"], prompt, system_prompt, max_tokens, temperature)
         raise ValueError(f"Unknown provider: {provider}")
     except httpx.ConnectTimeout as e:
         raise RuntimeError(
@@ -414,7 +527,7 @@ async def _call_openrouter(api_key, model, prompt, system_prompt, max_tokens, te
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "https://ordal.app",
+                "HTTP-Referer": "https://www.applywithordal.com",
                 "X-Title": "ORDAL",
             },
             json={
@@ -434,6 +547,39 @@ async def _call_openrouter(api_key, model, prompt, system_prompt, max_tokens, te
             raise RuntimeError(f"OpenRouter: respons tidak terduga: {data}")
 
 
+async def _call_openai_compatible(api_key, model, api_base, provider_label, prompt, system_prompt, max_tokens, temperature, extra_headers=None):
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    headers = {"Content-Type": "application/json", **(extra_headers or {})}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{api_base.rstrip('/')}/chat/completions",
+            headers=headers,
+            json={
+                "model": model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
+        )
+        try:
+            data = resp.json()
+        except Exception:
+            raise RuntimeError(f"{provider_label}: respons tidak valid (HTTP {resp.status_code}).")
+        _raise_for_provider_error(data, provider_label)
+        if resp.status_code >= 400:
+            raise RuntimeError(f"{provider_label} HTTP {resp.status_code}: {data}")
+        try:
+            return data["choices"][0]["message"]["content"].strip()
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(f"{provider_label}: respons tidak sesuai format OpenAI-compatible.")
+
+
 # ── Test connection ──────────────────────────────────────────────────────────
 async def test_provider(user_id: str, provider: str) -> dict:
     """
@@ -443,9 +589,10 @@ async def test_provider(user_id: str, provider: str) -> dict:
     if provider not in PROVIDERS:
         return {"ok": False, "error": f"Unknown provider: {provider}"}
 
-    meta = PROVIDERS[provider]
-    api_key = get_user_secret(user_id, meta["api_key_env"], "")
-    if not api_key:
+    meta = get_provider_runtime(user_id, provider)
+    if not is_provider_configured(user_id, provider):
+        if provider == "custom":
+            return {"ok": False, "error": "Isi endpoint dan nama model terlebih dahulu."}
         return {"ok": False, "error": f"{meta['api_key_label']} belum di-set."}
 
     try:
@@ -458,19 +605,23 @@ async def test_provider(user_id: str, provider: str) -> dict:
             prefer_provider=provider,
         )
         if result and len(result) < 200:
+            set_provider_verified(user_id, provider, True)
             return {
                 "ok": True,
                 "detail": f"Provider {meta['label']} ({meta['model']}) valid. Response: {result[:60]}",
                 "response": result,
             }
         elif result:
+            set_provider_verified(user_id, provider, True)
             return {
                 "ok": True,
                 "detail": f"Provider {meta['label']} valid (response: {result[:80]}...).",
                 "response": result[:200],
             }
+        set_provider_verified(user_id, provider, False)
         return {"ok": False, "error": "Response kosong. Cek API key atau quota."}
     except Exception as e:
+        set_provider_verified(user_id, provider, False)
         return {"ok": False, "error": str(e)}
 
 

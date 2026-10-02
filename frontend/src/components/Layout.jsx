@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   ClipboardList, HelpCircle, Settings, Zap, Cpu,
   FileText, Languages, LogOut, MonitorSmartphone, ChevronUp,
+  Bell, ListChecks, MessageSquare, Download,
 } from 'lucide-react'
 import useI18n from '../stores/i18nStore'
 import useAuthStore from '../stores/authStore'
@@ -12,15 +13,17 @@ import DeviceManagerModal from './DeviceManagerModal'
 import TrialBadge from './license/TrialBadge'
 
 // App version from package.json
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || '3.0.0'
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '3.2.3'
 
 // Nav items — label via i18n keys
 const navItems = [
   { to: '/kerja',                  icon: Zap,           labelKey: 'nav.cari_kerja' },
   { to: '/ai',                     icon: Cpu,           labelKey: 'nav.ai' },
+  { to: '/antrean-lamaran',        icon: ListChecks,    label: { id: 'Antrean Lamaran', en: 'Application Queue' } },
   { to: '/riwayat-lamaran',        icon: ClipboardList, labelKey: 'nav.riwayat_lamaran' },
   { to: '/kumpulan-pertanyaan',    icon: HelpCircle,    labelKey: 'nav.kumpulan_pertanyaan' },
   { to: '/persiapan',              icon: Settings,      labelKey: 'nav.persiapan' },
+  { to: '/feedback',               icon: MessageSquare, label: { id: 'Feedback', en: 'Feedback' } },
 ]
 
 // Logo ORDAL — kotak oranye + "O" putih + wordmark (sama dengan web)
@@ -88,7 +91,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
-          {navItems.map(({ to, icon: Icon, labelKey }) => (
+          {navItems.map(({ to, icon: Icon, labelKey, label }) => (
             <NavLink key={to} to={to} style={{ textDecoration: 'none' }}>
               {({ isActive }) => (
                 <div style={{
@@ -106,7 +109,7 @@ export default function Layout() {
                   transition: 'all 0.16s cubic-bezier(0.34,1.56,0.64,1)',
                 }}>
                   <Icon size={16} strokeWidth={isActive ? 2.6 : 2} style={{ flexShrink: 0 }} />
-                  <span>{t(labelKey)}</span>
+                  <span>{label ? label[lang] : t(labelKey)}</span>
                 </div>
               )}
             </NavLink>
@@ -267,14 +270,91 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, minWidth: 0, overflow: 'auto', background: 'var(--cream)' }}>
+      <main style={{ position: 'relative', flex: 1, minWidth: 0, overflow: 'auto', background: 'var(--cream)' }}>
+        <NotificationBell />
         <Outlet />
       </main>
 
       {/* Dashboard device */}
       <DeviceManagerModal open={deviceOpen} onClose={() => setDeviceOpen(false)} />
+      <UpdateNotice />
     </div>
   )
+}
+
+function NotificationBell() {
+  const navigate = useNavigate()
+  const [unread, setUnread] = useState(0)
+  const previousUnread = useRef(null)
+  const soundEnabled = useRef(true)
+
+  useEffect(() => {
+    let active = true
+    api.get('/application_queue/settings/current').then((res) => {
+      soundEnabled.current = res.data?.sound_enabled !== false
+    }).catch(() => {})
+    const load = () => api.get('/notifications').then((res) => {
+      if (!active) return
+      const nextUnread = res.data?.unread || 0
+      if (soundEnabled.current && previousUnread.current !== null && nextUnread > previousUnread.current) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext
+          const context = new AudioContext()
+          const oscillator = context.createOscillator()
+          const gain = context.createGain()
+          oscillator.frequency.value = 720
+          gain.gain.setValueAtTime(0.08, context.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.18)
+          oscillator.connect(gain).connect(context.destination)
+          oscillator.start()
+          oscillator.stop(context.currentTime + 0.18)
+        } catch (_) { /* Browser may block audio before first interaction. */ }
+      }
+      previousUnread.current = nextUnread
+      setUnread(nextUnread)
+    }).catch(() => {})
+    load()
+    const timer = setInterval(load, 30_000)
+    return () => { active = false; clearInterval(timer) }
+  }, [])
+
+  return (
+    <button onClick={() => navigate('/notifikasi')} aria-label="Notifications" style={{ position: 'fixed', top: 20, right: 24, zIndex: 30, width: 42, height: 42, borderRadius: 14, border: '2px solid var(--black)', background: '#fff', boxShadow: '3px 3px 0 var(--black)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+      <Bell size={19} />
+      {unread > 0 && <span style={{ position: 'absolute', top: -7, right: -7, minWidth: 20, height: 20, padding: '0 5px', borderRadius: 999, background: 'var(--orange)', color: '#fff', border: '2px solid var(--black)', fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center' }}>{Math.min(unread, 99)}</span>}
+    </button>
+  )
+}
+
+function UpdateNotice() {
+  const { lang } = useI18n()
+  const [update, setUpdate] = useState(null)
+  const [hidden, setHidden] = useState(false)
+
+  useEffect(() => {
+    api.get('/product/updates/latest').then((res) => {
+      if (res.data?.update_available || res.data?.mandatory) setUpdate(res.data)
+    }).catch(() => {})
+  }, [])
+
+  if (!update || (hidden && !update.mandatory)) return null
+  const openDownload = () => {
+    if (/^https:\/\//i.test(update.download_url || '')) window.open(update.download_url, '_blank', 'noopener,noreferrer')
+  }
+  const content = (
+    <div className="card-pixel" style={{ width: 'min(520px, calc(100vw - 40px))', padding: 22, background: '#fff' }}>
+      <p className="font-pixel" style={{ color: 'var(--orange)', fontSize: 9 }}>ORDAL {update.latest_version}</p>
+      <h2 style={{ fontSize: 22, fontWeight: 900, marginTop: 8 }}>{lang === 'id' ? 'Versi baru tersedia' : 'New version available'}</h2>
+      <p style={{ color: 'var(--muted)', marginTop: 8 }}>{update.release_notes || (lang === 'id' ? 'Unduh pembaruan resmi ORDAL.' : 'Download the official ORDAL update.')}</p>
+      {update.checksum_sha256 && <p style={{ fontSize: 11, overflowWrap: 'anywhere', marginTop: 10 }}>SHA-256: {update.checksum_sha256}</p>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <button className="btn btn-primary" onClick={openDownload}><Download size={16} />{lang === 'id' ? 'Unduh update' : 'Download update'}</button>
+        {!update.mandatory && <button className="btn btn-secondary" onClick={() => setHidden(true)}>{lang === 'id' ? 'Nanti' : 'Later'}</button>}
+      </div>
+    </div>
+  )
+  if (update.mandatory) return <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(51,54,63,0.78)', display: 'grid', placeItems: 'center', padding: 20 }}>{content}</div>
+  return <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 100 }}>{content}</div>
 }
 
 // ── Cek Log Button ─────────────────────────────────────────────────────────

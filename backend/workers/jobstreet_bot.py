@@ -447,12 +447,13 @@ async def has_jobstreet_session(page, context) -> bool:
 
 
 class JobStreetBot:
-    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None):
+    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None, before_apply=None):
         self.user_id  = user_id
         self.on_apply = on_apply
         self.emit     = emit
         self.ask_user_question = ask_user_question
         self.should_stop = should_stop or (lambda: False)
+        self.before_apply = before_apply
         self._browser = None
         self._target_locations_by_position = {}
 
@@ -720,7 +721,7 @@ class JobStreetBot:
                     is_dup = await self._process_job(
                         context, page, cv_path, cv_text,
                         all_positions_str, location, job_id, cover_template, cv_name, expected_salary, accepted_locations,
-                        employment_type, excluded_positions,
+                        employment_type, excluded_positions, target,
                     )
 
                     if is_dup:
@@ -828,7 +829,7 @@ class JobStreetBot:
             return {"title": title, "company": lines[1] if len(lines) > 1 else "", "location": ""}
 
     async def _process_job(self, context, page, cv_path, cv_text,
-                           position, location, job_id, cover_template="", cv_name="", expected_salary="", accepted_locations=None, employment_type="full_time", excluded_positions=None) -> bool:
+                           position, location, job_id, cover_template="", cv_name="", expected_salary="", accepted_locations=None, employment_type="full_time", excluded_positions=None, target=None) -> bool:
         """Returns True if duplicate."""
         job_title = "Unknown"; company = "Unknown"; job_location = ""; salary = ""
         try:
@@ -923,6 +924,17 @@ class JobStreetBot:
                                     job_location, salary)
                 return True  # ← duplicate flag
             self._progress(job_id, job_title, company, job_location or location, "duplikat", "ok", salary=salary)
+
+            if self.before_apply and not await self.before_apply(
+                "jobstreet", target or {}, job_title, company, job_url,
+                job_location or location, detail_text,
+            ):
+                self._progress(job_id, job_title, company, job_location or location, "apply", "skip", "Masuk Antrean Lamaran", salary=salary)
+                await self.on_apply(
+                    "jobstreet", job_title, company, job_url, position, location,
+                    "found", "Masuk Antrean Lamaran", job_location, salary,
+                )
+                return False
 
             # Apply
             self._progress(job_id, job_title, company, job_location or location, "apply", "running", salary=salary)

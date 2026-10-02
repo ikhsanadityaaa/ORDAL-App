@@ -93,7 +93,8 @@ def session_history(user=Depends(get_current_user)):
         recent_logs = db.execute("""
             SELECT
                 id, platform, job_title, company, job_url, position, location,
-                job_location, salary, question_answers, status, skip_reason, applied_at
+                job_location, salary, question_answers, status, skip_reason, applied_at,
+                cv_id, cv_file_name, job_description_snapshot, match_score, match_explanation
             FROM apply_logs
             WHERE session_id = ? AND status = 'applied' AND confirmed_at IS NOT NULL
             ORDER BY applied_at DESC
@@ -127,6 +128,11 @@ def application_history(user=Depends(get_current_user)):
             l.status,
             l.skip_reason,
             l.applied_at,
+            l.cv_id,
+            l.cv_file_name,
+            l.job_description_snapshot,
+            l.match_score,
+            l.match_explanation,
             s.started_at,
             s.ended_at,
             s.status AS session_status

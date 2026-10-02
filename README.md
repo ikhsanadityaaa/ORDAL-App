@@ -85,7 +85,7 @@ register → verifikasi email → onboarding → app utama
 Desktop memakai endpoint public berikut secara default:
 
 ```env
-ORDAL_API_URL=https://ordal-web.vercel.app/api/app
+ORDAL_API_URL=https://www.applywithordal.com/api/app
 ```
 
 Tidak perlu memasukkan URL atau password database. Semua secret Supabase, OAuth, email, dan pembayaran disimpan di Vercel milik ORDAL-Web.
@@ -126,7 +126,7 @@ npm run dev                 # vite di :5173, proxy /api → :8000
 
 | Variabel | Wajib? | Keterangan |
 |---|---|---|
-| `ORDAL_API_URL` | — | Default `https://ordal-web.vercel.app/api/app`; ubah hanya untuk preview/dev server. |
+| `ORDAL_API_URL` | — | Default `https://www.applywithordal.com/api/app`; ubah hanya untuk preview/dev server. |
 | `ORDAL_APP_VERSION` | — | Versi desktop yang dikirim ke API. |
 | `APP_TIMEZONE` | — | Default `Asia/Jakarta`. |
 
@@ -154,7 +154,7 @@ Konfigurasi trial, harga, admin, Midtrans, PayPal, SMTP, dan OAuth berada di ORD
 
 1. Daftar [Midtrans](https://midtrans.com) → dashboard → aktifkan izin **QRIS**.
 2. Simpan **Server Key** sebagai environment variable ORDAL-Web di Vercel.
-3. (Opsional, lebih instan lagi) Dashboard Midtrans → Settings → Configuration → **Payment Notification URL**: `https://domain-kamu/api/payments/webhook/midtrans`.
+3. (Opsional, lebih instan lagi) Dashboard Midtrans → Settings → Configuration → **Payment Notification URL**: `https://www.applywithordal.com/api/payments/webhook/midtrans`.
 
 Hasil: setiap invoice jadi **QRIS dinamis** (QR ditampilkan di app, nominal exact). Begitu user bayar → Midtrans kirim webhook DAN app polling tiap 3 detik → status VERIFIED + kode aktivasi keluar otomatis.
 

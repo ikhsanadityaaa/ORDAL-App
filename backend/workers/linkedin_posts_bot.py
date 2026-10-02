@@ -233,11 +233,12 @@ def _get_email_config(user_id: str) -> dict:
 
 
 class LinkedInPostsBot:
-    def __init__(self, user_id, on_apply, emit, should_stop=None):
+    def __init__(self, user_id, on_apply, emit, should_stop=None, before_apply=None):
         self.user_id = user_id
         self.on_apply = on_apply
         self.emit = emit
         self.should_stop = should_stop or (lambda: False)
+        self.before_apply = before_apply
         self._browser = None
         self._seen_fingerprints: set[str] = set()
         self._consecutive_duplicates = 0
@@ -453,7 +454,7 @@ class LinkedInPostsBot:
                     result = await self._process_single_post(
                         page, card_handle, i, position, location,
                         cv_path, cv_text, cover_template, email_config,
-                        expected_salary, excluded_positions_str,
+                        expected_salary, excluded_positions_str, target,
                     )
                     if result:
                         new_posts_this_round += 1
@@ -585,7 +586,7 @@ class LinkedInPostsBot:
     async def _process_single_post(
         self, page, card, index, position, location,
         cv_path, cv_text, cover_template, email_config=None,
-        expected_salary="", excluded_positions_str="",
+        expected_salary="", excluded_positions_str="", target=None,
     ) -> bool:
         # ── Step 1: Scroll card into viewport ──
         try:
@@ -790,6 +791,16 @@ class LinkedInPostsBot:
             email_job_title = _email_position_title(job_title, position)
             # company was already extracted in Step 8
             if email_config:
+                if self.before_apply and not await self.before_apply(
+                    "linkedin_posts", target or {}, job_title, company or author,
+                    parsed.post_url or "", location, card_text,
+                ):
+                    await self.on_apply(
+                        "linkedin_posts", job_title, company or author, parsed.post_url or "",
+                        position, location, "found", "Masuk Antrean Lamaran",
+                        job_location=location, salary=expected_salary or None,
+                    )
+                    return True
                 testing_mode = bool(email_config.get("testing_email_mode"))
                 target_email = email_config["sender_email"] if testing_mode else original_email
                 mode_label = "TEST " if testing_mode else ""
@@ -878,6 +889,18 @@ class LinkedInPostsBot:
 
         if external_links:
             _blog(f"  Card [{index}]: found {len(external_links)} external links: {external_links[:3]}")
+
+        if external_links and self.before_apply and not await self.before_apply(
+            "linkedin_posts", target or {}, extracted_title, company or author,
+            parsed.post_url or external_links[0], location, card_text,
+        ):
+            await self.on_apply(
+                "linkedin_posts", extracted_title, company or author,
+                parsed.post_url or external_links[0], position, location,
+                "found", "Masuk Antrean Lamaran", job_location=location,
+                salary=expected_salary or None,
+            )
+            return True
 
         # ── Step 12: Try to apply to each external link ──
         for link in external_links[:3]:

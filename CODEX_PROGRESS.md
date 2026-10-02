@@ -1,6 +1,6 @@
 # ORDAL App - Engineering Progress
 
-Last updated: 2026-09-27
+Last updated: 2026-10-02
 Branch: `codex/secure-architecture-v2`
 Base commit: `0bf0819`
 Implementation commit: `1f07e51`
@@ -9,6 +9,19 @@ Remote branch: `origin/codex/secure-architecture-v2`
 ## Goal
 
 Remove production secrets and direct Supabase access from the desktop application. Keep operational job data local while Web/Vercel controls identity, devices, trials, licenses, and payments.
+
+## Blueprint Foundation (2026-10-02)
+
+- Flattened all app buttons at rest, with soft depth shown only on hover, and aligned typography to Apple/system font stacks.
+- Added safe, versioned SQLite migrations with pre-migration backup, rollback restore, WAL checkpoint, and integrity check.
+- Added ORDAL Intelligence Layer v1: role/skill taxonomy, CV/job normalization, hard filters, weighted score, explanation, and versioned reference cache.
+- Added candidate profiles and versioned job snapshots used by Application Queue scoring.
+- Added Application Queue with find-only, review-before-apply, and auto-apply modes; approved jobs continue on the next search run.
+- Added Round Robin and Priority Focus scheduling plus configurable platform order.
+- Added Notification Center, unread badge, optional sound, session result notifications, and queue notifications.
+- Added permanent Feedback page with explicit diagnostic consent and central 30-day retention receipt.
+- Added safe update manifest handling with optional and mandatory update states; installer execution remains outside the app.
+- Added migration, intelligence, and product-foundation self-checks.
 
 ## Completed
 

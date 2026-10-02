@@ -20,7 +20,7 @@ SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587") or 587)
 SMTP_USER = os.getenv("SMTP_USER", "").strip()
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "").strip()
-SMTP_FROM = os.getenv("SMTP_FROM", "").strip() or (SMTP_USER if SMTP_USER else "ORDAL <no-reply@ordal.app>")
+SMTP_FROM = os.getenv("SMTP_FROM", "").strip() or (SMTP_USER if SMTP_USER else "ORDAL <noreply@applywithordal.com>")
 SMTP_SSL_PORT = int(os.getenv("SMTP_SSL_PORT", "465") or 465)
 
 

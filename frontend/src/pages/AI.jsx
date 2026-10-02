@@ -131,6 +131,8 @@ export function ProviderLogo({ providerKey, size = 24 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
   const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [model, setModel] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -140,19 +142,31 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
 
   useEffect(() => {
     setApiKey('')
+    setBaseUrl(provider.api_base || '')
+    setModel(provider.model || '')
     setToast(null)
-  }, [provider.key])
+  }, [provider.key, provider.api_base, provider.model])
 
   const handleSaveKey = async () => {
-    if (!apiKey.trim()) {
+    if (provider.key !== 'custom' && !apiKey.trim()) {
       setToast({ type: 'error', msg: t('ai.toast.key_empty') })
+      return
+    }
+    if (provider.key === 'custom' && (!baseUrl.trim() || !model.trim())) {
+      setToast({ type: 'error', msg: lang === 'id' ? 'Endpoint dan nama model wajib diisi.' : 'Endpoint and model name are required.' })
       return
     }
     setLoading(true); setToast(null)
     try {
-      await api.put(`/ai_config/${provider.key}/key`, { value: apiKey.trim() })
+      await api.put(`/ai_config/${provider.key}/key`, {
+        value: apiKey.trim(),
+        base_url: provider.key === 'custom' ? baseUrl.trim() : undefined,
+        model: provider.key === 'custom' ? model.trim() : undefined,
+      })
+      const test = await api.post(`/ai_config/${provider.key}/test`)
+      if (!test.data?.ok) throw new Error(test.data?.error || 'Koneksi AI gagal diuji.')
       await onSaved?.(provider.key)
-      setToast({ type: 'success', msg: `${t('ai.toast.key_saved')} ${provider.label} ${t('ai.toast.saved_suffix')}` })
+      setToast({ type: 'success', msg: test.data.detail })
       setApiKey('')
     } catch (e) {
       setToast({ type: 'error', msg: `${t('ai.toast.save_failed')} ${e.response?.data?.detail || e.message}` })
@@ -180,6 +194,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
     try {
       const res = await api.post(`/ai_config/${provider.key}/test`)
       if (res.data.ok) {
+        await onSaved?.(provider.key)
         setToast({ type: 'success', msg: res.data.detail })
       } else {
         setToast({ type: 'error', msg: res.data.error })
@@ -222,7 +237,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
             )}
             {provider.configured ? (
               <span className="badge badge-success">
-                <CheckCircle size={10} /> {t('ai.badge.key_set')}
+                <CheckCircle size={10} /> {provider.verified ? (lang === 'id' ? 'Teruji' : 'Verified') : t('ai.badge.key_set')}
               </span>
             ) : (
               <span className="badge badge-muted">{t('ai.badge.key_missing')}</span>
@@ -238,7 +253,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
             model: {provider.model}
           </div>
         </div>
-        {!isActive && provider.configured && (
+        {!isActive && provider.verified && (
           <button
             onClick={() => onSelect(provider.key)}
             className="btn btn-secondary"
@@ -288,6 +303,12 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
         <label className="input-label">
           {provider.configured ? t('ai.label.override_key') : `${t('ai.label.enter_key')} ${provider.api_key_label}`}
         </label>
+        {provider.key === 'custom' && (
+          <div style={{ display: 'grid', gap: 10, marginBottom: 10 }}>
+            <input className="input" type="url" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="http://localhost:11434/v1" />
+            <input className="input" value={model} onChange={e => setModel(e.target.value)} placeholder={lang === 'id' ? 'Nama model, mis. llama3.2' : 'Model name, e.g. llama3.2'} />
+          </div>
+        )}
         <div style={{ position: 'relative' }}>
           <input
             type={show ? 'text' : 'password'}
@@ -315,7 +336,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button
             onClick={handleSaveKey}
-            disabled={loading || !apiKey.trim()}
+            disabled={loading || (provider.key === 'custom' ? (!baseUrl.trim() || !model.trim()) : !apiKey.trim())}
             className="btn btn-primary"
             style={{ flex: 1, minWidth: 100 }}
           >
@@ -346,7 +367,7 @@ function ProviderCard({ provider, isActive, onSelect, onSaved, onContinue }) {
 
         <Toast {...(toast || {})} />
 
-        {provider.configured && isActive && (
+        {provider.verified && isActive && (
           <div className="notice notice-success" style={{ marginTop: 14, alignItems: 'center' }}>
             <CheckCircle size={16} style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
@@ -630,12 +651,12 @@ export default function AI() {
                     <small>
                       {PROVIDER_GUIDES[provider.key]?.cost[lang]}
                       {' · '}
-                      {provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                      {provider.verified ? (lang === 'id' ? 'Terhubung dan teruji' : 'Connected and verified') : provider.configured ? (lang === 'id' ? 'Key tersimpan, belum diuji' : 'Key saved, not tested') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
                     </small>
                   </span>
                   <span
-                    className={`connection-light ${provider.configured ? 'is-online' : ''} ${provider.key === active ? 'is-active' : ''}`}
-                    title={provider.configured ? (lang === 'id' ? 'Terhubung' : 'Connected') : (lang === 'id' ? 'Belum terhubung' : 'Not connected')}
+                    className={`connection-light ${provider.verified ? 'is-online' : ''} ${provider.key === active ? 'is-active' : ''}`}
+                    title={provider.verified ? (lang === 'id' ? 'Terhubung dan teruji' : 'Connected and verified') : (lang === 'id' ? 'Belum teruji' : 'Not verified')}
                   />
                 </button>
               )

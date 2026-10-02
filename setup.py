@@ -53,6 +53,7 @@ OPTIONS = {
         "httpx",
         "dotenv",
         "pdfplumber",
+        "reportlab",
         "playwright",
         "webview",
     ],

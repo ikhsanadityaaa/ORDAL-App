@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 import threading
 import os
@@ -437,6 +438,17 @@ class SessionManager:
             should_emit = True
             try:
                 db = get_db()
+                queue_context = db.execute(
+                    """SELECT q.match_score, q.match_explanation, t.cv_id, c.file_name,
+                              js.raw_data AS job_description_snapshot
+                       FROM application_queue q
+                       LEFT JOIN job_targets t ON t.id = q.target_id
+                       LEFT JOIN cvs c ON c.id = t.cv_id
+                       LEFT JOIN job_snapshots js ON js.id = q.job_snapshot_id
+                       WHERE q.user_id=? AND q.platform=? AND q.job_url=?
+                       ORDER BY q.updated_at DESC LIMIT 1""",
+                    (user_id, platform, job_url or ""),
+                ).fetchone()
                 existing = db.execute(
                     """
                     SELECT id, status FROM apply_logs
@@ -455,10 +467,19 @@ class SessionManager:
                             """
                             UPDATE apply_logs
                             SET job_title=?, company=?, job_url=?, position=?, location=?, job_location=?, salary=?,
-                                question_answers=?, confirmed_at=datetime('now'), status='applied', skip_reason=NULL
+                                question_answers=?, cv_id=?, cv_file_name=?, job_description_snapshot=?,
+                                match_score=?, match_explanation=?, confirmed_at=datetime('now'), status='applied', skip_reason=NULL
                             WHERE id=?
                             """,
-                            (job_title, company, job_url, position, location, job_location, salary, question_answers, existing["id"]),
+                            (
+                                job_title, company, job_url, position, location, job_location, salary, question_answers,
+                                queue_context["cv_id"] if queue_context else None,
+                                queue_context["file_name"] if queue_context else None,
+                                queue_context["job_description_snapshot"] if queue_context else None,
+                                queue_context["match_score"] if queue_context else None,
+                                queue_context["match_explanation"] if queue_context else None,
+                                existing["id"],
+                            ),
                         )
                         db.commit()
                     else:
@@ -469,17 +490,34 @@ class SessionManager:
                     INSERT INTO apply_logs
                         (session_id, platform, job_title, company, job_url,
                          position, location, job_location, salary,
-                         question_answers, confirmed_at, status, skip_reason)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                         question_answers, cv_id, cv_file_name, job_description_snapshot,
+                         match_score, match_explanation, confirmed_at, status, skip_reason)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                             CASE WHEN ? = 'applied' THEN datetime('now') ELSE NULL END,
                             ?, ?)
                 """, (
                     session_id, platform, job_title, company, job_url,
                     position, location, job_location, salary,
-                    question_answers, status, status, skip_reason
+                    question_answers,
+                    queue_context["cv_id"] if queue_context else None,
+                    queue_context["file_name"] if queue_context else None,
+                    queue_context["job_description_snapshot"] if queue_context else None,
+                    queue_context["match_score"] if queue_context else None,
+                    queue_context["match_explanation"] if queue_context else None,
+                    status, status, skip_reason
                     ))
                     db.commit()
                     db.close()
+                if status == "applied" and job_url:
+                    queue_db = get_db()
+                    queue_db.execute(
+                        """UPDATE application_queue
+                           SET status='applied', updated_at=datetime('now')
+                           WHERE user_id=? AND platform=? AND job_url=?""",
+                        (user_id, platform, job_url),
+                    )
+                    queue_db.commit()
+                    queue_db.close()
             except Exception as e:
                 _log(f"log_apply DB error: {e}")
 
@@ -533,7 +571,114 @@ class SessionManager:
             self._put_threadsafe(user_id, event, main_loop)
 
         async def ask_question(platform: str, question: str, field_type: str, job_title: str, options: list = None) -> str:
+            attention_db = get_db()
+            preference = attention_db.execute(
+                "SELECT application_mode FROM user_preferences WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+            mode = preference[0] if preference else "auto_apply"
+            if mode == "review_queue":
+                item = attention_db.execute(
+                    """SELECT id, missing_fields, answer_data, question_metadata FROM application_queue
+                       WHERE user_id=? AND platform=? AND lower(trim(job_title))=lower(trim(?))
+                         AND status IN ('approved', 'ready', 'needs_review')
+                       ORDER BY updated_at DESC LIMIT 1""",
+                    (user_id, platform, job_title),
+                ).fetchone()
+                if item:
+                    try:
+                        saved_answers = json.loads(item["answer_data"] or "{}")
+                    except json.JSONDecodeError:
+                        saved_answers = {}
+                    saved = str(saved_answers.get(question, "")).strip()
+                    if saved:
+                        attention_db.close()
+                        return saved
+                    try:
+                        missing = json.loads(item["missing_fields"] or "[]")
+                    except json.JSONDecodeError:
+                        missing = []
+                    try:
+                        metadata = json.loads(item["question_metadata"] or "{}")
+                    except json.JSONDecodeError:
+                        metadata = {}
+                    if question not in missing:
+                        missing.append(question)
+                    metadata[question] = {"field_type": field_type, "options": options or []}
+                    attention_db.execute(
+                        "UPDATE application_queue SET status='needs_review', missing_fields=?, question_metadata=?, updated_at=datetime('now') WHERE id=?",
+                        (json.dumps(missing, ensure_ascii=False), json.dumps(metadata, ensure_ascii=False), item["id"]),
+                    )
+                    attention_db.commit()
+                    attention_db.close()
+                    self._put_threadsafe(user_id, {
+                        "type": "needs_attention",
+                        "platform": platform,
+                        "job_title": job_title,
+                        "question": question,
+                        "field_type": field_type,
+                        "options": options or [],
+                        "message": "Jawaban tambahan dibutuhkan di Antrean Lamaran",
+                    }, main_loop)
+                    return ""
+            attention_db.close()
             return await self.ask_user_question(user_id, platform, question, field_type, job_title, main_loop, options=options)
+
+        async def before_apply(platform, target, job_title, company, job_url, job_location, description=""):
+            from hashlib import sha256
+            from routers.application_queue import QueueCreate, enqueue
+
+            gate_db = get_db()
+            preference = gate_db.execute(
+                "SELECT application_mode FROM user_preferences WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+            mode = preference[0] if preference else "auto_apply"
+            stable_url = (job_url or "").strip() or (
+                f"ordal://{platform}/" + sha256(
+                    f"{job_title}|{company}|{job_location}".encode("utf-8")
+                ).hexdigest()
+            )
+            existing = gate_db.execute(
+                "SELECT id, status FROM application_queue WHERE user_id=? AND platform=? AND job_url=?",
+                (user_id, platform, stable_url),
+            ).fetchone()
+            gate_db.close()
+
+            if existing and existing["status"] == "removed":
+                return False
+            if mode == "auto_apply" and existing and existing["status"] == "needs_review":
+                return False
+            if not existing:
+                queued = enqueue(
+                    QueueCreate(
+                        target_id=int(target["id"]) if target.get("id") else None,
+                        platform=platform,
+                        job_title=job_title or "Lowongan",
+                        company=company or "",
+                        job_url=stable_url,
+                        location=job_location or target.get("location") or "",
+                        description=(description or "")[:30000],
+                    ),
+                    user={"id": str(user_id)},
+                )
+                if mode != "auto_apply":
+                    self._put_threadsafe(user_id, {
+                        "type": "queued",
+                        "platform": platform,
+                        "job_title": job_title,
+                        "company": company,
+                        "job_url": stable_url,
+                        "match_score": queued["match"]["score"],
+                        "message": "Lowongan masuk Antrean Lamaran",
+                    }, main_loop)
+                if not queued["match"]["eligible"]:
+                    return False
+            if mode == "auto_apply":
+                return True
+            if mode == "review_queue" and existing and existing["status"] == "approved":
+                return True
+            return False
 
         try:
             # ── v12: Run bots PARALLEL, bukan sequential ──────────────────────
@@ -559,7 +704,7 @@ class SessionManager:
                 async def _run_linkedin():
                     _log("LinkedInBot START (parallel)")
                     try:
-                        bot = LinkedInBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                        bot = LinkedInBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop, before_apply=before_apply)
                         await bot.run(linkedin_targets)
                         _log("LinkedInBot DONE")
                     except asyncio.CancelledError:
@@ -573,13 +718,13 @@ class SessionManager:
                         except Exception:
                             pass
                         self._put_threadsafe(user_id, {"type": "error", "platform": "linkedin", "message": f"LinkedInBot: {e}"}, main_loop)
-                bot_tasks.append(_run_linkedin())
+                bot_tasks.append(("linkedin", _run_linkedin()))
 
             # LinkedIn Posts
             if linkedin_post_targets and not stop_flag.is_set():
                 async def _run_linkedin_posts():
                     try:
-                        bot = LinkedInPostsBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, should_stop=should_stop)
+                        bot = LinkedInPostsBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, should_stop=should_stop, before_apply=before_apply)
                         await bot.run(linkedin_post_targets)
                     except asyncio.CancelledError:
                         raise
@@ -591,13 +736,13 @@ class SessionManager:
                         except Exception:
                             pass
                         self._put_threadsafe(user_id, {"type": "error", "platform": "linkedin_posts", "message": f"LinkedInPostsBot: {e}"}, main_loop)
-                bot_tasks.append(_run_linkedin_posts())
+                bot_tasks.append(("linkedin_posts", _run_linkedin_posts()))
 
             # JobStreet
             if jobstreet_targets and not stop_flag.is_set():
                 async def _run_jobstreet():
                     try:
-                        bot = JobStreetBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                        bot = JobStreetBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop, before_apply=before_apply)
                         await bot.run(jobstreet_targets)
                     except asyncio.CancelledError:
                         raise
@@ -609,28 +754,54 @@ class SessionManager:
                         except Exception:
                             pass
                         self._put_threadsafe(user_id, {"type": "error", "platform": "jobstreet", "message": f"JobStreetBot: {e}"}, main_loop)
-                bot_tasks.append(_run_jobstreet())
+                bot_tasks.append(("jobstreet", _run_jobstreet()))
 
             if glints_targets and not stop_flag.is_set():
                 async def _run_glints():
                     from workers.glints_bot import GlintsBot
-                    bot = GlintsBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                    bot = GlintsBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop, before_apply=before_apply)
                     await bot.run(glints_targets)
-                bot_tasks.append(_run_glints())
+                bot_tasks.append(("glints", _run_glints()))
 
             if indeed_targets and not stop_flag.is_set():
                 async def _run_indeed():
                     from workers.indeed_bot import IndeedBot
-                    bot = IndeedBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop)
+                    bot = IndeedBot(user_id=user_id, on_apply=log_apply, emit=sync_emit, ask_user_question=ask_question, should_stop=should_stop, before_apply=before_apply)
                     await bot.run(indeed_targets)
-                bot_tasks.append(_run_indeed())
+                bot_tasks.append(("indeed", _run_indeed()))
 
             # Jalankan semua bot paralel. Kalau salah satu crash, yang lain
             # tetap jalan (return_exceptions=True supaya exception di satu bot
             # tidak cancel bot lain).
             if bot_tasks:
-                _log(f"Running {len(bot_tasks)} bots in PARALLEL")
-                results = await asyncio.gather(*bot_tasks, return_exceptions=True)
+                scheduling_db = get_db()
+                scheduling = scheduling_db.execute(
+                    "SELECT search_strategy, platform_priority FROM user_preferences WHERE user_id=?",
+                    (user_id,),
+                ).fetchone()
+                scheduling_db.close()
+                strategy = scheduling["search_strategy"] if scheduling else "round_robin"
+                try:
+                    priority = json.loads(scheduling["platform_priority"] or "[]") if scheduling else []
+                except json.JSONDecodeError:
+                    priority = []
+                order = {platform: index for index, platform in enumerate(priority)}
+                bot_tasks.sort(key=lambda item: order.get(item[0], len(order)))
+
+                if strategy == "priority_focus":
+                    _log(f"Running {len(bot_tasks)} bots in PRIORITY FOCUS")
+                    results = []
+                    for platform, task in bot_tasks:
+                        if stop_flag.is_set():
+                            task.close()
+                            continue
+                        try:
+                            results.append(await task)
+                        except Exception as exc:
+                            results.append(exc)
+                else:
+                    _log(f"Running {len(bot_tasks)} bots in ROUND ROBIN")
+                    results = await asyncio.gather(*(task for _, task in bot_tasks), return_exceptions=True)
                 for i, result in enumerate(results):
                     if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
                         _log(f"Bot {i} finished with exception: {result}")
@@ -660,6 +831,45 @@ class SessionManager:
                 db.close()
             except Exception as e:
                 _log(f"session finalize DB error: {e}")
+
+            try:
+                from services.notifications import create_notification
+                summary_db = get_db()
+                applied_count = summary_db.execute(
+                    "SELECT COUNT(*) FROM apply_logs WHERE session_id=? AND status='applied' AND confirmed_at IS NOT NULL",
+                    (session_id,),
+                ).fetchone()[0]
+                queued_count = summary_db.execute(
+                    "SELECT COUNT(*) FROM apply_logs WHERE session_id=? AND status='found' AND skip_reason='Masuk Antrean Lamaran'",
+                    (session_id,),
+                ).fetchone()[0]
+                summary_db.close()
+                if applied_count:
+                    create_notification(
+                        user_id,
+                        "success",
+                        f"{applied_count} lamaran berhasil dikirim",
+                        "Buka Riwayat Lamaran untuk melihat detailnya.",
+                        "/riwayat-lamaran",
+                    )
+                elif queued_count:
+                    create_notification(
+                        user_id,
+                        "queue",
+                        f"{queued_count} lowongan masuk antrean",
+                        "Tinjau kecocokan lalu setujui lowongan yang ingin dilamar.",
+                        "/antrean-lamaran",
+                    )
+                else:
+                    create_notification(
+                        user_id,
+                        "info",
+                        "Pencarian selesai",
+                        "Belum ada lowongan yang cocok. Coba perluas posisi, lokasi, atau platform.",
+                        "/kerja",
+                    )
+            except Exception as e:
+                _log(f"local notification error: {e}")
 
             # ── Kirim notifikasi end untuk auto-apply ──
             if is_auto and chat_id:

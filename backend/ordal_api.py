@@ -6,7 +6,7 @@ import httpx
 from fastapi import HTTPException
 
 
-BASE_URL = os.getenv("ORDAL_API_URL", "https://ordal-web.vercel.app/api/app").rstrip("/")
+BASE_URL = os.getenv("ORDAL_API_URL", "https://www.applywithordal.com/api/app").rstrip("/")
 _CLIENT = httpx.Client(
     transport=httpx.HTTPTransport(local_address="0.0.0.0"),
     timeout=httpx.Timeout(15.0, connect=5.0),

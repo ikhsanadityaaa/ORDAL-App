@@ -19,12 +19,13 @@ class SimplePlatformBot:
     apply_words = ()
     success_words = ()
 
-    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None):
+    def __init__(self, user_id, on_apply, emit, ask_user_question=None, should_stop=None, before_apply=None):
         self.user_id = user_id
         self.on_apply = on_apply
         self.emit = emit
         self.ask_user_question = ask_user_question
         self.should_stop = should_stop or (lambda: False)
+        self.before_apply = before_apply
         self._browser = None
 
     async def run(self, targets):
@@ -72,6 +73,15 @@ class SimplePlatformBot:
                 detail = await context.new_page()
                 try:
                     await detail.goto(job_url, timeout=60000, wait_until="domcontentloaded")
+                    if self.before_apply and not await self.before_apply(
+                        self.platform, target, title, company, job_url, location,
+                        await detail.locator("body").inner_text(),
+                    ):
+                        await self.on_apply(
+                            self.platform, title, company, job_url, target.get("position") or position,
+                            target.get("location") or "", "found", "Masuk Antrean Lamaran", location,
+                        )
+                        continue
                     applied, reason = await self._apply(detail, target, title, company)
                     await self.on_apply(
                         self.platform, title, company, job_url, target.get("position") or position,

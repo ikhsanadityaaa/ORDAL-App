@@ -14,6 +14,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app_secrets import get_user_secret, set_user_secret
 from auth_utils import get_current_user
 from workers import ai_service
 
@@ -33,6 +34,8 @@ class ChatRequest(BaseModel):
 
 class ApiKeyUpdate(BaseModel):
     value: str
+    base_url: str | None = None
+    model: str | None = None
 
 
 @router.get("")
@@ -44,18 +47,25 @@ def list_all(user: dict = Depends(get_current_user)):
         "providers": providers,
         "active": active,
         "any_configured": any(p["configured"] for p in providers),
+        "any_verified": any(p["verified"] for p in providers),
     }
 
 
 @router.put("/active")
 def set_active(body: ActiveProviderUpdate, user: dict = Depends(get_current_user)):
     """Set provider yang aktif (yang dipakai bot)."""
+    if body.provider not in ai_service.PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {body.provider}")
+    if not ai_service.is_provider_configured(user["id"], body.provider):
+        raise HTTPException(status_code=400, detail="Simpan konfigurasi provider terlebih dahulu.")
+    if not ai_service.is_provider_verified(user["id"], body.provider):
+        raise HTTPException(status_code=400, detail="Test koneksi provider harus berhasil sebelum dipakai.")
     try:
         ai_service.set_active_provider(user["id"], body.provider)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    meta = ai_service.PROVIDERS[body.provider]
+    meta = ai_service.get_provider_runtime(user["id"], body.provider)
     return {
         "ok": True,
         "active": body.provider,
@@ -70,12 +80,14 @@ def get_key(provider: str, user: dict = Depends(get_current_user)):
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import get_user_secret
     val = get_user_secret(user["id"], meta["api_key_env"], "")
     return {
         "provider": provider,
-        "configured": bool(val),
+        "configured": ai_service.is_provider_configured(user["id"], provider),
+        "verified": ai_service.is_provider_verified(user["id"], provider),
         "masked": _mask(val) if val else "",
+        "base_url": ai_service.get_provider_runtime(user["id"], provider).get("api_base", ""),
+        "model": ai_service.get_provider_runtime(user["id"], provider).get("model", ""),
     }
 
 
@@ -93,12 +105,22 @@ def set_key(provider: str, body: ApiKeyUpdate, user: dict = Depends(get_current_
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import set_user_secret
     value = (body.value or "").strip()
-    set_user_secret(user["id"], meta["api_key_env"], value)
+    if provider == "custom":
+        try:
+            existing_key = get_user_secret(user["id"], meta["api_key_env"], "")
+            ai_service.configure_custom_provider(
+                user["id"], api_key=value or existing_key, base_url=body.base_url or "", model=body.model or ""
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    else:
+        set_user_secret(user["id"], meta["api_key_env"], value)
+    ai_service.set_provider_verified(user["id"], provider, False)
     return {
         "provider": provider,
-        "configured": bool(value),
+        "configured": ai_service.is_provider_configured(user["id"], provider),
+        "verified": False,
         "masked": _mask(value) if value else "",
     }
 
@@ -108,8 +130,11 @@ def delete_key(provider: str, user: dict = Depends(get_current_user)):
     if provider not in ai_service.PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
     meta = ai_service.PROVIDERS[provider]
-    from app_secrets import set_user_secret
     set_user_secret(user["id"], meta["api_key_env"], "")
+    if provider == "custom":
+        set_user_secret(user["id"], ai_service.CUSTOM_BASE_KEY, "")
+        set_user_secret(user["id"], ai_service.CUSTOM_MODEL_KEY, "")
+    ai_service.set_provider_verified(user["id"], provider, False)
     return {"provider": provider, "configured": False}
 
 
@@ -140,8 +165,7 @@ async def suggest_positions(body: SuggestPositionsRequest, user: dict = Depends(
 
     active = ai_service.get_active_provider(user["id"])
     meta = ai_service.PROVIDERS[active]
-    from app_secrets import get_user_secret
-    if not get_user_secret(user["id"], meta["api_key_env"], ""):
+    if not ai_service.is_provider_configured(user["id"], active):
         raise HTTPException(
             status_code=400,
             detail=f"API key untuk {meta['label']} belum di-set. Set dulu di kartu provider yang dipilih.",
@@ -192,8 +216,7 @@ async def chat(body: ChatRequest, user: dict = Depends(get_current_user)):
 
     active = ai_service.get_active_provider(user["id"])
     meta = ai_service.PROVIDERS[active]
-    from app_secrets import get_user_secret
-    if not get_user_secret(user["id"], meta["api_key_env"], ""):
+    if not ai_service.is_provider_configured(user["id"], active):
         raise HTTPException(
             status_code=400,
             detail=f"API key untuk {meta['label']} belum di-set. Set dulu di kartu provider yang dipilih.",

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth_utils import get_current_user
@@ -18,6 +20,9 @@ class PreferenceUpdate(BaseModel):
     auto_apply_hour: int | None = None
     auto_apply_minute: int | None = None
     auto_apply_days: str | None = None
+    sound_enabled: bool | None = None
+    platform_priority: list[str] | None = None
+    search_strategy: str | None = None
 
 
 @router.get("")
@@ -33,6 +38,9 @@ def get_preferences(user=Depends(get_current_user)):
                COALESCE(auto_apply_hour, 9) AS auto_apply_hour,
                COALESCE(auto_apply_minute, 0) AS auto_apply_minute,
                COALESCE(auto_apply_days, 'mon,tue,wed,thu,fri') AS auto_apply_days
+               , COALESCE(sound_enabled, 1) AS sound_enabled
+               , COALESCE(platform_priority, '[]') AS platform_priority
+               , COALESCE(search_strategy, 'round_robin') AS search_strategy
         FROM user_preferences
         WHERE user_id = ?
         """,
@@ -45,11 +53,18 @@ def get_preferences(user=Depends(get_current_user)):
             "headless_mode": False, "testing_email_mode": False,
             "auto_apply_enabled": 0, "auto_apply_hour": 9,
             "auto_apply_minute": 0, "auto_apply_days": "mon,tue,wed,thu,fri",
+            "sound_enabled": True, "platform_priority": [],
+            "search_strategy": "round_robin",
         }
     data = dict(row)
     data["headless_mode"] = bool(data.get("headless_mode"))
     data["testing_email_mode"] = bool(data.get("testing_email_mode"))
     data["auto_apply_enabled"] = int(data.get("auto_apply_enabled") or 0)
+    data["sound_enabled"] = bool(data.get("sound_enabled"))
+    try:
+        data["platform_priority"] = json.loads(data.get("platform_priority") or "[]")
+    except json.JSONDecodeError:
+        data["platform_priority"] = []
     return data
 
 
@@ -78,7 +93,16 @@ def update_preferences(body: PreferenceUpdate, user=Depends(get_current_user)):
         "auto_apply_hour": body.auto_apply_hour,
         "auto_apply_minute": body.auto_apply_minute,
         "auto_apply_days": body.auto_apply_days,
+        "sound_enabled": None if body.sound_enabled is None else (1 if body.sound_enabled else 0),
+        "platform_priority": None if body.platform_priority is None else json.dumps(body.platform_priority),
+        "search_strategy": body.search_strategy,
     }
+    if body.platform_priority is not None:
+        allowed_platforms = {"linkedin", "linkedin_posts", "jobstreet", "glints", "indeed"}
+        if len(body.platform_priority) != len(set(body.platform_priority)) or any(value not in allowed_platforms for value in body.platform_priority):
+            raise HTTPException(status_code=400, detail="Prioritas platform tidak valid")
+    if body.search_strategy is not None and body.search_strategy not in {"round_robin", "priority_focus"}:
+        raise HTTPException(status_code=400, detail="Strategi pencarian tidak valid")
     for field, value in auto_fields.items():
         if value is not None:
             set_clauses.append(f"{field} = ?")
@@ -106,6 +130,9 @@ def update_preferences(body: PreferenceUpdate, user=Depends(get_current_user)):
                COALESCE(auto_apply_hour, 9) AS auto_apply_hour,
                COALESCE(auto_apply_minute, 0) AS auto_apply_minute,
                COALESCE(auto_apply_days, 'mon,tue,wed,thu,fri') AS auto_apply_days
+               , COALESCE(sound_enabled, 1) AS sound_enabled
+               , COALESCE(platform_priority, '[]') AS platform_priority
+               , COALESCE(search_strategy, 'round_robin') AS search_strategy
         FROM user_preferences WHERE user_id = ?
         """,
         (user["id"],),
@@ -118,4 +145,9 @@ def update_preferences(body: PreferenceUpdate, user=Depends(get_current_user)):
     data["headless_mode"] = bool(data.get("headless_mode"))
     data["testing_email_mode"] = bool(data.get("testing_email_mode"))
     data["auto_apply_enabled"] = int(data.get("auto_apply_enabled") or 0)
+    data["sound_enabled"] = bool(data.get("sound_enabled"))
+    try:
+        data["platform_priority"] = json.loads(data.get("platform_priority") or "[]")
+    except json.JSONDecodeError:
+        data["platform_priority"] = []
     return data

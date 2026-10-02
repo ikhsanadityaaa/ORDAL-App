@@ -7,6 +7,9 @@ import Persiapan from './pages/Persiapan'
 import RiwayatLamaran from './pages/RiwayatLamaran'
 import KumpulanPertanyaan from './pages/KumpulanPertanyaan'
 import AI from './pages/AI'
+import ApplicationQueue from './pages/ApplicationQueue'
+import Feedback from './pages/Feedback'
+import Notifications from './pages/Notifications'
 import Layout from './components/Layout'
 import AuthModal from './components/auth/AuthModal'
 import VerifyEmailModal from './components/auth/VerifyEmailModal'
@@ -97,6 +100,9 @@ function App() {
             <Route index              element={<Navigate to="/kerja" replace />} />
             <Route path="kerja"       element={<CariKerja />} />
             <Route path="ai"          element={<AI />} />
+            <Route path="antrean-lamaran" element={<ApplicationQueue />} />
+            <Route path="notifikasi" element={<Notifications />} />
+            <Route path="feedback" element={<Feedback />} />
             <Route path="riwayat-lamaran" element={<RiwayatLamaran />} />
             <Route path="kumpulan-pertanyaan" element={<KumpulanPertanyaan />} />
             <Route path="persiapan"   element={<Persiapan />} />

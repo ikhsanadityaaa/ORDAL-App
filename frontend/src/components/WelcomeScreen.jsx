@@ -117,7 +117,7 @@ export default function WelcomeScreen() {
         position: 'absolute', bottom: 14, left: 0, right: 0, textAlign: 'center',
         fontSize: 11, color: '#9CA3AF', letterSpacing: '0.06em',
       }}>
-        ORDAL · AI JOB SEARCH AGENT · v{import.meta.env.VITE_APP_VERSION || '3.0.0'}
+        ORDAL · AI JOB SEARCH AGENT · v{import.meta.env.VITE_APP_VERSION || '3.2.3'}
       </div>
     </div>
   )

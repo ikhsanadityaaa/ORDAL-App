@@ -3,7 +3,7 @@ import {
   Loader2, ArrowRight, ArrowLeft, FileText, Upload, CheckCircle2, Eye,
   Briefcase, MapPin, Wallet, CalendarClock, Building2, Ban, Sparkles,
   Mail, Globe, ExternalLink, PartyPopper, RefreshCw, AlertCircle, ChevronDown,
-  UserRound, ShieldCheck, Compass, Key, Save,
+  UserRound, ShieldCheck, Compass, Key, Save, Copy, Download,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 import useI18n from '../../stores/i18nStore'
@@ -68,6 +68,8 @@ export default function OnboardingWizard() {
   const [aiProviders, setAiProviders] = useState([])
   const [selectedAi, setSelectedAi] = useState('')
   const [aiKey, setAiKey] = useState('')
+  const [aiBaseUrl, setAiBaseUrl] = useState('')
+  const [aiModel, setAiModel] = useState('')
   const [savingAi, setSavingAi] = useState(false)
   const onboardingBodyRef = useRef(null)
 
@@ -117,6 +119,14 @@ export default function OnboardingWizard() {
       setSelectedAi(res.data?.active || providers.find(provider => provider.configured)?.key || providers[0]?.key || '')
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const provider = aiProviders.find(item => item.key === selectedAi)
+    if (provider?.key === 'custom') {
+      setAiBaseUrl(provider.api_base || '')
+      setAiModel(provider.model || '')
+    }
+  }, [selectedAi, aiProviders])
 
   useEffect(() => {
     onboardingBodyRef.current?.scrollTo({ top: 0, behavior: 'auto' })
@@ -190,7 +200,7 @@ export default function OnboardingWizard() {
       const loginKeys = [...new Set(platforms.map(id => id.startsWith('linkedin_') ? 'linkedin' : id))]
       if (loginKeys.some(key => !platformLogins[key])) return t('onb.err_login_required')
     }
-    if (n === 5 && !aiProviders.some(provider => provider.configured)) return t('onb.err_ai_required')
+    if (n === 5 && !aiProviders.find(provider => provider.key === selectedAi)?.verified) return lang === 'id' ? 'Test koneksi AI yang kamu pilih sampai berhasil.' : 'Test your selected AI connection successfully.'
     if (n === 6 && coverLetter.trim().length < 50) return t('onb.err_cover')
     return ''
   }
@@ -251,6 +261,9 @@ export default function OnboardingWizard() {
         file_name: d.file_name || file.name,
         has_text: Boolean(d.has_text),
         cv_memory: d.cv_memory || {},
+        ats_report: d.ats_report || null,
+        optimized: Boolean(d.optimized),
+        file_url: d.file_url || `/api/cvs/${d.id}/file`,
       }
       setCvs((c) => [newCv, ...c])
       setCvId(d.id)
@@ -291,7 +304,7 @@ export default function OnboardingWizard() {
   const connectAiProvider = async () => {
     const provider = aiProviders.find(item => item.key === selectedAi)
     if (!provider) return
-    if (provider.configured) {
+    if (provider.verified && provider.key !== 'custom') {
       setSavingAi(true)
       try {
         await api.put('/ai_config/active', { provider: provider.key })
@@ -303,19 +316,33 @@ export default function OnboardingWizard() {
       }
       return
     }
-    if (!aiKey.trim()) {
+    if (!provider.configured && provider.key !== 'custom' && !aiKey.trim()) {
       setError(lang === 'id' ? 'Masukkan API key provider yang kamu pilih.' : 'Enter the API key for your selected provider.')
+      return
+    }
+    if (provider.key === 'custom' && (!aiBaseUrl.trim() || !aiModel.trim())) {
+      setError(lang === 'id' ? 'Isi endpoint dan nama model AI lokal atau OpenAI-compatible.' : 'Enter the endpoint and model name for the local or OpenAI-compatible AI.')
       return
     }
     setSavingAi(true)
     setError('')
     try {
-      await api.put(`/ai_config/${provider.key}/key`, { value: aiKey.trim() })
+      if (!provider.configured || provider.key === 'custom') {
+        await api.put(`/ai_config/${provider.key}/key`, {
+          value: aiKey.trim(),
+          base_url: provider.key === 'custom' ? aiBaseUrl.trim() : undefined,
+          model: provider.key === 'custom' ? aiModel.trim() : undefined,
+        })
+      }
+      const test = await api.post(`/ai_config/${provider.key}/test`)
+      if (!test.data?.ok) throw new Error(test.data?.error || 'Koneksi AI gagal diuji.')
       await api.put('/ai_config/active', { provider: provider.key })
       const res = await api.get('/ai_config')
       setAiProviders(res.data?.providers || [])
       setSelectedAi(provider.key)
       setAiKey('')
+      setAiBaseUrl('')
+      setAiModel('')
     } catch (e) {
       setError(e.response?.data?.detail || e.message)
     } finally {
@@ -415,6 +442,7 @@ export default function OnboardingWizard() {
                 { icon: Briefcase, text: t('onb.done_prefs') },
                 { icon: Globe, text: t('onb.done_platforms') },
                 { icon: CheckCircle2, text: t('onb.done_login') },
+                { icon: Sparkles, text: lang === 'id' ? 'Koneksi AI sudah diuji dan siap dipakai' : 'AI connection is tested and ready' },
               ].map(({ icon: Icon, text }, i) => (
                 <div key={i} className="card-flat" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
                   <Icon size={16} color="#F2661A" style={{ flexShrink: 0 }} />
@@ -423,19 +451,9 @@ export default function OnboardingWizard() {
                 </div>
               ))}
             </div>
-            <div className="notice notice-info" style={{ marginTop: 14, textAlign: 'left' }}>
-              <Sparkles size={17} style={{ flexShrink: 0, marginTop: 2 }} />
-              <span>
-                <strong style={{ display: 'block', marginBottom: 3 }}>{t('onb.ai_title')}</strong>
-                {t('onb.ai_sub')}
-              </span>
-            </div>
             <div className="onboarding-page-actions onboarding-complete-actions">
-              <button className="btn btn-primary btn-lg" onClick={() => enterApp('/ai')}>
-                <Sparkles size={17} /> {t('onb.ai_setup')}
-              </button>
-              <button className="btn btn-secondary btn-lg" onClick={() => enterApp('/kerja')}>
-                {t('onb.ai_skip')} <ArrowRight size={17} />
+              <button className="btn btn-primary btn-lg" onClick={() => enterApp('/kerja')}>
+                {lang === 'id' ? 'Mulai Cari Kerja' : 'Start Finding Jobs'} <ArrowRight size={17} />
               </button>
             </div>
           </div>
@@ -485,9 +503,10 @@ export default function OnboardingWizard() {
               {/* ── LANGKAH 1: Upload CV ── */}
               {step === 1 && (
                 <StepCv
-                  t={t} lang={lang} cvs={cvs} cvId={cvId} setCvId={setCvId}
+                  t={t} lang={lang} cvs={cvs} setCvs={setCvs} cvId={cvId} setCvId={setCvId}
                   onUpload={uploadCv} saving={saving}
                   positionLabel={prefs.positions[0] || ''}
+                  positions={prefs.positions}
                 />
               )}
 
@@ -617,6 +636,10 @@ export default function OnboardingWizard() {
                   setSelected={setSelectedAi}
                   apiKey={aiKey}
                   setApiKey={setAiKey}
+                  baseUrl={aiBaseUrl}
+                  setBaseUrl={setAiBaseUrl}
+                  model={aiModel}
+                  setModel={setAiModel}
                   saving={savingAi}
                   onConnect={connectAiProvider}
                 />
@@ -849,11 +872,18 @@ function WarmWelcome({ phase, name, setName, onRememberName, onNext, onBegin, sa
 // Langkah 1 — Upload CV
 // ═════════════════════════════════════════════════════════════════════════════
 
-function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }) {
+function StepCv({ t, lang, cvs, setCvs, cvId, setCvId, onUpload, saving, positionLabel, positions }) {
   const [label, setLabel] = useState(positionLabel || '')
   const fileRef = useRef(null)
   const [fileName, setFileName] = useState('')
+  const [optimizing, setOptimizing] = useState(false)
+  const [atsError, setAtsError] = useState('')
+  const [externalPrompt, setExternalPrompt] = useState('')
+  const [externalInstructions, setExternalInstructions] = useState([])
+  const [copied, setCopied] = useState(false)
+  const [pendingOptimizedCv, setPendingOptimizedCv] = useState(null)
   const activeCv = cvs.find((cv) => cv.id === cvId)
+  const ats = activeCv?.ats_report
 
   const pick = () => fileRef.current?.click()
 
@@ -863,6 +893,47 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
     setFileName(f.name)
     onUpload(f, label || f.name.replace(/\.pdf$/i, ''))
     e.target.value = ''
+  }
+
+  const loadExternalPrompt = async () => {
+    if (!cvId) return
+    setAtsError('')
+    try {
+      const res = await api.post(`/cvs/${cvId}/optimization-prompt`, { positions: positions || [] })
+      setExternalPrompt(res.data?.prompt || '')
+      setExternalInstructions(res.data?.instructions || [])
+    } catch (e) {
+      setAtsError(e.response?.data?.detail || e.message)
+    }
+  }
+
+  const optimizeCv = async () => {
+    if (!cvId) return
+    setOptimizing(true)
+    setAtsError('')
+    setPendingOptimizedCv(null)
+    try {
+      const res = await api.post(`/cvs/${cvId}/optimize`, { positions: positions || [] }, { timeout: 120000 })
+      const nextCv = res.data?.cv
+      if (!nextCv?.id) throw new Error(lang === 'id' ? 'CV hasil optimasi tidak diterima.' : 'Optimized CV was not returned.')
+      setCvs(current => [nextCv, ...current.filter(item => item.id !== nextCv.id)])
+      setPendingOptimizedCv(nextCv)
+    } catch (e) {
+      const detail = e.code === 'ECONNABORTED'
+        ? (lang === 'id' ? 'AI terlalu lama merespons.' : 'AI took too long to respond.')
+        : (e.response?.data?.detail || e.message)
+      setAtsError(typeof detail === 'string' ? detail : (lang === 'id' ? 'Optimasi CV gagal.' : 'CV optimization failed.'))
+      await loadExternalPrompt()
+    } finally {
+      setOptimizing(false)
+    }
+  }
+
+  const copyPrompt = async () => {
+    if (!externalPrompt) return
+    await navigator.clipboard.writeText(externalPrompt)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1800)
   }
 
   return (
@@ -959,6 +1030,89 @@ function StepCv({ t, lang, cvs, cvId, setCvId, onUpload, saving, positionLabel }
           <span>{t('onb.cv_read_ok')}</span>
         </div>
       ) : null}
+
+      {ats && (
+        <section className="ats-report-card" aria-label={lang === 'id' ? 'Penilaian ATS CV' : 'CV ATS assessment'}>
+          <div className="ats-report-head">
+            <div className="ats-score-ring" data-rating={ats.rating}>
+              <strong>{ats.score}</strong><span>/100</span>
+            </div>
+            <div>
+              <div className="label-chip">{lang === 'id' ? 'AUDIT ATS TRANSPARAN' : 'TRANSPARENT ATS AUDIT'}</div>
+              <h3>{lang === 'id' ? 'Seberapa mudah CV ini dibaca sistem?' : 'How readable is this CV to an ATS?'}</h3>
+              <p>{ats.disclaimer}</p>
+            </div>
+          </div>
+          <div className="ats-criteria-grid">
+            {(ats.criteria || []).map(item => (
+              <article key={item.key} className="ats-criterion" data-status={item.status}>
+                <div><strong>{item.label}</strong><b>{item.score}/{item.max_score}</b></div>
+                <p>{item.evidence}</p>
+                <small>{item.recommendation}</small>
+              </article>
+            ))}
+          </div>
+          <div className="ats-format-guide">
+            <strong>{lang === 'id' ? 'Patokan format CV hasil optimasi' : 'Optimized CV format standard'}</strong>
+            <ul>
+              <li>{lang === 'id' ? 'A4, satu kolom, maksimal dua halaman, margin 16-20 mm.' : 'A4, one column, maximum two pages, 16-20 mm margins.'}</li>
+              <li>{lang === 'id' ? 'Font isi 10-11 pt, heading 12-14 pt, nama 18-22 pt, maksimal dua jenis font.' : '10-11 pt body, 12-14 pt headings, 18-22 pt name, maximum two fonts.'}</li>
+              <li>{lang === 'id' ? 'Tanpa tabel kompleks, grafik skill, text box, foto, atau informasi penting di header/footer.' : 'No complex tables, skill charts, text boxes, photos, or important header/footer content.'}</li>
+              <li>{lang === 'id' ? 'Bullet memakai tindakan, konteks, dan hasil. Angka hanya boleh berasal dari CV asli.' : 'Bullets use action, context, and result. Metrics must come from the source CV.'}</li>
+            </ul>
+          </div>
+          <div className="ats-report-actions">
+            <button type="button" className="btn btn-primary" onClick={optimizeCv} disabled={optimizing}>
+              {optimizing ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              {optimizing ? (lang === 'id' ? 'AI sedang mengoptimalkan...' : 'AI is optimizing...') : (lang === 'id' ? 'Optimalkan CV dengan AI' : 'Optimize CV with AI')}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={loadExternalPrompt}>
+              <Copy size={15} /> {lang === 'id' ? 'Prompt untuk AI di luar app' : 'Prompt for external AI'}
+            </button>
+            {activeCv.file_url && (
+              <a className="btn btn-secondary" href={activeCv.file_url} target="_blank" rel="noreferrer">
+                <Download size={15} /> {lang === 'id' ? 'Buka PDF' : 'Open PDF'}
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {pendingOptimizedCv && (
+        <div className="notice notice-success ats-use-choice">
+          <CheckCircle2 size={18} />
+          <div>
+            <strong>{lang === 'id' ? 'CV versi ATS sudah dibuat.' : 'ATS CV version is ready.'}</strong>
+            <p>{lang === 'id' ? 'Pilih CV yang akan dipakai ORDAL untuk melamar.' : 'Choose which CV ORDAL should use for applications.'}</p>
+            <div>
+              <button type="button" className="btn btn-primary" onClick={() => { setCvId(pendingOptimizedCv.id); setPendingOptimizedCv(null) }}>
+                {lang === 'id' ? 'Gunakan CV hasil optimasi' : 'Use optimized CV'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setPendingOptimizedCv(null)}>
+                {lang === 'id' ? 'Tetap gunakan CV asli' : 'Keep original CV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {atsError && <div className="notice notice-error"><AlertCircle size={15} /> <span>{atsError}</span></div>}
+
+      {externalPrompt && (
+        <section className="external-cv-prompt">
+          <div className="external-cv-prompt-head">
+            <div>
+              <strong>{lang === 'id' ? 'Jika AI di app tidak bisa membuat CV' : 'If in-app AI cannot create the CV'}</strong>
+              <p>{lang === 'id' ? 'Pakai prompt lengkap ini di AI pilihanmu, lalu unggah kembali PDF hasilnya.' : 'Use this complete prompt in your preferred AI, then upload the resulting PDF again.'}</p>
+            </div>
+            <button type="button" className="btn btn-secondary" onClick={copyPrompt}>
+              <Copy size={14} /> {copied ? (lang === 'id' ? 'Tersalin' : 'Copied') : (lang === 'id' ? 'Salin prompt' : 'Copy prompt')}
+            </button>
+          </div>
+          <textarea className="textarea" readOnly value={externalPrompt} />
+          <ol>{externalInstructions.map(item => <li key={item}>{item}</li>)}</ol>
+        </section>
+      )}
     </div>
   )
 }
@@ -1212,7 +1366,7 @@ function StepPlatformConnections({ t, platforms, platformLogins, grabbingPlatfor
   )
 }
 
-function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, setApiKey, saving, onConnect }) {
+function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, setApiKey, baseUrl, setBaseUrl, model, setModel, saving, onConnect }) {
   const provider = providers.find(item => item.key === selected) || providers[0]
   return (
     <div className="onboarding-mission-content onboarding-ai-connect">
@@ -1224,14 +1378,14 @@ function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, s
       </div>
       <div className="onboarding-provider-grid">
         {providers.map(item => {
-          const connected = Boolean(item.configured)
+          const connected = Boolean(item.verified)
           return (
             <button
               key={item.key}
               type="button"
               className="onboarding-provider-card"
               data-selected={item.key === provider?.key ? 'true' : 'false'}
-              onClick={() => { setSelected(item.key); setApiKey('') }}
+              onClick={() => { setSelected(item.key); setApiKey(''); setBaseUrl(item.api_base || ''); setModel(item.model || '') }}
             >
               <span className="onboarding-provider-logo"><ProviderLogo providerKey={item.key} size={28} /></span>
               <span className="onboarding-provider-copy">
@@ -1239,9 +1393,10 @@ function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, s
                 <small>{PROVIDER_GUIDES[item.key]?.cost?.[lang] || item.model}</small>
                 {connected && (
                   <small className="provider-connected-status">
-                    <span className="connection-light is-online" /> {lang === 'id' ? 'Terhubung' : 'Connected'}
+                    <span className="connection-light is-online" /> {lang === 'id' ? 'Terhubung dan teruji' : 'Connected and verified'}
                   </small>
                 )}
+                {!connected && item.configured && <small>{lang === 'id' ? 'Key tersimpan, belum teruji' : 'Key saved, not tested'}</small>}
               </span>
             </button>
           )
@@ -1253,13 +1408,30 @@ function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, s
             <strong>{provider.label}</strong>
             <p>{PROVIDER_GUIDES[provider.key]?.description?.[lang] || provider.description}</p>
           </div>
-          {!provider.configured && (
+          {provider.key === 'custom' && (
+            <>
+              <input
+                className="input"
+                type="url"
+                value={baseUrl}
+                onChange={event => setBaseUrl(event.target.value)}
+                placeholder="http://localhost:11434/v1"
+              />
+              <input
+                className="input"
+                value={model}
+                onChange={event => setModel(event.target.value)}
+                placeholder={lang === 'id' ? 'Nama model, mis. llama3.2' : 'Model name, e.g. llama3.2'}
+              />
+            </>
+          )}
+          {(!provider.configured || provider.key === 'custom') && (
             <input
               className="input"
               type="password"
               value={apiKey}
               onChange={event => setApiKey(event.target.value)}
-              placeholder={provider.api_key_label || 'API key'}
+              placeholder={provider.key === 'custom' ? (lang === 'id' ? 'API key opsional. Kosongkan untuk mempertahankan key lama.' : 'Optional API key. Leave blank to keep the saved key.') : (provider.api_key_label || 'API key')}
               autoComplete="off"
             />
           )}
@@ -1271,7 +1443,7 @@ function StepAiConnection({ t, lang, providers, selected, setSelected, apiKey, s
             )}
             <button className="btn btn-primary" type="button" onClick={onConnect} disabled={saving}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : provider.configured ? <CheckCircle2 size={15} /> : <Save size={15} />}
-              {provider.configured ? (lang === 'id' ? 'Gunakan AI ini' : 'Use this AI') : (lang === 'id' ? 'Simpan dan hubungkan' : 'Save and connect')}
+              {provider.verified ? (lang === 'id' ? 'Gunakan AI ini' : 'Use this AI') : provider.configured ? (lang === 'id' ? 'Test dan hubungkan' : 'Test and connect') : (lang === 'id' ? 'Simpan, test, dan hubungkan' : 'Save, test, and connect')}
             </button>
           </div>
           <div className="onboarding-ai-local-note"><Key size={13} /> {lang === 'id' ? 'API key dienkripsi dan disimpan lokal di perangkat ini.' : 'API key is encrypted and stored locally on this device.'}</div>
